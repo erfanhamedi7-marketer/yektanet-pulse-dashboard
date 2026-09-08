@@ -222,6 +222,17 @@
 
   .section-filter-bar{margin-bottom:14px;}
 
+  .tab-bar{display:flex;gap:8px;margin-bottom:20px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+  .tab-btn{
+    display:flex;align-items:center;gap:8px;background:none;border:none;
+    padding:10px 4px;margin-inline-end:18px;font-family:var(--font-ui);font-size:14px;font-weight:600;
+    color:var(--text-muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;
+    transition:color .15s, border-color .15s;
+  }
+  .tab-btn img{width:20px;height:20px;border-radius:6px;object-fit:cover;background:#fff;flex-shrink:0;}
+  .tab-btn:hover{color:var(--text);}
+  .tab-btn.active{color:var(--tab-accent, var(--text));border-bottom-color:var(--tab-accent, var(--text));}
+
   .insight-text{font-size:13.5px;line-height:1.9;color:var(--text);margin:0 0 16px;}
   .insight-chips{display:flex;flex-wrap:wrap;gap:10px;}
   .insight-chip{
@@ -277,6 +288,8 @@
       <div class="status-pill"><span class="dot" id="statusDot"></span><span id="statusText">در حال بارگذاری...</span></div>
     </div>
   </div>
+
+  <div id="tabBar" class="tab-bar"></div>
 
   <div id="mainContent">
     <div class="loading-state"><div class="spinner"></div>در حال خوندن شیت‌های همه‌ی پروژه‌ها...</div>
@@ -688,7 +701,6 @@ function renderSectionsShell(){
         <div class="card-head">
           <div>
             <h2>هزینه و CPA بر حسب روز</h2>
-            <div class="card-sub">مجموع روزانه — فیلتر شده بر اساس بازه‌ی تاریخ و کمپین‌های انتخابی</div>
           </div>
           <div class="legend-dots">
             <span><i style="background:var(--accent)"></i>هزینه</span>
@@ -701,20 +713,16 @@ function renderSectionsShell(){
         <div class="card-head">
           <div>
             <h2>تحلیل عمیق</h2>
-            <div class="card-sub">عامل اصلی تغییرات روزانه‌ی هزینه/CPA، و بررسی آماری Adgroup/Creative</div>
           </div>
         </div>
 
         <div class="deep-subhead">عامل تغییر هزینه (آخرین روز نسبت به روز قبلش)</div>
-        <div class="deep-subtext">فقط دو روز آخر بازه‌ی فیلترشده — همه‌ی کمپین‌هایی که توی این تغییر نقش داشتن</div>
         <div id="costDrivers-${p.id}"></div>
 
         <div class="deep-subhead">تغییرات قابل‌توجه CPA روزانه</div>
-        <div class="deep-subtext">فقط آخرین روز نسبت به روز قبلش — فقط اگه تغییر واقعاً از نوسان عادی بیشتر باشه (روش leave-one-out برای پیدا کردن عامل)</div>
         <div id="cpaDrivers-${p.id}"></div>
 
         <div class="deep-subhead">بهینه‌سازی کمپین‌های گرون (Adgroup و Creative)</div>
-        <div class="deep-subtext">فقط کمپین‌هایی که CPA‌شون از میانگین کلی بالاتره؛ بازه‌ی تحلیل ترجیحاً ۷ روز اخیره و فقط در صورت کمبود دیتا عقب‌تر می‌ره؛ Adgroup و Creative مستقل از هم با تست دو-نسبتی (حداقل ۳۰ نصب هر گروه) بررسی می‌شن</div>
         <div id="segmentIssues-${p.id}"></div>
       </div>
     </div>
@@ -1164,6 +1172,29 @@ async function loadProject(project){
   }
 }
 
+function renderTabBar(){
+  const el = document.getElementById('tabBar');
+  el.innerHTML = PROJECTS.map(p=>`
+    <button type="button" class="tab-btn" id="tab-${p.id}" style="--tab-accent:${p.theme.accent}">
+      ${p.logo?`<img src="${p.logo}" alt="">`:''}${escapeHtml(p.title)}
+    </button>`).join('');
+  PROJECTS.forEach(p=>{
+    document.getElementById(`tab-${p.id}`).addEventListener('click', ()=>switchTab(p.id));
+  });
+}
+
+function switchTab(id){
+  PROJECTS.forEach(p=>{
+    const sectionEl = document.getElementById(`section-${p.id}`);
+    if(sectionEl) sectionEl.style.display = (p.id===id) ? '' : 'none';
+    const tabEl = document.getElementById(`tab-${p.id}`);
+    if(tabEl) tabEl.classList.toggle('active', p.id===id);
+  });
+  const activeProject = PROJECTS.find(p=>p.id===id);
+  const mainContentEl = document.getElementById('mainContent');
+  mainContentEl.style.display = (activeProject && !activeProject.ownDateFilter) ? '' : 'none';
+}
+
 async function init(){
   setStatus('loading','در حال خوندن شیت‌های همه‌ی پروژه‌ها...');
   await Promise.all(PROJECTS.map(loadProject));
@@ -1187,6 +1218,8 @@ async function init(){
 
   renderSectionsShell();
   PROJECTS.filter(p=>!p.error).forEach(p=>updateSection(p));
+  renderTabBar();
+  switchTab(PROJECTS[0].id);
 
   const anyError = PROJECTS.some(p=>p.error);
   setStatus(anyError?'err':'live', anyError ? 'بعضی پروژه‌ها خطا دادن — جزئیات توی همون سکشن' : 'همگام‌سازی شد — ' + new Date().toLocaleTimeString('fa-IR',{hour:'2-digit',minute:'2-digit'}));
