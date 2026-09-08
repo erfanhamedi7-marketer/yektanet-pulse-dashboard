@@ -1,14 +1,12 @@
 const { JWT } = require('google-auth-library');
 
-const SHEET_ID = '1r9f3Vdl6ldgQeL50tHX4TxjVP0H_UxYeYFKhGFp0yeQ';
-
-// Maps the ?sheet= query param to the actual tab name in the spreadsheet.
-// Using tab names (not gid) because the Sheets API v4 values.get endpoint
-// addresses ranges by sheet name, e.g. "Adtrace!A:G".
-const SHEET_NAMES = {
-  adtrace: 'Adtrace',
-  cost: 'Cost - Yektanet'
-};
+// Whitelist of spreadsheet IDs this endpoint is allowed to read, so it can't
+// be used as an open proxy to any sheet the service account happens to see.
+// Add a new line here whenever a new project's Google Sheet is connected.
+const ALLOWED_SPREADSHEETS = new Set([
+  '1r9f3Vdl6ldgQeL50tHX4TxjVP0H_UxYeYFKhGFp0yeQ', // Yektanet
+  '1DdhvkT6gVXKoDiicgXnXHTq32yZg3aGpJx97RT4wYeU'  // Blue
+]);
 
 let cachedClient = null;
 function getClient() {
@@ -28,16 +26,19 @@ function getClient() {
 
 module.exports = async (req, res) => {
   try {
-    const sheetKey = req.query.sheet;
-    const sheetName = SHEET_NAMES[sheetKey];
-    if (!sheetName) {
-      res.status(400).json({ error: `Unknown sheet "${sheetKey}". Expected one of: ${Object.keys(SHEET_NAMES).join(', ')}` });
+    const { spreadsheetId, sheet } = req.query;
+    if (!spreadsheetId || !sheet) {
+      res.status(400).json({ error: 'Missing spreadsheetId or sheet query param' });
+      return;
+    }
+    if (!ALLOWED_SPREADSHEETS.has(spreadsheetId)) {
+      res.status(403).json({ error: 'This spreadsheet is not in the allowed list' });
       return;
     }
 
     const client = getClient();
-    const range = encodeURIComponent(`${sheetName}!A:Z`);
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}`;
+    const range = encodeURIComponent(`${sheet}!A:Z`);
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}`;
     const response = await client.request({ url });
     const values = response.data.values || [];
 

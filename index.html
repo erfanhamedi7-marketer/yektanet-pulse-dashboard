@@ -173,6 +173,24 @@
   .preset-btn.active{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-2);font-weight:600;}
   .filter-range-label{font-size:11.5px;color:var(--text-faint);font-family:var(--font-mono);}
 
+  .section{margin-bottom:32px;}
+  .section:not(:last-child){padding-bottom:28px;border-bottom:1px solid var(--border-soft);}
+  .section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:10px;}
+  .section-title{font-size:17px;font-weight:800;margin:0 0 3px;color:var(--text);}
+  .section-sub{font-size:12px;color:var(--text-muted);}
+  .campaign-select{
+    background:var(--surface-2);border:1px solid var(--border);border-radius:8px;
+    padding:7px 10px;font-family:var(--font-ui);font-size:12.5px;color:var(--text);
+    min-width:180px; color-scheme:dark;
+  }
+  .campaign-select:focus{outline:none;border-color:var(--accent);}
+  .coverage-note{font-size:11.5px;color:var(--text-faint);margin-bottom:14px;}
+  .coverage-note b{color:var(--text-muted);font-family:var(--font-mono);}
+  .error-inline{
+    grid-column:1/-1;background:var(--negative-soft);color:var(--negative);border-radius:8px;
+    padding:12px 16px;font-size:13px;
+  }
+
   @media (max-width:900px){
     .kpis{grid-template-columns:repeat(2,1fr);}
   }
@@ -189,8 +207,8 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-5 4 4 8-9"/><path d="M14 7h6v6"/></svg>
       </div>
       <div>
-        <h1>Yektanet Pulse</h1>
-        <div class="sub">Adtrace (مرجع) × Cost - Yektanet — بلند‌شده بر اساس Date + Campaign</div>
+        <h1>Marketing Pulse</h1>
+        <div class="sub">داشبورد چندپروژه‌ای — هر سکشن، جوین Adtrace با شیت هزینه بر اساس Date + Campaign</div>
       </div>
     </div>
     <div class="topbar-right">
@@ -199,7 +217,7 @@
   </div>
 
   <div id="mainContent">
-    <div class="loading-state"><div class="spinner"></div>در حال خوندن Adtrace و Cost - Yektanet...</div>
+    <div class="loading-state"><div class="spinner"></div>در حال خوندن شیت‌های همه‌ی پروژه‌ها...</div>
   </div>
   <div id="resultsContent"></div>
 </div>
@@ -212,65 +230,58 @@
 // service account) instead of the public gviz CSV link — the sheet no longer
 // needs to be shared with "anyone with the link".
 
-async function fetchSheetData(sheetKey){
-  const res = await fetch(`/api/sheet-data?sheet=${sheetKey}`);
+async function fetchSheetData(spreadsheetId, sheet){
+  const res = await fetch(`/api/sheet-data?spreadsheetId=${encodeURIComponent(spreadsheetId)}&sheet=${encodeURIComponent(sheet)}`);
   const json = await res.json();
   if(!res.ok) throw new Error(json.error || 'sheet not accessible');
   return json.data;
 }
 
-function setStatus(kind, text){
-  const dot = document.getElementById('statusDot');
-  const t = document.getElementById('statusText');
-  dot.className = 'dot' + (kind==='live'?' live':kind==='err'?' err':' loading');
-  t.textContent = text;
-}
-
-function toNumber(v){
-  if(v===null||v===undefined) return 0;
-  const cleaned = String(v).replace(/[^0-9.\-]/g,'');
-  const n = parseFloat(cleaned);
-  return isNaN(n) ? 0 : n;
-}
-function normCampaign(c){ return String(c||'').trim().toLowerCase(); }
-function normDate(d){ return String(d||'').trim(); }
-function fmtDateLabel(yyyymmdd){
-  const s = String(yyyymmdd);
-  if(s.length !== 8) return s;
-  return s.slice(0,4)+'-'+s.slice(4,6)+'-'+s.slice(6,8);
-}
-function fmtNum(n, digits){
-  if(n===null||n===undefined||isNaN(n)) return '—';
-  return Number(n).toLocaleString('en-US',{maximumFractionDigits: digits===undefined?0:digits, minimumFractionDigits: digits===undefined?0:digits});
-}
-function fmtMoney(n){
-  if(n===null||n===undefined||isNaN(n)) return '—';
-  return fmtNum(n,0) + ' تومان';
-}
-function escapeHtml(str){
-  return String(str).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-}
-
-// Animated count-up for KPI numbers
-function animateValue(el, target, formatter, duration){
-  duration = duration || 700;
-  const start = performance.now();
-  function frame(now){
-    const p = Math.min(1, (now-start)/duration);
-    const eased = 1 - Math.pow(1-p, 3);
-    el.textContent = formatter(target * eased);
-    if(p < 1) requestAnimationFrame(frame);
+// ---------- Project configuration ----------
+// Add a new object here for each new project/section. spreadsheetId must also
+// be added to ALLOWED_SPREADSHEETS in api/sheet-data.js and the sheet must be
+// shared with the service account email.
+const PROJECTS = [
+  {
+    id: 'yektanet',
+    title: 'Yektanet',
+    subtitle: 'Adtrace (مرجع) × Cost - Yektanet',
+    spreadsheetId: '1r9f3Vdl6ldgQeL50tHX4TxjVP0H_UxYeYFKhGFp0yeQ',
+    refSheet: 'Adtrace',
+    costSheet: 'Cost - Yektanet',
+    conversionCol: 'KYC',
+    conversionLabel: 'KYC',
+    showInstalls: true,
+    installsCol: 'Installs'
+  },
+  {
+    id: 'blue',
+    title: 'پروژه بلو',
+    subtitle: 'Adtrace (مرجع) × Yektanet',
+    spreadsheetId: '1DdhvkT6gVXKoDiicgXnXHTq32yZg3aGpJx97RT4wYeU',
+    refSheet: 'Adtrace',
+    costSheet: 'Yektanet',
+    conversionCol: 'Card Order',
+    conversionLabel: 'Card Order',
+    showInstalls: false,
+    installsCol: null
   }
-  requestAnimationFrame(frame);
-}
+];
 
-function normalizeAdtraceRows(rows){
+const projectState = {}; // { [projectId]: selectedCampaignKey ('ALL' or a normalized campaign key) }
+const chartInstances = {}; // { [projectId]: Chart instance }
+
+function normalizeRefRows(rows, conversionCol, installsCol){
   return rows.map(r=>{
     const date = normDate(r['Date']);
     const campaignRaw = r['Campaign'];
     const campaign = normCampaign(campaignRaw);
     if(!date || !campaign) return null;
-    return {date, campaign, campaignLabel:(campaignRaw||'').trim(), installs: toNumber(r['Installs']), kyc: toNumber(r['KYC'])};
+    return {
+      date, campaign, campaignLabel:(campaignRaw||'').trim(),
+      installs: installsCol ? toNumber(r[installsCol]) : 0,
+      conversion: toNumber(r[conversionCol])
+    };
   }).filter(Boolean);
 }
 function normalizeCostRows(rows){
@@ -281,17 +292,17 @@ function normalizeCostRows(rows){
     return {date, campaign, cost: toNumber(r['Cost']), impressions: toNumber(r['Impressions']), clicks: toNumber(r['Clicks'])};
   }).filter(Boolean);
 }
-function aggregateAdtrace(rows){
+function aggregateRef(rows){
   const map = {};
   rows.forEach(r=>{
     const key = r.date + '||' + r.campaign;
-    if(!map[key]) map[key] = {date:r.date, campaign:r.campaign, campaignLabel:r.campaignLabel, installs:0, kyc:0};
+    if(!map[key]) map[key] = {date:r.date, campaign:r.campaign, campaignLabel:r.campaignLabel, installs:0, conversion:0};
     map[key].installs += r.installs;
-    map[key].kyc += r.kyc;
+    map[key].conversion += r.conversion;
   });
   return map;
 }
-function aggregateCostYektanet(rows){
+function aggregateCost(rows){
   const map = {};
   rows.forEach(r=>{
     const key = r.date + '||' + r.campaign;
@@ -302,44 +313,39 @@ function aggregateCostYektanet(rows){
   });
   return map;
 }
-function buildJoinedRows(adtraceMap, costMap){
+function buildJoinedRows(refMap, costMap){
   const joined = [];
   let matchedCost = 0;
-  Object.keys(adtraceMap).forEach(key=>{
-    const base = adtraceMap[key];
+  Object.keys(refMap).forEach(key=>{
+    const base = refMap[key];
     const costRow = costMap[key];
     const cost = costRow ? costRow.cost : 0;
-    const impressions = costRow ? costRow.impressions : 0;
-    const clicks = costRow ? costRow.clicks : 0;
     if(costRow) matchedCost += costRow.cost;
     joined.push({
-      date: base.date, campaign: base.campaignLabel, installs: base.installs, kyc: base.kyc,
-      cost, impressions, clicks, cpa: base.kyc>0 ? (cost/base.kyc) : null, matched: !!costRow
+      date: base.date, campaign: base.campaignLabel, installs: base.installs, conversion: base.conversion,
+      cost, cpa: base.conversion>0 ? (cost/base.conversion) : null
     });
   });
   const totalCostInSheet = Object.values(costMap).reduce((s,r)=>s+r.cost,0);
   return {joined, matchedCost, totalCostInSheet, unmatchedCost: totalCostInSheet - matchedCost};
 }
-function groupByDate(joined){
+function groupByDateGeneric(joined){
   const map = {};
   joined.forEach(r=>{
-    if(!map[r.date]) map[r.date] = {cost:0, kyc:0};
-    map[r.date].cost += r.cost; map[r.date].kyc += r.kyc;
+    if(!map[r.date]) map[r.date] = {cost:0, conversion:0};
+    map[r.date].cost += r.cost; map[r.date].conversion += r.conversion;
   });
   const keys = Object.keys(map).sort();
   return {
     labels: keys.map(fmtDateLabel),
     cost: keys.map(k=>map[k].cost),
-    cpa: keys.map(k=> map[k].kyc>0 ? (map[k].cost/map[k].kyc) : null)
+    cpaSeries: keys.map(k=> map[k].conversion>0 ? (map[k].cost/map[k].conversion) : null)
   };
 }
-function groupByCampaign(joined){
-  const map = {};
-  joined.forEach(r=>{
-    if(!map[r.campaign]) map[r.campaign] = {campaign:r.campaign, cost:0, kyc:0, installs:0};
-    map[r.campaign].cost += r.cost; map[r.campaign].kyc += r.kyc; map[r.campaign].installs += r.installs;
-  });
-  return Object.values(map).map(r=>({...r, cpa: r.kyc>0 ? (r.cost/r.kyc) : null}));
+function getCampaignOptions(project){
+  const seen = {};
+  project.rawRef.forEach(r=>{ if(!seen[r.campaign]) seen[r.campaign] = r.campaignLabel; });
+  return Object.keys(seen).sort().map(k=>({key:k, label:seen[k]}));
 }
 
 function renderError(msg){
@@ -347,175 +353,8 @@ function renderError(msg){
   setStatus('err','خطا در دریافت داده');
 }
 
-let currentChart = null;
-
-function renderResults(joined, coverage){
-  const totalCost = joined.reduce((s,r)=>s+r.cost,0);
-  const totalKyc = joined.reduce((s,r)=>s+r.kyc,0);
-  const totalInstalls = joined.reduce((s,r)=>s+r.installs,0);
-  const overallCpa = totalKyc>0 ? totalCost/totalKyc : null;
-  const matchPct = coverage.totalCostInSheet>0 ? Math.round(coverage.matchedCost/coverage.totalCostInSheet*100) : 0;
-
-  document.getElementById('resultsContent').innerHTML = `
-    <div class="coverage-card">
-      <div class="coverage-top">
-        <span class="title">پوشش Join — چقدر از هزینه‌ی Cost-Yektanet به یه کمپین در Adtrace وصل شد</span>
-        <span class="pct">${matchPct}%</span>
-      </div>
-      <div class="meter-track"><div class="meter-fill" id="meterFill" style="width:0%"></div></div>
-      <div class="coverage-legend">
-        <span>هزینه‌ی متصل‌شده: <b>${fmtMoney(coverage.matchedCost)}</b></span>
-        <span>هزینه‌ی کل شیت: <b>${fmtMoney(coverage.totalCostInSheet)}</b></span>
-        ${coverage.unmatchedCost>1000?`<span>بدون تطبیق: <b style="color:var(--negative)">${fmtMoney(coverage.unmatchedCost)}</b></span>`:''}
-      </div>
-    </div>
-
-    <div class="kpis">
-      <div class="kpi">
-        <div class="kpi-top"><span class="label">هزینه کل</span><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span></div>
-        <div class="value" id="kpiCost">0</div>
-        <div class="ctx">در بازه‌ی داده‌ی متصل‌شده</div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-top"><span class="label">KYC کل</span><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg></span></div>
-        <div class="value" id="kpiKyc">0</div>
-        <div class="ctx">منبع: Adtrace (مرجع)</div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-top"><span class="label">Installs کل</span><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg></span></div>
-        <div class="value" id="kpiInstalls">0</div>
-        <div class="ctx">همه‌ی نتورک‌ها</div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-top"><span class="label">CPA کلی</span><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></span></div>
-        <div class="value accent" id="kpiCpa">—</div>
-        <div class="ctx">هزینه ÷ KYC</div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-head">
-        <div>
-          <h2>هزینه و CPA بر حسب روز</h2>
-          <div class="card-sub">مجموع روزانه‌ی همه‌ی کمپین‌های تطبیق‌یافته</div>
-        </div>
-        <div class="legend-dots">
-          <span><i style="background:var(--accent)"></i>هزینه</span>
-          <span><i style="background:var(--amber)"></i>CPA</span>
-        </div>
-      </div>
-      <div class="chart-box"><canvas id="trendChart"></canvas></div>
-    </div>
-
-    <div class="card">
-      <div class="card-head">
-        <div>
-          <h2>خلاصه به تفکیک کمپین</h2>
-          <div class="card-sub">روی هدر ستون کلیک کن تا مرتب بشه — رنگ CPA نسبت به میانگین کلیه</div>
-        </div>
-      </div>
-      <div style="overflow-x:auto;">
-        <table>
-          <thead>
-            <tr>
-              <th data-key="campaign">کمپین</th>
-              <th data-key="cost">هزینه</th>
-              <th data-key="kyc">KYC</th>
-              <th data-key="installs">Installs</th>
-              <th data-key="cpa">CPA</th>
-            </tr>
-          </thead>
-          <tbody id="campaignTableBody"></tbody>
-        </table>
-      </div>
-    </div>
-  `;
-
-  requestAnimationFrame(()=>{ document.getElementById('meterFill').style.width = matchPct + '%'; });
-  animateValue(document.getElementById('kpiCost'), totalCost, v=>fmtMoney(v));
-  animateValue(document.getElementById('kpiKyc'), totalKyc, v=>fmtNum(v));
-  animateValue(document.getElementById('kpiInstalls'), totalInstalls, v=>fmtNum(v));
-  document.getElementById('kpiCpa').textContent = overallCpa!==null ? fmtMoney(overallCpa) : '—';
-
-  const {labels, cost, cpa} = groupByDate(joined);
-  Chart.defaults.color = '#8A93A8';
-  Chart.defaults.font.family = "'Vazirmatn', system-ui, sans-serif";
-  if(currentChart){ currentChart.destroy(); currentChart = null; }
-  currentChart = new Chart(document.getElementById('trendChart'), {
-    type:'bar',
-    data:{
-      labels,
-      datasets:[
-        {type:'bar', label:'هزینه', data:cost, backgroundColor:'rgba(139,124,246,0.55)', hoverBackgroundColor:'rgba(139,124,246,0.8)', borderRadius:5, yAxisID:'y', order:2, maxBarThickness:24},
-        {type:'line', label:'CPA', data:cpa, borderColor:'#FBBF24', backgroundColor:'rgba(251,191,36,0.12)', fill:true, tension:.35, yAxisID:'y1', pointRadius:2.5, pointBackgroundColor:'#FBBF24', pointBorderColor:'#0F121A', pointBorderWidth:1.5, borderWidth:2.2, order:1}
-      ]
-    },
-    options:{
-      responsive:true, maintainAspectRatio:false,
-      interaction:{mode:'index', intersect:false},
-      plugins:{
-        legend:{display:false},
-        tooltip:{
-          backgroundColor:'#171B26', borderColor:'#232838', borderWidth:1,
-          titleColor:'#E8EAF0', bodyColor:'#8A93A8', padding:12, boxPadding:5, cornerRadius:8,
-          titleFont:{family:"'IBM Plex Mono', monospace", size:11},
-          bodyFont:{family:"'IBM Plex Mono', monospace", size:11.5},
-          callbacks:{ label: ctx => `${ctx.dataset.label}: ${fmtNum(ctx.parsed.y,0)}` }
-        }
-      },
-      scales:{
-        y:{position:'left', grid:{color:'rgba(255,255,255,0.05)'}, border:{display:false}, ticks:{font:{size:10}, callback:v=>fmtNum(v)}},
-        y1:{position:'right', grid:{display:false}, border:{display:false}, ticks:{font:{size:10}, callback:v=>fmtNum(v)}},
-        x:{grid:{display:false}, border:{display:false}, ticks:{font:{size:10}, maxRotation:45, minRotation:45, autoSkip:true, maxTicksLimit:12}}
-      }
-    }
-  });
-
-  let sortKey='cost', sortDir='desc';
-  const byCampaign = groupByCampaign(joined);
-  const avgCpa = overallCpa;
-  function cpaBadge(cpaVal){
-    if(cpaVal===null) return `<span class="badge neutral">—</span>`;
-    if(avgCpa===null) return `<span class="badge neutral">${fmtMoney(cpaVal)}</span>`;
-    const cls = cpaVal <= avgCpa ? 'good' : 'bad';
-    return `<span class="badge ${cls}">${fmtMoney(cpaVal)}</span>`;
-  }
-  function renderTable(){
-    const list = [...byCampaign].sort((a,b)=>{
-      let av=a[sortKey], bv=b[sortKey];
-      if(av===null) av=-Infinity; if(bv===null) bv=-Infinity;
-      if(typeof av==='string') return sortDir==='asc'? av.localeCompare(bv) : bv.localeCompare(av);
-      return sortDir==='asc' ? av-bv : bv-av;
-    });
-    document.getElementById('campaignTableBody').innerHTML = list.map(r=>`
-      <tr>
-        <td>${escapeHtml(r.campaign)}</td>
-        <td class="num">${fmtMoney(r.cost)}</td>
-        <td class="num">${fmtNum(r.kyc)}</td>
-        <td class="num">${fmtNum(r.installs)}</td>
-        <td class="num">${cpaBadge(r.cpa)}</td>
-      </tr>`).join('');
-    document.querySelectorAll('thead th[data-key]').forEach(th=>{
-      const arrow = th.querySelector('.arrow'); if(arrow) arrow.remove();
-      if(th.dataset.key===sortKey) th.insertAdjacentHTML('beforeend', `<span class="arrow">${sortDir==='asc'?'▲':'▼'}</span>`);
-    });
-  }
-  document.querySelectorAll('thead th[data-key]').forEach(th=>{
-    th.addEventListener('click', ()=>{
-      const k = th.dataset.key;
-      if(sortKey===k){ sortDir = sortDir==='asc'?'desc':'asc'; } else { sortKey=k; sortDir='desc'; }
-      renderTable();
-    });
-  });
-  renderTable();
-
-  setStatus('live', 'همگام‌سازی شد — ' + new Date().toLocaleTimeString('fa-IR',{hour:'2-digit',minute:'2-digit'}));
-}
-
-// ---------- Date range filtering ----------
-let rawAdtrace = [];
-let rawCost = [];
-let sheetMinDate = null; // 'YYYYMMDD'
+// ---------- Date range state (global, applies to every section) ----------
+let sheetMinDate = null;
 let sheetMaxDate = null;
 let currentFrom = null;
 let currentTo = null;
@@ -528,43 +367,17 @@ function fromInputDate(isoDate){
   return isoDate.replace(/-/g,'');
 }
 
-function computeForRange(from, to){
+function computeSection(project, from, to, campaignKey){
   const inRange = d => (!from || d >= from) && (!to || d <= to);
-  const adtraceFiltered = rawAdtrace.filter(r=>inRange(r.date));
-  const costFiltered = rawCost.filter(r=>inRange(r.date));
-  const adtraceMap = aggregateAdtrace(adtraceFiltered);
-  const costMap = aggregateCostYektanet(costFiltered);
-  return buildJoinedRows(adtraceMap, costMap);
+  const inCampaign = c => campaignKey === 'ALL' || c === campaignKey;
+  const refFiltered = project.rawRef.filter(r=>inRange(r.date) && inCampaign(r.campaign));
+  const costFiltered = project.rawCost.filter(r=>inRange(r.date) && inCampaign(r.campaign));
+  const refMap = aggregateRef(refFiltered);
+  const costMap = aggregateCost(costFiltered);
+  return buildJoinedRows(refMap, costMap);
 }
 
-function applyFilter(){
-  const fromVal = document.getElementById('fromDate').value;
-  const toVal = document.getElementById('toDate').value;
-  currentFrom = fromVal ? fromInputDate(fromVal) : sheetMinDate;
-  currentTo = toVal ? fromInputDate(toVal) : sheetMaxDate;
-  document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
-  const {joined, matchedCost, totalCostInSheet, unmatchedCost} = computeForRange(currentFrom, currentTo);
-  renderResults(joined, {matchedCost, totalCostInSheet, unmatchedCost});
-}
-
-function setPreset(days, btn){
-  document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
-  if(btn) btn.classList.add('active');
-  if(days === null){
-    document.getElementById('fromDate').value = toInputDate(sheetMinDate);
-    document.getElementById('toDate').value = toInputDate(sheetMaxDate);
-  } else {
-    const maxD = new Date(toInputDate(sheetMaxDate));
-    const fromD = new Date(maxD);
-    fromD.setDate(fromD.getDate() - (days - 1));
-    const minD = new Date(toInputDate(sheetMinDate));
-    const clampedFrom = fromD < minD ? minD : fromD;
-    document.getElementById('fromDate').value = clampedFrom.toISOString().slice(0,10);
-    document.getElementById('toDate').value = toInputDate(sheetMaxDate);
-  }
-  applyFilter();
-}
-
+// ---------- Rendering ----------
 function renderFilterBar(){
   document.getElementById('mainContent').innerHTML = `
     <div class="filter-bar">
@@ -596,28 +409,180 @@ function renderFilterBar(){
   document.getElementById('preset30').addEventListener('click', (e)=>setPreset(30, e.target));
 }
 
+function setPreset(days, btn){
+  document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  if(days === null){
+    document.getElementById('fromDate').value = toInputDate(sheetMinDate);
+    document.getElementById('toDate').value = toInputDate(sheetMaxDate);
+  } else {
+    const maxD = new Date(toInputDate(sheetMaxDate));
+    const fromD = new Date(maxD);
+    fromD.setDate(fromD.getDate() - (days - 1));
+    const minD = new Date(toInputDate(sheetMinDate));
+    const clampedFrom = fromD < minD ? minD : fromD;
+    document.getElementById('fromDate').value = clampedFrom.toISOString().slice(0,10);
+    document.getElementById('toDate').value = toInputDate(sheetMaxDate);
+  }
+  applyFilter();
+}
+
+function renderSectionsShell(){
+  const container = document.getElementById('resultsContent');
+  container.innerHTML = PROJECTS.map(p => `
+    <div class="section" id="section-${p.id}">
+      <div class="section-head">
+        <div>
+          <h2 class="section-title">${escapeHtml(p.title)}</h2>
+          <div class="section-sub">${escapeHtml(p.subtitle)}</div>
+        </div>
+        <div class="filter-group">
+          <label>کمپین</label>
+          <select id="campaignFilter-${p.id}" class="campaign-select"></select>
+        </div>
+      </div>
+      <div class="coverage-note" id="coverageNote-${p.id}"></div>
+      <div class="kpis" id="kpis-${p.id}"></div>
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h2>هزینه و CPA بر حسب روز</h2>
+            <div class="card-sub">مجموع روزانه — فیلتر شده بر اساس بازه‌ی تاریخ و کمپین انتخابی</div>
+          </div>
+          <div class="legend-dots">
+            <span><i style="background:var(--accent)"></i>هزینه</span>
+            <span><i style="background:var(--amber)"></i>CPA</span>
+          </div>
+        </div>
+        <div class="chart-box"><canvas id="trendChart-${p.id}"></canvas></div>
+      </div>
+    </div>
+  `).join('');
+
+  PROJECTS.forEach(p=>{
+    if(p.error){
+      document.getElementById(`kpis-${p.id}`).innerHTML = `<div class="error-inline">${escapeHtml(p.error)}</div>`;
+      return;
+    }
+    const sel = document.getElementById(`campaignFilter-${p.id}`);
+    const opts = getCampaignOptions(p);
+    sel.innerHTML = `<option value="ALL">همه کمپین‌ها</option>` + opts.map(o=>`<option value="${escapeHtml(o.key)}">${escapeHtml(o.label)}</option>`).join('');
+    sel.addEventListener('change', ()=>{
+      projectState[p.id] = sel.value;
+      updateSection(p);
+    });
+  });
+}
+
+function updateSection(project){
+  if(project.error) return;
+  const {joined, matchedCost, totalCostInSheet} = computeSection(project, currentFrom, currentTo, projectState[project.id]);
+  const totalCost = joined.reduce((s,r)=>s+r.cost,0);
+  const totalConversion = joined.reduce((s,r)=>s+r.conversion,0);
+  const totalInstalls = joined.reduce((s,r)=>s+r.installs,0);
+  const cpa = totalConversion>0 ? totalCost/totalConversion : null;
+  const matchPct = totalCostInSheet>0 ? Math.round(matchedCost/totalCostInSheet*100) : 0;
+
+  document.getElementById(`coverageNote-${project.id}`).innerHTML =
+    `پوشش join: <b>${matchPct}%</b> هزینه (${fmtMoney(matchedCost)} از ${fmtMoney(totalCostInSheet)} تطبیق یافت)`;
+
+  const cards = [
+    {label:'هزینه کل', value: fmtMoney(totalCost)},
+    {label: project.conversionLabel + ' کل', value: fmtNum(totalConversion)}
+  ];
+  if(project.showInstalls) cards.push({label:'Installs کل', value: fmtNum(totalInstalls)});
+  cards.push({label:'CPA کلی', value: cpa!==null?fmtMoney(cpa):'—', accent:true});
+
+  const kpiEl = document.getElementById(`kpis-${project.id}`);
+  kpiEl.style.gridTemplateColumns = `repeat(${cards.length}, 1fr)`;
+  kpiEl.innerHTML = cards.map(c=>`
+    <div class="kpi">
+      <div class="kpi-top"><span class="label">${c.label}</span></div>
+      <div class="value ${c.accent?'accent':''}">${c.value}</div>
+    </div>`).join('');
+
+  const {labels, cost, cpaSeries} = groupByDateGeneric(joined);
+  if(chartInstances[project.id]){ chartInstances[project.id].destroy(); }
+  chartInstances[project.id] = new Chart(document.getElementById(`trendChart-${project.id}`), {
+    type:'bar',
+    data:{
+      labels,
+      datasets:[
+        {type:'bar', label:'هزینه', data:cost, backgroundColor:'rgba(139,124,246,0.55)', hoverBackgroundColor:'rgba(139,124,246,0.8)', borderRadius:5, yAxisID:'y', order:2, maxBarThickness:24},
+        {type:'line', label:'CPA', data:cpaSeries, borderColor:'#FBBF24', backgroundColor:'rgba(251,191,36,0.12)', fill:true, tension:.35, yAxisID:'y1', pointRadius:2.5, pointBackgroundColor:'#FBBF24', pointBorderColor:'#0F121A', pointBorderWidth:1.5, borderWidth:2.2, order:1}
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index', intersect:false},
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:'#171B26', borderColor:'#232838', borderWidth:1,
+          titleColor:'#E8EAF0', bodyColor:'#8A93A8', padding:12, boxPadding:5, cornerRadius:8,
+          titleFont:{family:"'IBM Plex Mono', monospace", size:11},
+          bodyFont:{family:"'IBM Plex Mono', monospace", size:11.5},
+          callbacks:{ label: ctx => `${ctx.dataset.label}: ${fmtNum(ctx.parsed.y,0)}` }
+        }
+      },
+      scales:{
+        y:{position:'left', grid:{color:'rgba(255,255,255,0.05)'}, border:{display:false}, ticks:{font:{size:10}, callback:v=>fmtNum(v)}},
+        y1:{position:'right', grid:{display:false}, border:{display:false}, ticks:{font:{size:10}, callback:v=>fmtNum(v)}},
+        x:{grid:{display:false}, border:{display:false}, ticks:{font:{size:10}, maxRotation:45, minRotation:45, autoSkip:true, maxTicksLimit:12}}
+      }
+    }
+  });
+}
+
+function applyFilter(){
+  const fromVal = document.getElementById('fromDate').value;
+  const toVal = document.getElementById('toDate').value;
+  currentFrom = fromVal ? fromInputDate(fromVal) : sheetMinDate;
+  currentTo = toVal ? fromInputDate(toVal) : sheetMaxDate;
+  PROJECTS.forEach(p=>updateSection(p));
+  setStatus('live', 'همگام‌سازی شد — ' + new Date().toLocaleTimeString('fa-IR',{hour:'2-digit',minute:'2-digit'}));
+}
+
+// ---------- Init ----------
+async function loadProject(project){
+  try{
+    const [refRows, costRows] = await Promise.all([
+      fetchSheetData(project.spreadsheetId, project.refSheet),
+      fetchSheetData(project.spreadsheetId, project.costSheet)
+    ]);
+    project.rawRef = normalizeRefRows(refRows, project.conversionCol, project.installsCol);
+    project.rawCost = normalizeCostRows(costRows);
+    project.error = null;
+    projectState[project.id] = 'ALL';
+  }catch(e){
+    project.rawRef = [];
+    project.rawCost = [];
+    project.error = 'نتونستم دیتای این پروژه رو بخونم: ' + (e.message || 'خطای نامشخص') + ' — مطمئن شو شیت با ایمیل Service Account شیر شده.';
+  }
+}
+
 async function init(){
-  setStatus('loading','در حال خوندن Adtrace...');
-  let adtraceRows, costRows;
-  try{ adtraceRows = await fetchSheetData('adtrace'); }
-  catch(e){ renderError('نتونستم تب Adtrace رو بخونم. مطمئن شو شیت با دسترسی «هرکسی با لینک — بازبین» شیر شده.'); return; }
-  setStatus('loading','در حال خوندن Cost - Yektanet...');
-  try{ costRows = await fetchSheetData('cost'); }
-  catch(e){ renderError('نتونستم تب Cost - Yektanet رو بخونم. مطمئن شو شیت با دسترسی «هرکسی با لینک — بازبین» شیر شده.'); return; }
+  setStatus('loading','در حال خوندن شیت‌های همه‌ی پروژه‌ها...');
+  await Promise.all(PROJECTS.map(loadProject));
 
-  rawAdtrace = normalizeAdtraceRows(adtraceRows);
-  rawCost = normalizeCostRows(costRows);
-
-  const allDates = [...rawAdtrace.map(r=>r.date), ...rawCost.map(r=>r.date)].sort();
-  if(!allDates.length){ renderError('هیچ ردیف معتبری با Date و Campaign پیدا نشد.'); return; }
+  const allDates = [];
+  PROJECTS.forEach(p=>{
+    p.rawRef.forEach(r=>allDates.push(r.date));
+    p.rawCost.forEach(r=>allDates.push(r.date));
+  });
+  if(!allDates.length){ renderError('هیچ داده‌ی معتبری توی هیچ پروژه‌ای پیدا نشد.'); return; }
+  allDates.sort();
   sheetMinDate = allDates[0];
   sheetMaxDate = allDates[allDates.length-1];
   currentFrom = sheetMinDate;
   currentTo = sheetMaxDate;
 
   renderFilterBar();
-  const {joined, matchedCost, totalCostInSheet, unmatchedCost} = computeForRange(sheetMinDate, sheetMaxDate);
-  renderResults(joined, {matchedCost, totalCostInSheet, unmatchedCost});
+  renderSectionsShell();
+  applyFilter();
+
+  const anyError = PROJECTS.some(p=>p.error);
+  if(anyError) setStatus('err', 'بعضی پروژه‌ها خطا دادن — جزئیات توی همون سکشن');
 }
 
 init();
