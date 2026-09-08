@@ -6,7 +6,6 @@
 <title>Yektanet Pulse — Cost × KYC Blend</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
   :root{
@@ -209,11 +208,16 @@
 (function(){
 "use strict";
 
-const SHEET_ID = '1r9f3Vdl6ldgQeL50tHX4TxjVP0H_UxYeYFKhGFp0yeQ';
-const GID_ADTRACE = '0';
-const GID_COST_YEKTANET = '1883387170';
+// Data now comes from our own /api/sheet-data endpoint (backed by a Google
+// service account) instead of the public gviz CSV link — the sheet no longer
+// needs to be shared with "anyone with the link".
 
-function csvUrl(gid){ return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${gid}`; }
+async function fetchSheetData(sheetKey){
+  const res = await fetch(`/api/sheet-data?sheet=${sheetKey}`);
+  const json = await res.json();
+  if(!res.ok) throw new Error(json.error || 'sheet not accessible');
+  return json.data;
+}
 
 function setStatus(kind, text){
   const dot = document.getElementById('statusDot');
@@ -258,14 +262,6 @@ function animateValue(el, target, formatter, duration){
     if(p < 1) requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
-}
-
-async function fetchCsv(gid){
-  const res = await fetch(csvUrl(gid));
-  if(!res.ok) throw new Error('sheet not accessible');
-  const text = await res.text();
-  const parsed = Papa.parse(text, {header:true, skipEmptyLines:true});
-  return parsed.data;
 }
 
 function normalizeAdtraceRows(rows){
@@ -603,10 +599,10 @@ function renderFilterBar(){
 async function init(){
   setStatus('loading','در حال خوندن Adtrace...');
   let adtraceRows, costRows;
-  try{ adtraceRows = await fetchCsv(GID_ADTRACE); }
+  try{ adtraceRows = await fetchSheetData('adtrace'); }
   catch(e){ renderError('نتونستم تب Adtrace رو بخونم. مطمئن شو شیت با دسترسی «هرکسی با لینک — بازبین» شیر شده.'); return; }
   setStatus('loading','در حال خوندن Cost - Yektanet...');
-  try{ costRows = await fetchCsv(GID_COST_YEKTANET); }
+  try{ costRows = await fetchSheetData('cost'); }
   catch(e){ renderError('نتونستم تب Cost - Yektanet رو بخونم. مطمئن شو شیت با دسترسی «هرکسی با لینک — بازبین» شیر شده.'); return; }
 
   rawAdtrace = normalizeAdtraceRows(adtraceRows);
