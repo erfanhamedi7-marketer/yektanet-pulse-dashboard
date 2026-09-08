@@ -191,6 +191,11 @@
     padding:12px 16px;font-size:13px;
   }
 
+  .section-head-left{display:flex;align-items:center;gap:12px;}
+  .section-logo{
+    width:42px;height:42px;border-radius:13px;object-fit:cover;
+    background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.35);flex-shrink:0;
+  }
   .section-controls{display:flex;align-items:center;gap:10px;}
   .ms-dropdown{position:relative;}
   .ms-toggle{
@@ -312,6 +317,7 @@ const PROJECTS = [
     id: 'blue',
     title: 'پروژه بلو',
     subtitle: 'Adtrace (مرجع) × Yektanet',
+    logo: '/blu-logo.png',
     spreadsheetId: '1DdhvkT6gVXKoDiicgXnXHTq32yZg3aGpJx97RT4wYeU',
     refSheet: 'Adtrace',
     costSheet: 'Yektanet',
@@ -613,9 +619,12 @@ function renderSectionsShell(){
   container.innerHTML = PROJECTS.map(p => `
     <div class="section" id="section-${p.id}" style="${sectionThemeStyle(p)}">
       <div class="section-head">
-        <div>
-          <h2 class="section-title">${escapeHtml(p.title)}</h2>
-          <div class="section-sub">${escapeHtml(p.subtitle)}</div>
+        <div class="section-head-left">
+          ${p.logo ? `<img src="${p.logo}" alt="${escapeHtml(p.title)}" class="section-logo">` : ''}
+          <div>
+            <h2 class="section-title">${escapeHtml(p.title)}</h2>
+            <div class="section-sub">${escapeHtml(p.subtitle)}</div>
+          </div>
         </div>
         <div class="section-controls">
           <div class="ms-dropdown" id="msWrap-${p.id}">
