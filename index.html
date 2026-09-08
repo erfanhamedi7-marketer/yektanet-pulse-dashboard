@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Marketing Pulse — Cost - Yektanet</title>
+<title>Marketing Pulse — Cost × KYC Blend</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
@@ -22,8 +22,8 @@
   }
   *{box-sizing:border-box;}
   body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:14px;line-height:1.5;}
-  .wrap{max-width:1100px;margin:0 auto;padding:28px 24px 64px;}
-  .topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:20px;flex-wrap:wrap;}
+  .wrap{max-width:1200px;margin:0 auto;padding:28px 24px 64px;}
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:6px;flex-wrap:wrap;}
   .topbar h1{font-size:20px;font-weight:800;margin:0;}
   .topbar .sub{color:var(--muted);font-size:12.5px;margin-top:3px;}
   .status-pill{display:flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:6px 13px;font-size:12.5px;color:var(--muted);}
@@ -32,22 +32,28 @@
   .dot.err{background:var(--negative);box-shadow:0 0 0 3px var(--negative-soft);}
   .dot.loading{background:var(--amber);box-shadow:0 0 0 3px var(--amber-soft);animation:pulse 1.2s infinite;}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
-  .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:16px;}
-  .kpi{background:var(--surface);padding:16px 16px;}
-  .kpi .label{font-size:11.5px;color:var(--muted);margin-bottom:8px;font-weight:500;}
-  .kpi .value{font-family:var(--font-mono);font-size:19px;font-weight:600;letter-spacing:-0.02em;}
+  .join-note{
+    background:var(--accent-soft);color:var(--accent);border-radius:8px;
+    padding:9px 13px;font-size:12px;margin:16px 0;display:flex;gap:8px;align-items:center;
+  }
+  .join-note b{font-weight:700;}
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:16px;}
+  .kpi{background:var(--surface);padding:16px 18px;}
+  .kpi .label{font-size:12px;color:var(--muted);margin-bottom:8px;font-weight:500;}
+  .kpi .value{font-family:var(--font-mono);font-size:21px;font-weight:600;letter-spacing:-0.02em;}
   .kpi .value.accent{color:var(--accent);}
   .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;margin-bottom:16px;}
   .card h2{font-size:14.5px;font-weight:700;margin:0 0 3px;}
   .card .card-sub{font-size:12px;color:var(--muted);margin-bottom:14px;}
-  .chart-box{position:relative;height:290px;}
+  .chart-box{position:relative;height:300px;}
   table{width:100%;border-collapse:collapse;font-size:13px;}
   thead th{text-align:right;color:var(--muted);font-weight:600;font-size:12px;padding:0 10px 10px;border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;}
   thead th:hover{color:var(--ink);}
-  thead th .arrow{opacity:.4;font-size:10px;margin-inline-start:3px;}
   tbody td{padding:9px 10px;border-bottom:1px solid var(--border-soft);white-space:nowrap;}
   tbody td.num{font-family:var(--font-mono);}
   tbody tr:hover{background:#FAFBFC;}
+  .coverage{font-size:12px;color:var(--muted);margin-top:10px;}
+  .coverage b{color:var(--ink);}
   .loading-state, .error-state{text-align:center;padding:60px 20px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);color:var(--muted);font-size:13.5px;}
   .error-state{color:var(--negative);}
 </style>
@@ -56,14 +62,14 @@
 <div class="wrap">
   <div class="topbar">
     <div>
-      <h1>Cost - Yektanet</h1>
-      <div class="sub">داده‌ی زنده از تب Cost - Yektanet</div>
+      <h1>Cost × KYC Blend</h1>
+      <div class="sub">Adtrace (مرجع) + Cost - Yektanet — بر اساس Date و Campaign</div>
     </div>
     <div class="status-pill"><span class="dot" id="statusDot"></span><span id="statusText">در حال بارگذاری...</span></div>
   </div>
 
   <div id="mainContent">
-    <div class="loading-state">در حال خوندن شیت...</div>
+    <div class="loading-state">در حال خوندن دو تب از گوگل‌شیت...</div>
   </div>
 </div>
 
@@ -72,9 +78,12 @@
 "use strict";
 
 const SHEET_ID = '1r9f3Vdl6ldgQeL50tHX4TxjVP0H_UxYeYFKhGFp0yeQ';
-const GID = '1883387170'; // Cost - Yektanet
+const GID_ADTRACE = '0';
+const GID_COST_YEKTANET = '1883387170';
 
-function csvUrl(gid){ return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${gid}`; }
+function csvUrl(gid){
+  return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${gid}`;
+}
 
 function setStatus(kind, text){
   const dot = document.getElementById('statusDot');
@@ -89,8 +98,15 @@ function toNumber(v){
   const n = parseFloat(cleaned);
   return isNaN(n) ? 0 : n;
 }
+
+function normCampaign(c){
+  return String(c||'').trim().toLowerCase();
+}
+function normDate(d){
+  return String(d||'').trim();
+}
 function fmtDateLabel(yyyymmdd){
-  const s = String(yyyymmdd||'').trim();
+  const s = String(yyyymmdd);
   if(s.length !== 8) return s;
   return s.slice(0,4)+'-'+s.slice(4,6)+'-'+s.slice(6,8);
 }
@@ -102,52 +118,97 @@ function fmtMoney(n){
   if(n===null||n===undefined||isNaN(n)) return '—';
   return fmtNum(n,0) + ' تومان';
 }
-function escapeHtml(str){
-  return String(str).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-}
 
-async function fetchRows(){
-  const res = await fetch(csvUrl(GID));
+async function fetchCsv(gid){
+  const res = await fetch(csvUrl(gid));
   if(!res.ok) throw new Error('sheet not accessible');
   const text = await res.text();
   const parsed = Papa.parse(text, {header:true, skipEmptyLines:true});
-  return parsed.data.map(r=>({
-    date: String(r['Date']||'').trim(),
-    campaign: String(r['Campaign']||'').trim(),
-    impressions: toNumber(r['Impressions']),
-    clicks: toNumber(r['Clicks']),
-    cost: toNumber(r['Cost']),
-    kyc: toNumber(r['KYC'])
-  })).filter(r=>r.date && r.campaign);
+  return parsed.data;
 }
 
-function groupByDate(rows){
+function aggregateAdtrace(rows){
   const map = {};
   rows.forEach(r=>{
-    if(!map[r.date]) map[r.date] = {cost:0, kyc:0};
+    const date = normDate(r['Date']);
+    const campaignRaw = r['Campaign'];
+    const campaign = normCampaign(campaignRaw);
+    if(!date || !campaign) return;
+    const key = date + '||' + campaign;
+    if(!map[key]) map[key] = {date, campaign, campaignLabel: (campaignRaw||'').trim(), installs:0, kyc:0};
+    map[key].installs += toNumber(r['Installs']);
+    map[key].kyc += toNumber(r['KYC']);
+  });
+  return map;
+}
+
+function aggregateCostYektanet(rows){
+  const map = {};
+  rows.forEach(r=>{
+    const date = normDate(r['Date']);
+    const campaign = normCampaign(r['Campaign']);
+    if(!date || !campaign) return;
+    const key = date + '||' + campaign;
+    if(!map[key]) map[key] = {cost:0, impressions:0, clicks:0};
+    map[key].cost += toNumber(r['Cost']);
+    map[key].impressions += toNumber(r['Impressions']);
+    map[key].clicks += toNumber(r['Clicks']);
+  });
+  return map;
+}
+
+function buildJoinedRows(adtraceMap, costMap){
+  const joined = [];
+  let matchedCost = 0;
+  const usedCostKeys = new Set();
+  Object.keys(adtraceMap).forEach(key=>{
+    const base = adtraceMap[key];
+    const costRow = costMap[key];
+    const cost = costRow ? costRow.cost : 0;
+    const impressions = costRow ? costRow.impressions : 0;
+    const clicks = costRow ? costRow.clicks : 0;
+    if(costRow){ matchedCost += costRow.cost; usedCostKeys.add(key); }
+    joined.push({
+      date: base.date,
+      campaign: base.campaignLabel,
+      installs: base.installs,
+      kyc: base.kyc,
+      cost, impressions, clicks,
+      cpa: base.kyc > 0 ? (cost / base.kyc) : null,
+      matched: !!costRow
+    });
+  });
+  const totalCostInSheet = Object.values(costMap).reduce((s,r)=>s+r.cost,0);
+  const unmatchedCost = totalCostInSheet - matchedCost;
+  return {joined, matchedCost, totalCostInSheet, unmatchedCost};
+}
+
+function groupByDate(joined){
+  const map = {};
+  joined.forEach(r=>{
+    if(!map[r.date]) map[r.date] = {cost:0, kyc:0, installs:0};
     map[r.date].cost += r.cost;
     map[r.date].kyc += r.kyc;
+    map[r.date].installs += r.installs;
   });
   const keys = Object.keys(map).sort();
   return {
     labels: keys.map(fmtDateLabel),
     cost: keys.map(k=>map[k].cost),
-    kyc: keys.map(k=>map[k].kyc)
+    kyc: keys.map(k=>map[k].kyc),
+    cpa: keys.map(k=> map[k].kyc>0 ? (map[k].cost/map[k].kyc) : null)
   };
 }
 
-function groupByCampaign(rows){
+function groupByCampaign(joined){
   const map = {};
-  rows.forEach(r=>{
-    if(!map[r.campaign]) map[r.campaign] = {campaign:r.campaign, cost:0, impressions:0, clicks:0, kyc:0};
-    const m = map[r.campaign];
-    m.cost += r.cost; m.impressions += r.impressions; m.clicks += r.clicks; m.kyc += r.kyc;
+  joined.forEach(r=>{
+    if(!map[r.campaign]) map[r.campaign] = {campaign:r.campaign, cost:0, kyc:0, installs:0};
+    map[r.campaign].cost += r.cost;
+    map[r.campaign].kyc += r.kyc;
+    map[r.campaign].installs += r.installs;
   });
-  return Object.values(map).map(r=>({
-    ...r,
-    ctr: r.impressions ? (r.clicks/r.impressions*100) : 0,
-    cpa: r.kyc>0 ? (r.cost/r.kyc) : null
-  }));
+  return Object.values(map).map(r=>({...r, cpa: r.kyc>0 ? (r.cost/r.kyc) : null}));
 }
 
 function renderError(msg){
@@ -155,26 +216,28 @@ function renderError(msg){
   setStatus('err','خطا در دریافت داده');
 }
 
-function renderDashboard(rows){
-  const totalCost = rows.reduce((s,r)=>s+r.cost,0);
-  const totalImpr = rows.reduce((s,r)=>s+r.impressions,0);
-  const totalClicks = rows.reduce((s,r)=>s+r.clicks,0);
-  const totalKyc = rows.reduce((s,r)=>s+r.kyc,0);
-  const ctr = totalImpr ? (totalClicks/totalImpr*100) : null;
-  const cpa = totalKyc>0 ? (totalCost/totalKyc) : null;
+function renderDashboard(joined, coverage){
+  const totalCost = joined.reduce((s,r)=>s+r.cost,0);
+  const totalKyc = joined.reduce((s,r)=>s+r.kyc,0);
+  const totalInstalls = joined.reduce((s,r)=>s+r.installs,0);
+  const overallCpa = totalKyc>0 ? totalCost/totalKyc : null;
 
   document.getElementById('mainContent').innerHTML = `
+    <div class="join-note">
+      <span>ℹ️</span>
+      <span><b>${fmtNum(joined.length)}</b> ردیف Date+Campaign از Adtrace پایه قرار گرفت. از هزینه‌ی کل ثبت‌شده توی Cost - Yektanet (<b>${fmtMoney(coverage.totalCostInSheet)}</b>)، <b>${fmtMoney(coverage.matchedCost)}</b> به یه کمپین در Adtrace وصل شد${coverage.unmatchedCost>1000? ` — <b>${fmtMoney(coverage.unmatchedCost)}</b> هزینه بدون کمپین متناظر توی Adtrace موند (احتمالاً اختلاف اسم کمپین بین دو شیت).` : '.'}</span>
+    </div>
+
     <div class="kpis">
-      <div class="kpi"><div class="label">هزینه کل</div><div class="value">${fmtMoney(totalCost)}</div></div>
-      <div class="kpi"><div class="label">نمایش</div><div class="value">${fmtNum(totalImpr)}</div></div>
-      <div class="kpi"><div class="label">کلیک</div><div class="value">${fmtNum(totalClicks)}</div></div>
-      <div class="kpi"><div class="label">CTR</div><div class="value">${ctr!==null?ctr.toFixed(2)+'%':'—'}</div></div>
-      <div class="kpi"><div class="label">KYC / CPA</div><div class="value accent">${fmtNum(totalKyc)} — ${cpa!==null?fmtMoney(cpa):'—'}</div></div>
+      <div class="kpi"><div class="label">هزینه کل (متصل‌شده)</div><div class="value">${fmtMoney(totalCost)}</div></div>
+      <div class="kpi"><div class="label">KYC کل (Adtrace)</div><div class="value">${fmtNum(totalKyc)}</div></div>
+      <div class="kpi"><div class="label">Installs کل</div><div class="value">${fmtNum(totalInstalls)}</div></div>
+      <div class="kpi"><div class="label">CPA کلی</div><div class="value accent">${overallCpa!==null?fmtMoney(overallCpa):'—'}</div></div>
     </div>
 
     <div class="card">
-      <h2>هزینه و KYC بر حسب روز</h2>
-      <div class="card-sub">مجموع روزانه‌ی همه‌ی کمپین‌ها</div>
+      <h2>هزینه و CPA بر حسب روز</h2>
+      <div class="card-sub">مجموع روزانه‌ی همه‌ی کمپین‌های تطبیق‌یافته</div>
       <div class="chart-box"><canvas id="trendChart"></canvas></div>
     </div>
 
@@ -187,10 +250,8 @@ function renderDashboard(rows){
             <tr>
               <th data-key="campaign">کمپین</th>
               <th data-key="cost">هزینه</th>
-              <th data-key="impressions">نمایش</th>
-              <th data-key="clicks">کلیک</th>
-              <th data-key="ctr">CTR</th>
               <th data-key="kyc">KYC</th>
+              <th data-key="installs">Installs</th>
               <th data-key="cpa">CPA</th>
             </tr>
           </thead>
@@ -200,14 +261,15 @@ function renderDashboard(rows){
     </div>
   `;
 
-  const {labels, cost, kyc} = groupByDate(rows);
-  new Chart(document.getElementById('trendChart'), {
+  const {labels, cost, cpa} = groupByDate(joined);
+  const ctx = document.getElementById('trendChart');
+  new Chart(ctx, {
     type:'bar',
     data:{
       labels,
       datasets:[
         {type:'bar', label:'هزینه (تومان)', data:cost, backgroundColor:'rgba(91,79,224,0.55)', borderRadius:4, yAxisID:'y', order:2, maxBarThickness:26},
-        {type:'line', label:'KYC', data:kyc, borderColor:'#1E9E8B', backgroundColor:'#1E9E8B', tension:.3, yAxisID:'y1', pointRadius:3, borderWidth:2, order:1}
+        {type:'line', label:'CPA (تومان)', data:cpa, borderColor:'#F2A93B', backgroundColor:'#F2A93B', tension:.3, yAxisID:'y1', pointRadius:3, borderWidth:2, order:1}
       ]
     },
     options:{
@@ -222,29 +284,23 @@ function renderDashboard(rows){
     }
   });
 
-  let sortKey='cost', sortDir='desc';
-  const byCampaign = groupByCampaign(rows);
+  let sortKey = 'cost', sortDir = 'desc';
+  const byCampaign = groupByCampaign(joined);
   function renderTable(){
     const list = [...byCampaign].sort((a,b)=>{
       let av=a[sortKey], bv=b[sortKey];
-      if(av===null) av=-Infinity; if(bv===null) bv=-Infinity;
-      if(typeof av==='string') return sortDir==='asc'? av.localeCompare(bv) : bv.localeCompare(av);
+      if(av===null) av = -Infinity; if(bv===null) bv = -Infinity;
+      if(typeof av === 'string') return sortDir==='asc'? av.localeCompare(bv) : bv.localeCompare(av);
       return sortDir==='asc' ? av-bv : bv-av;
     });
     document.getElementById('campaignTableBody').innerHTML = list.map(r=>`
       <tr>
-        <td>${escapeHtml(r.campaign)}</td>
+        <td>${r.campaign}</td>
         <td class="num">${fmtMoney(r.cost)}</td>
-        <td class="num">${fmtNum(r.impressions)}</td>
-        <td class="num">${fmtNum(r.clicks)}</td>
-        <td class="num">${r.ctr.toFixed(2)}%</td>
         <td class="num">${fmtNum(r.kyc)}</td>
+        <td class="num">${fmtNum(r.installs)}</td>
         <td class="num">${r.cpa!==null?fmtMoney(r.cpa):'—'}</td>
       </tr>`).join('');
-    document.querySelectorAll('thead th[data-key]').forEach(th=>{
-      const arrow = th.querySelector('.arrow'); if(arrow) arrow.remove();
-      if(th.dataset.key===sortKey) th.insertAdjacentHTML('beforeend', `<span class="arrow">${sortDir==='asc'?'▲':'▼'}</span>`);
-    });
   }
   document.querySelectorAll('thead th[data-key]').forEach(th=>{
     th.addEventListener('click', ()=>{
@@ -259,19 +315,25 @@ function renderDashboard(rows){
 }
 
 async function init(){
-  setStatus('loading','در حال خوندن شیت...');
-  let rows;
+  setStatus('loading', 'در حال خوندن Adtrace...');
+  let adtraceRows, costRows;
   try{
-    rows = await fetchRows();
+    adtraceRows = await fetchCsv(GID_ADTRACE);
   }catch(e){
-    renderError('نتونستم شیت رو بخونم. مطمئن شو دسترسی «هرکسی با لینک — بازبین» فعاله.');
+    renderError('نتونستم تب Adtrace رو بخونم. مطمئن شو شیت با دسترسی «هرکسی با لینک — بازبین» شیر شده.');
     return;
   }
-  if(!rows.length){
-    renderError('ردیفی با Date و Campaign معتبر توی شیت پیدا نشد.');
+  setStatus('loading', 'در حال خوندن Cost - Yektanet...');
+  try{
+    costRows = await fetchCsv(GID_COST_YEKTANET);
+  }catch(e){
+    renderError('نتونستم تب Cost - Yektanet رو بخونم. مطمئن شو شیت با دسترسی «هرکسی با لینک — بازبین» شیر شده.');
     return;
   }
-  renderDashboard(rows);
+  const adtraceMap = aggregateAdtrace(adtraceRows);
+  const costMap = aggregateCostYektanet(costRows);
+  const {joined, matchedCost, totalCostInSheet, unmatchedCost} = buildJoinedRows(adtraceMap, costMap);
+  renderDashboard(joined, {matchedCost, totalCostInSheet, unmatchedCost});
 }
 
 init();
