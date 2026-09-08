@@ -191,6 +191,32 @@
     padding:12px 16px;font-size:13px;
   }
 
+  .section-controls{display:flex;align-items:center;gap:10px;}
+  .ms-dropdown{position:relative;}
+  .ms-toggle{
+    background:var(--surface-2);border:1px solid var(--border);border-radius:8px;
+    padding:7px 12px;font-family:var(--font-ui);font-size:12.5px;color:var(--text);
+    min-width:170px;text-align:right;cursor:pointer;
+  }
+  .ms-toggle:hover{border-color:var(--accent);}
+  .ms-panel{
+    position:absolute;top:calc(100% + 6px);left:0;z-index:20;min-width:260px;max-width:340px;
+    max-height:320px;overflow-y:auto;background:var(--surface-2);border:1px solid var(--border);
+    border-radius:10px;padding:8px;box-shadow:0 12px 32px -12px rgba(0,0,0,.6);
+  }
+  .ms-option{
+    display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:6px;font-size:12.5px;
+    cursor:pointer;color:var(--text);
+  }
+  .ms-option:hover{background:rgba(255,255,255,0.04);}
+  .ms-option input{accent-color:var(--accent);flex-shrink:0;}
+  .ms-option-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .ms-option-cost{font-family:var(--font-mono);font-size:11px;color:var(--text-faint);flex-shrink:0;}
+  .ms-option-all{font-weight:600;}
+  .ms-divider{height:1px;background:var(--border);margin:6px 2px;}
+
+  .section-filter-bar{margin-bottom:14px;}
+
   @media (max-width:900px){
     .kpis{grid-template-columns:repeat(2,1fr);}
   }
@@ -225,10 +251,6 @@
 <script>
 (function(){
 "use strict";
-
-// Data now comes from our own /api/sheet-data endpoint (backed by a Google
-// service account) instead of the public gviz CSV link — the sheet no longer
-// needs to be shared with "anyone with the link".
 
 async function fetchSheetData(spreadsheetId, sheet){
   const res = await fetch(`/api/sheet-data?spreadsheetId=${encodeURIComponent(spreadsheetId)}&sheet=${encodeURIComponent(sheet)}`);
@@ -268,24 +290,24 @@ function fmtMoney(n){
 function escapeHtml(str){
   return String(str).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
+function toInputDate(yyyymmdd){
+  const s = String(yyyymmdd);
+  return s.slice(0,4)+'-'+s.slice(4,6)+'-'+s.slice(6,8);
+}
+function fromInputDate(isoDate){
+  return isoDate.replace(/-/g,'');
+}
+function addDaysToDateStr(yyyymmdd, days){
+  const d = new Date(toInputDate(yyyymmdd));
+  d.setDate(d.getDate() + days);
+  return fromInputDate(d.toISOString().slice(0,10));
+}
 
 // ---------- Project configuration ----------
 // Add a new object here for each new project/section. spreadsheetId must also
 // be added to ALLOWED_SPREADSHEETS in api/sheet-data.js and the sheet must be
 // shared with the service account email.
 const PROJECTS = [
-  {
-    id: 'yektanet',
-    title: 'Yektanet',
-    subtitle: 'Adtrace (مرجع) × Cost - Yektanet',
-    spreadsheetId: '1r9f3Vdl6ldgQeL50tHX4TxjVP0H_UxYeYFKhGFp0yeQ',
-    refSheet: 'Adtrace',
-    costSheet: 'Cost - Yektanet',
-    conversionCol: 'KYC',
-    conversionLabel: 'KYC',
-    showInstalls: true,
-    installsCol: 'Installs'
-  },
   {
     id: 'blue',
     title: 'پروژه بلو',
@@ -296,12 +318,29 @@ const PROJECTS = [
     conversionCol: 'Card Order',
     conversionLabel: 'Card Order',
     showInstalls: false,
-    installsCol: null
+    installsCol: null,
+    ownDateFilter: true,
+    defaultRangeDays: 30,
+    theme: { accent: '#3B82F6', accent2: '#EF4444', accentSoft: 'rgba(59,130,246,0.12)' }
+  },
+  {
+    id: 'yektanet',
+    title: 'Yektanet',
+    subtitle: 'Adtrace (مرجع) × Cost - Yektanet',
+    spreadsheetId: '1r9f3Vdl6ldgQeL50tHX4TxjVP0H_UxYeYFKhGFp0yeQ',
+    refSheet: 'Adtrace',
+    costSheet: 'Cost - Yektanet',
+    conversionCol: 'KYC',
+    conversionLabel: 'KYC',
+    showInstalls: true,
+    installsCol: 'Installs',
+    ownDateFilter: false,
+    theme: { accent: '#8B7CF6', accent2: '#FBBF24', accentSoft: 'rgba(139,124,246,0.12)' }
   }
 ];
 
-const projectState = {}; // { [projectId]: selectedCampaignKey ('ALL' or a normalized campaign key) }
-const chartInstances = {}; // { [projectId]: Chart instance }
+const projectState = {}; // { [id]: { campaigns: 'ALL' | Set(keys), from, to } }
+const chartInstances = {};
 
 function normalizeRefRows(rows, conversionCol, installsCol){
   return rows.map(r=>{
@@ -354,7 +393,8 @@ function buildJoinedRows(refMap, costMap){
     const cost = costRow ? costRow.cost : 0;
     if(costRow) matchedCost += costRow.cost;
     joined.push({
-      date: base.date, campaign: base.campaignLabel, installs: base.installs, conversion: base.conversion,
+      date: base.date, campaign: base.campaign, campaignLabel: base.campaignLabel,
+      installs: base.installs, conversion: base.conversion,
       cost, cpa: base.conversion>0 ? (cost/base.conversion) : null
     });
   });
@@ -374,10 +414,17 @@ function groupByDateGeneric(joined){
     cpaSeries: keys.map(k=> map[k].conversion>0 ? (map[k].cost/map[k].conversion) : null)
   };
 }
-function getCampaignOptions(project){
-  const seen = {};
-  project.rawRef.forEach(r=>{ if(!seen[r.campaign]) seen[r.campaign] = r.campaignLabel; });
-  return Object.keys(seen).sort().map(k=>({key:k, label:seen[k]}));
+
+// Campaign options sorted by total cost (desc); label falls back to the raw key.
+function getCampaignOptionsSortedByCost(project){
+  const costByCampaign = {};
+  project.rawCost.forEach(r=>{ costByCampaign[r.campaign] = (costByCampaign[r.campaign]||0) + r.cost; });
+  const labelByCampaign = {};
+  project.rawRef.forEach(r=>{ if(!labelByCampaign[r.campaign]) labelByCampaign[r.campaign] = r.campaignLabel; });
+  const allKeys = new Set([...Object.keys(costByCampaign), ...Object.keys(labelByCampaign)]);
+  return Array.from(allKeys).map(k=>({
+    key: k, label: labelByCampaign[k] || k, cost: costByCampaign[k] || 0
+  })).sort((a,b)=> b.cost - a.cost || a.label.localeCompare(b.label));
 }
 
 function renderError(msg){
@@ -385,23 +432,18 @@ function renderError(msg){
   setStatus('err','خطا در دریافت داده');
 }
 
-// ---------- Date range state (global, applies to every section) ----------
+// ---------- Global date range (applies to projects without their own filter) ----------
 let sheetMinDate = null;
 let sheetMaxDate = null;
 let currentFrom = null;
 let currentTo = null;
 
-function toInputDate(yyyymmdd){
-  const s = String(yyyymmdd);
-  return s.slice(0,4)+'-'+s.slice(4,6)+'-'+s.slice(6,8);
-}
-function fromInputDate(isoDate){
-  return isoDate.replace(/-/g,'');
-}
-
-function computeSection(project, from, to, campaignKey){
+function computeSection(project){
+  const st = projectState[project.id];
+  const from = project.ownDateFilter ? st.from : currentFrom;
+  const to = project.ownDateFilter ? st.to : currentTo;
   const inRange = d => (!from || d >= from) && (!to || d <= to);
-  const inCampaign = c => campaignKey === 'ALL' || c === campaignKey;
+  const inCampaign = c => st.campaigns === 'ALL' || st.campaigns.has(c);
   const refFiltered = project.rawRef.filter(r=>inRange(r.date) && inCampaign(r.campaign));
   const costFiltered = project.rawCost.filter(r=>inRange(r.date) && inCampaign(r.campaign));
   const refMap = aggregateRef(refFiltered);
@@ -409,7 +451,7 @@ function computeSection(project, from, to, campaignKey){
   return buildJoinedRows(refMap, costMap);
 }
 
-// ---------- Rendering ----------
+// ---------- Global filter bar (for projects without their own date filter) ----------
 function renderFilterBar(){
   document.getElementById('mainContent').innerHTML = `
     <div class="filter-bar">
@@ -429,20 +471,19 @@ function renderFilterBar(){
     </div>
   `;
   document.getElementById('fromDate').addEventListener('change', ()=>{
-    document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
-    applyFilter();
+    document.querySelectorAll('#mainContent .preset-btn').forEach(b=>b.classList.remove('active'));
+    applyGlobalFilter();
   });
   document.getElementById('toDate').addEventListener('change', ()=>{
-    document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
-    applyFilter();
+    document.querySelectorAll('#mainContent .preset-btn').forEach(b=>b.classList.remove('active'));
+    applyGlobalFilter();
   });
-  document.getElementById('presetAll').addEventListener('click', (e)=>setPreset(null, e.target));
-  document.getElementById('preset7').addEventListener('click', (e)=>setPreset(7, e.target));
-  document.getElementById('preset30').addEventListener('click', (e)=>setPreset(30, e.target));
+  document.getElementById('presetAll').addEventListener('click', (e)=>setGlobalPreset(null, e.target));
+  document.getElementById('preset7').addEventListener('click', (e)=>setGlobalPreset(7, e.target));
+  document.getElementById('preset30').addEventListener('click', (e)=>setGlobalPreset(30, e.target));
 }
-
-function setPreset(days, btn){
-  document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
+function setGlobalPreset(days, btn){
+  document.querySelectorAll('#mainContent .preset-btn').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active');
   if(days === null){
     document.getElementById('fromDate').value = toInputDate(sheetMinDate);
@@ -456,34 +497,160 @@ function setPreset(days, btn){
     document.getElementById('fromDate').value = clampedFrom.toISOString().slice(0,10);
     document.getElementById('toDate').value = toInputDate(sheetMaxDate);
   }
-  applyFilter();
+  applyGlobalFilter();
+}
+function applyGlobalFilter(){
+  const fromVal = document.getElementById('fromDate').value;
+  const toVal = document.getElementById('toDate').value;
+  currentFrom = fromVal ? fromInputDate(fromVal) : sheetMinDate;
+  currentTo = toVal ? fromInputDate(toVal) : sheetMaxDate;
+  PROJECTS.filter(p=>!p.ownDateFilter && !p.error).forEach(p=>updateSection(p));
+  setStatus('live', 'همگام‌سازی شد — ' + new Date().toLocaleTimeString('fa-IR',{hour:'2-digit',minute:'2-digit'}));
+}
+
+// ---------- Per-section date filter (for projects with ownDateFilter) ----------
+function applyOwnDateFilter(project){
+  const fromVal = document.getElementById(`ownFrom-${project.id}`).value;
+  const toVal = document.getElementById(`ownTo-${project.id}`).value;
+  projectState[project.id].from = fromVal ? fromInputDate(fromVal) : project.minDate;
+  projectState[project.id].to = toVal ? fromInputDate(toVal) : project.maxDate;
+  updateSection(project);
+}
+function setOwnPreset(project, days, btn){
+  const wrap = document.getElementById(`section-${project.id}`);
+  wrap.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  const fromInput = document.getElementById(`ownFrom-${project.id}`);
+  const toInput = document.getElementById(`ownTo-${project.id}`);
+  if(days === null){
+    fromInput.value = toInputDate(project.minDate);
+    toInput.value = toInputDate(project.maxDate);
+  } else {
+    const maxD = new Date(toInputDate(project.maxDate));
+    const fromD = new Date(maxD);
+    fromD.setDate(fromD.getDate() - (days - 1));
+    const minD = new Date(toInputDate(project.minDate));
+    const clampedFrom = fromD < minD ? minD : fromD;
+    fromInput.value = clampedFrom.toISOString().slice(0,10);
+    toInput.value = toInputDate(project.maxDate);
+  }
+  applyOwnDateFilter(project);
+}
+
+// ---------- Multi-select campaign filter ----------
+function campaignButtonLabel(project){
+  const st = projectState[project.id];
+  const opts = project.campaignOptions;
+  if(st.campaigns === 'ALL' || st.campaigns.size === opts.length) return 'همه کمپین‌ها';
+  if(st.campaigns.size === 0) return 'هیچ‌کدوم';
+  if(st.campaigns.size === 1){
+    const only = opts.find(o=>st.campaigns.has(o.key));
+    return only ? only.label : '۱ کمپین';
+  }
+  return `${st.campaigns.size} کمپین انتخاب شده`;
+}
+function renderCampaignDropdown(project){
+  const opts = project.campaignOptions;
+  const st = projectState[project.id];
+  const allSelected = st.campaigns === 'ALL' || st.campaigns.size === opts.length;
+  const panel = document.getElementById(`msPanel-${project.id}`);
+  panel.innerHTML = `
+    <label class="ms-option ms-option-all">
+      <input type="checkbox" id="msAll-${project.id}" ${allSelected?'checked':''}>
+      <span>همه کمپین‌ها</span>
+    </label>
+    <div class="ms-divider"></div>
+    ${opts.map(o=>`
+      <label class="ms-option">
+        <input type="checkbox" class="ms-item-${project.id}" value="${escapeHtml(o.key)}" ${allSelected || (st.campaigns!=='ALL' && st.campaigns.has(o.key)) ? 'checked':''}>
+        <span class="ms-option-label">${escapeHtml(o.label)}</span>
+        <span class="ms-option-cost">${fmtMoney(o.cost)}</span>
+      </label>`).join('')}
+  `;
+  document.getElementById(`msToggle-${project.id}`).textContent = campaignButtonLabel(project) + ' ▾';
+
+  const allCb = document.getElementById(`msAll-${project.id}`);
+  allCb.addEventListener('change', ()=>{
+    projectState[project.id].campaigns = allCb.checked ? 'ALL' : new Set();
+    renderCampaignDropdown(project);
+    updateSection(project);
+  });
+  panel.querySelectorAll(`.ms-item-${project.id}`).forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      let cur = projectState[project.id].campaigns;
+      if(cur === 'ALL') cur = new Set(opts.map(o=>o.key));
+      if(cb.checked) cur.add(cb.value); else cur.delete(cb.value);
+      if(cur.size === opts.length) cur = 'ALL';
+      projectState[project.id].campaigns = cur;
+      renderCampaignDropdown(project);
+      updateSection(project);
+    });
+  });
+}
+function wireCampaignToggle(project){
+  const toggle = document.getElementById(`msToggle-${project.id}`);
+  const panel = document.getElementById(`msPanel-${project.id}`);
+  toggle.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    const isOpen = !panel.hidden;
+    document.querySelectorAll('.ms-panel').forEach(p=>p.hidden = true);
+    panel.hidden = isOpen;
+  });
+  panel.addEventListener('click', e=>e.stopPropagation());
+}
+document.addEventListener('click', ()=>{
+  document.querySelectorAll('.ms-panel').forEach(p=>p.hidden = true);
+});
+
+// ---------- Section shell + rendering ----------
+function sectionThemeStyle(project){
+  const t = project.theme;
+  return `--accent:${t.accent}; --accent-2:${t.accent2}; --accent-soft:${t.accentSoft};`;
 }
 
 function renderSectionsShell(){
   const container = document.getElementById('resultsContent');
   container.innerHTML = PROJECTS.map(p => `
-    <div class="section" id="section-${p.id}">
+    <div class="section" id="section-${p.id}" style="${sectionThemeStyle(p)}">
       <div class="section-head">
         <div>
           <h2 class="section-title">${escapeHtml(p.title)}</h2>
           <div class="section-sub">${escapeHtml(p.subtitle)}</div>
         </div>
-        <div class="filter-group">
-          <label>کمپین</label>
-          <select id="campaignFilter-${p.id}" class="campaign-select"></select>
+        <div class="section-controls">
+          <div class="ms-dropdown" id="msWrap-${p.id}">
+            <button type="button" class="ms-toggle" id="msToggle-${p.id}">همه کمپین‌ها ▾</button>
+            <div class="ms-panel" id="msPanel-${p.id}" hidden></div>
+          </div>
         </div>
       </div>
+      ${p.ownDateFilter ? `
+      <div class="filter-bar section-filter-bar">
+        <div class="filter-group">
+          <label>از</label>
+          <input type="date" id="ownFrom-${p.id}">
+        </div>
+        <div class="filter-group">
+          <label>تا</label>
+          <input type="date" id="ownTo-${p.id}">
+        </div>
+        <div class="filter-presets">
+          <button class="preset-btn" id="ownPresetAll-${p.id}">کل بازه</button>
+          <button class="preset-btn" id="ownPreset7-${p.id}">۷ روز اخیر</button>
+          <button class="preset-btn active" id="ownPreset30-${p.id}">۳۰ روز اخیر</button>
+        </div>
+      </div>` : ''}
       <div class="coverage-note" id="coverageNote-${p.id}"></div>
       <div class="kpis" id="kpis-${p.id}"></div>
       <div class="card">
         <div class="card-head">
           <div>
             <h2>هزینه و CPA بر حسب روز</h2>
-            <div class="card-sub">مجموع روزانه — فیلتر شده بر اساس بازه‌ی تاریخ و کمپین انتخابی</div>
+            <div class="card-sub">مجموع روزانه — فیلتر شده بر اساس بازه‌ی تاریخ و کمپین‌های انتخابی</div>
           </div>
           <div class="legend-dots">
             <span><i style="background:var(--accent)"></i>هزینه</span>
-            <span><i style="background:var(--amber)"></i>CPA</span>
+            <span><i style="background:var(--accent-2)"></i>CPA</span>
           </div>
         </div>
         <div class="chart-box"><canvas id="trendChart-${p.id}"></canvas></div>
@@ -496,19 +663,37 @@ function renderSectionsShell(){
       document.getElementById(`kpis-${p.id}`).innerHTML = `<div class="error-inline">${escapeHtml(p.error)}</div>`;
       return;
     }
-    const sel = document.getElementById(`campaignFilter-${p.id}`);
-    const opts = getCampaignOptions(p);
-    sel.innerHTML = `<option value="ALL">همه کمپین‌ها</option>` + opts.map(o=>`<option value="${escapeHtml(o.key)}">${escapeHtml(o.label)}</option>`).join('');
-    sel.addEventListener('change', ()=>{
-      projectState[p.id] = sel.value;
-      updateSection(p);
-    });
+
+    p.campaignOptions = getCampaignOptionsSortedByCost(p);
+    projectState[p.id] = { campaigns: 'ALL', from: null, to: null };
+    renderCampaignDropdown(p);
+    wireCampaignToggle(p);
+
+    if(p.ownDateFilter){
+      const fromInput = document.getElementById(`ownFrom-${p.id}`);
+      const toInput = document.getElementById(`ownTo-${p.id}`);
+      fromInput.min = toInputDate(p.minDate); fromInput.max = toInputDate(p.maxDate);
+      toInput.min = toInputDate(p.minDate); toInput.max = toInputDate(p.maxDate);
+      fromInput.addEventListener('change', ()=>{
+        document.querySelectorAll(`#section-${p.id} .preset-btn`).forEach(b=>b.classList.remove('active'));
+        applyOwnDateFilter(p);
+      });
+      toInput.addEventListener('change', ()=>{
+        document.querySelectorAll(`#section-${p.id} .preset-btn`).forEach(b=>b.classList.remove('active'));
+        applyOwnDateFilter(p);
+      });
+      document.getElementById(`ownPresetAll-${p.id}`).addEventListener('click', e=>setOwnPreset(p, null, e.target));
+      document.getElementById(`ownPreset7-${p.id}`).addEventListener('click', e=>setOwnPreset(p, 7, e.target));
+      document.getElementById(`ownPreset30-${p.id}`).addEventListener('click', e=>setOwnPreset(p, 30, e.target));
+      // Default: last {defaultRangeDays} days
+      setOwnPreset(p, p.defaultRangeDays || 30, document.getElementById(`ownPreset30-${p.id}`));
+    }
   });
 }
 
 function updateSection(project){
   if(project.error) return;
-  const {joined, matchedCost, totalCostInSheet} = computeSection(project, currentFrom, currentTo, projectState[project.id]);
+  const {joined, matchedCost, totalCostInSheet} = computeSection(project);
   const totalCost = joined.reduce((s,r)=>s+r.cost,0);
   const totalConversion = joined.reduce((s,r)=>s+r.conversion,0);
   const totalInstalls = joined.reduce((s,r)=>s+r.installs,0);
@@ -535,13 +720,15 @@ function updateSection(project){
 
   const {labels, cost, cpaSeries} = groupByDateGeneric(joined);
   if(chartInstances[project.id]){ chartInstances[project.id].destroy(); }
+  const accentHex = project.theme.accent;
+  const accent2Hex = project.theme.accent2;
   chartInstances[project.id] = new Chart(document.getElementById(`trendChart-${project.id}`), {
     type:'bar',
     data:{
       labels,
       datasets:[
-        {type:'bar', label:'هزینه', data:cost, backgroundColor:'rgba(139,124,246,0.55)', hoverBackgroundColor:'rgba(139,124,246,0.8)', borderRadius:5, yAxisID:'y', order:2, maxBarThickness:24},
-        {type:'line', label:'CPA', data:cpaSeries, borderColor:'#FBBF24', backgroundColor:'rgba(251,191,36,0.12)', fill:true, tension:.35, yAxisID:'y1', pointRadius:2.5, pointBackgroundColor:'#FBBF24', pointBorderColor:'#0F121A', pointBorderWidth:1.5, borderWidth:2.2, order:1}
+        {type:'bar', label:'هزینه', data:cost, backgroundColor: hexToRgba(accentHex,0.55), hoverBackgroundColor: hexToRgba(accentHex,0.8), borderRadius:5, yAxisID:'y', order:2, maxBarThickness:24},
+        {type:'line', label:'CPA', data:cpaSeries, borderColor: accent2Hex, backgroundColor: hexToRgba(accent2Hex,0.12), fill:true, tension:.35, yAxisID:'y1', pointRadius:2.5, pointBackgroundColor: accent2Hex, pointBorderColor:'#0F121A', pointBorderWidth:1.5, borderWidth:2.2, order:1}
       ]
     },
     options:{
@@ -565,14 +752,10 @@ function updateSection(project){
     }
   });
 }
-
-function applyFilter(){
-  const fromVal = document.getElementById('fromDate').value;
-  const toVal = document.getElementById('toDate').value;
-  currentFrom = fromVal ? fromInputDate(fromVal) : sheetMinDate;
-  currentTo = toVal ? fromInputDate(toVal) : sheetMaxDate;
-  PROJECTS.forEach(p=>updateSection(p));
-  setStatus('live', 'همگام‌سازی شد — ' + new Date().toLocaleTimeString('fa-IR',{hour:'2-digit',minute:'2-digit'}));
+function hexToRgba(hex, alpha){
+  const h = hex.replace('#','');
+  const r = parseInt(h.substring(0,2),16), g = parseInt(h.substring(2,4),16), b = parseInt(h.substring(4,6),16);
+  return `rgba(${r},${g},${b},${alpha})`;
 }
 
 // ---------- Init ----------
@@ -585,7 +768,9 @@ async function loadProject(project){
     project.rawRef = normalizeRefRows(refRows, project.conversionCol, project.installsCol);
     project.rawCost = normalizeCostRows(costRows);
     project.error = null;
-    projectState[project.id] = 'ALL';
+    const allDates = [...project.rawRef.map(r=>r.date), ...project.rawCost.map(r=>r.date)].sort();
+    project.minDate = allDates[0] || null;
+    project.maxDate = allDates[allDates.length-1] || null;
   }catch(e){
     project.rawRef = [];
     project.rawCost = [];
@@ -597,28 +782,33 @@ async function init(){
   setStatus('loading','در حال خوندن شیت‌های همه‌ی پروژه‌ها...');
   await Promise.all(PROJECTS.map(loadProject));
 
+  const globalProjects = PROJECTS.filter(p=>!p.ownDateFilter && !p.error);
   const allDates = [];
-  PROJECTS.forEach(p=>{
+  globalProjects.forEach(p=>{
     p.rawRef.forEach(r=>allDates.push(r.date));
     p.rawCost.forEach(r=>allDates.push(r.date));
   });
-  if(!allDates.length){ renderError('هیچ داده‌ی معتبری توی هیچ پروژه‌ای پیدا نشد.'); return; }
   allDates.sort();
-  sheetMinDate = allDates[0];
-  sheetMaxDate = allDates[allDates.length-1];
-  currentFrom = sheetMinDate;
-  currentTo = sheetMaxDate;
+  if(allDates.length){
+    sheetMinDate = allDates[0];
+    sheetMaxDate = allDates[allDates.length-1];
+    currentFrom = sheetMinDate;
+    currentTo = sheetMaxDate;
+    renderFilterBar();
+  } else {
+    document.getElementById('mainContent').innerHTML = '';
+  }
 
-  renderFilterBar();
   renderSectionsShell();
-  applyFilter();
+  PROJECTS.filter(p=>!p.error).forEach(p=>updateSection(p));
 
   const anyError = PROJECTS.some(p=>p.error);
-  if(anyError) setStatus('err', 'بعضی پروژه‌ها خطا دادن — جزئیات توی همون سکشن');
+  setStatus(anyError?'err':'live', anyError ? 'بعضی پروژه‌ها خطا دادن — جزئیات توی همون سکشن' : 'همگام‌سازی شد — ' + new Date().toLocaleTimeString('fa-IR',{hour:'2-digit',minute:'2-digit'}));
 }
 
 init();
 })();
+
 </script>
 </body>
 </html>
