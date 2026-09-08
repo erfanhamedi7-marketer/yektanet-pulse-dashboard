@@ -237,6 +237,38 @@ async function fetchSheetData(spreadsheetId, sheet){
   return json.data;
 }
 
+function setStatus(kind, text){
+  const dot = document.getElementById('statusDot');
+  const t = document.getElementById('statusText');
+  dot.className = 'dot' + (kind==='live'?' live':kind==='err'?' err':' loading');
+  t.textContent = text;
+}
+
+function toNumber(v){
+  if(v===null||v===undefined) return 0;
+  const cleaned = String(v).replace(/[^0-9.\-]/g,'');
+  const n = parseFloat(cleaned);
+  return isNaN(n) ? 0 : n;
+}
+function normCampaign(c){ return String(c||'').trim().toLowerCase(); }
+function normDate(d){ return String(d||'').trim(); }
+function fmtDateLabel(yyyymmdd){
+  const s = String(yyyymmdd);
+  if(s.length !== 8) return s;
+  return s.slice(0,4)+'-'+s.slice(4,6)+'-'+s.slice(6,8);
+}
+function fmtNum(n, digits){
+  if(n===null||n===undefined||isNaN(n)) return '—';
+  return Number(n).toLocaleString('en-US',{maximumFractionDigits: digits===undefined?0:digits, minimumFractionDigits: digits===undefined?0:digits});
+}
+function fmtMoney(n){
+  if(n===null||n===undefined||isNaN(n)) return '—';
+  return fmtNum(n,0) + ' تومان';
+}
+function escapeHtml(str){
+  return String(str).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
 // ---------- Project configuration ----------
 // Add a new object here for each new project/section. spreadsheetId must also
 // be added to ALLOWED_SPREADSHEETS in api/sheet-data.js and the sheet must be
