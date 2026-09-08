@@ -235,6 +235,24 @@
   .insight-chip.bad{border-color:rgba(251,113,133,.35);}
   .insight-chip.bad .ic-value{color:var(--negative);}
 
+  .deep-subhead{font-size:13px;font-weight:700;margin:18px 0 8px;color:var(--text);}
+  .deep-subhead:first-of-type{margin-top:0;}
+  .deep-subtext{font-size:11.5px;color:var(--text-faint);margin:-4px 0 10px;}
+  .deep-list{list-style:none;margin:0;padding:0;}
+  .deep-item{padding:9px 0;border-bottom:1px solid var(--border-soft);font-size:12.5px;line-height:1.8;color:var(--text);}
+  .deep-item:last-child{border-bottom:none;}
+  .deep-item b{font-weight:700;}
+  .di-date{font-family:var(--font-mono);color:var(--text-muted);font-size:11.5px;margin-inline-start:6px;}
+  .di-tag{
+    display:inline-flex;align-items:center;padding:2px 9px;border-radius:99px;
+    font-size:11px;font-weight:700;font-family:var(--font-mono);margin-inline-end:8px;
+  }
+  .di-tag.up{background:var(--negative-soft);color:var(--negative);}
+  .di-tag.down{background:var(--positive-soft);color:var(--positive);}
+  .deep-empty{font-size:12.5px;color:var(--text-faint);padding:8px 0;}
+  .seg-rate{font-family:var(--font-mono);}
+  .seg-rate.low{color:var(--negative);}
+
   @media (max-width:900px){
     .kpis{grid-template-columns:repeat(2,1fr);}
   }
@@ -337,7 +355,7 @@ const PROJECTS = [
     conversionCol: 'Card Order',
     conversionLabel: 'Card Order',
     showInstalls: false,
-    installsCol: null,
+    installsCol: 'Installs',
     ownDateFilter: true,
     defaultRangeDays: 30,
     theme: { accent: '#3B82F6', accent2: '#EF4444', accentSoft: 'rgba(59,130,246,0.12)' }
@@ -369,6 +387,8 @@ function normalizeRefRows(rows, conversionCol, installsCol){
     if(!date || !campaign) return null;
     return {
       date, campaign, campaignLabel:(campaignRaw||'').trim(),
+      adgroup: (r['Adgroup']||'').trim() || '(بدون Adgroup)',
+      creative: (r['Creative']||'').trim() || '(بدون Creative)',
       installs: installsCol ? toNumber(r[installsCol]) : 0,
       conversion: toNumber(r[conversionCol])
     };
@@ -680,12 +700,22 @@ function renderSectionsShell(){
       <div class="card">
         <div class="card-head">
           <div>
-            <h2>تحلیل خودکار</h2>
-            <div class="card-sub">بر اساس همین بازه‌ی تاریخ و فیلتر کمپین محاسبه می‌شه</div>
+            <h2>تحلیل عمیق</h2>
+            <div class="card-sub">عامل اصلی تغییرات روزانه‌ی هزینه/CPA، و بررسی آماری Adgroup/Creative</div>
           </div>
         </div>
-        <p class="insight-text" id="insightText-${p.id}"></p>
-        <div class="insight-chips" id="insightChips-${p.id}"></div>
+
+        <div class="deep-subhead">تغییرات قابل‌توجه هزینه‌ی روزانه</div>
+        <div class="deep-subtext">نسبت به روز قبل — فقط تغییرهایی که از نوسان عادی این بازه بیشترن</div>
+        <div id="costDrivers-${p.id}"></div>
+
+        <div class="deep-subhead">تغییرات قابل‌توجه CPA روزانه</div>
+        <div class="deep-subtext">کمپینی که بیشترین سهم رو توی تغییر CPA کل روز داشته (روش leave-one-out)</div>
+        <div id="cpaDrivers-${p.id}"></div>
+
+        <div class="deep-subhead">Adgroup / Creative های مشکل‌دار</div>
+        <div class="deep-subtext">تست دو-نسبتی نرخ تبدیل Installs→${escapeHtml(p.conversionLabel)}، حداقل ۳۰ نصب در هر گروه، روی کل بازه‌ی موجود دیتا (نه فقط فیلتر تاریخ فعلی سکشن)</div>
+        <div id="segmentIssues-${p.id}"></div>
       </div>
     </div>
   `).join('');
@@ -723,76 +753,201 @@ function renderSectionsShell(){
   });
 }
 
-function computeInsights(joined){
-  if(!joined.length) return null;
-  const sum = (rows,key)=>rows.reduce((s,r)=>s+r[key],0);
-  const dates = Array.from(new Set(joined.map(r=>r.date))).sort();
+function pivotByDateCampaign(joined){
+  const map = {};
+  joined.forEach(r=>{
+    if(!map[r.date]) map[r.date] = {};
+    if(!map[r.date][r.campaign]) map[r.date][r.campaign] = {cost:0, conversion:0, label:r.campaignLabel};
+    map[r.date][r.campaign].cost += r.cost;
+    map[r.date][r.campaign].conversion += r.conversion;
+  });
+  return map;
+}
 
-  let costChangePct = null, cpaChangePct = null;
-  if(dates.length >= 2){
-    const mid = Math.ceil(dates.length/2);
-    const firstDates = new Set(dates.slice(0,mid));
-    const secondDates = new Set(dates.slice(mid));
-    const firstRows = joined.filter(r=>firstDates.has(r.date));
-    const secondRows = joined.filter(r=>secondDates.has(r.date));
-    const firstCost = sum(firstRows,'cost'), secondCost = sum(secondRows,'cost');
-    const firstConv = sum(firstRows,'conversion'), secondConv = sum(secondRows,'conversion');
-    const firstCpa = firstConv>0 ? firstCost/firstConv : null;
-    const secondCpa = secondConv>0 ? secondCost/secondConv : null;
-    if(firstCost>0) costChangePct = (secondCost-firstCost)/firstCost*100;
-    if(firstCpa!==null && secondCpa!==null) cpaChangePct = (secondCpa-firstCpa)/firstCpa*100;
+function mean(arr){ return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0; }
+function stdev(arr, m){
+  if(arr.length < 2) return 0;
+  const v = arr.reduce((a,b)=>a+Math.pow(b-m,2),0)/arr.length;
+  return Math.sqrt(v);
+}
+
+// For each day, is the day-over-day cost change large enough (relative to this
+// section's own normal day-to-day noise) to be worth explaining? If so, find
+// which single campaign's own cost delta best explains the total delta.
+function computeDailyCostDrivers(joined){
+  const pivot = pivotByDateCampaign(joined);
+  const dates = Object.keys(pivot).sort();
+  if(dates.length < 3) return []; // need enough days to know what "normal" noise looks like
+  const dayCost = d => Object.values(pivot[d]).reduce((s,c)=>s+c.cost,0);
+  const totals = dates.map(d=>({date:d, cost:dayCost(d)}));
+  const avgDaily = mean(totals.map(t=>t.cost));
+
+  const pctChanges = [];
+  for(let i=1;i<totals.length;i++){
+    if(totals[i-1].cost>0) pctChanges.push((totals[i].cost-totals[i-1].cost)/totals[i-1].cost*100);
   }
+  const m = mean(pctChanges), sd = stdev(pctChanges, m);
+
+  const results = [];
+  for(let i=1;i<dates.length;i++){
+    const d = dates[i], prevD = dates[i-1];
+    const curCost = totals[i].cost, prevCost = totals[i-1].cost;
+    if(prevCost<=0) continue;
+    const pctChange = (curCost-prevCost)/prevCost*100;
+    const absDelta = curCost-prevCost;
+    // "significant" = clearly outside this section's normal day-to-day swing,
+    // AND large enough in absolute terms to matter (>=8% of an average day's spend)
+    const zLike = sd>0 ? Math.abs(pctChange-m)/sd : 0;
+    if(zLike < 1.5 || Math.abs(absDelta) < avgDaily*0.08) continue;
+
+    const today = pivot[d], yesterday = pivot[prevD];
+    const allKeys = new Set([...Object.keys(today), ...Object.keys(yesterday)]);
+    let topCampaign = null, topDelta = 0;
+    allKeys.forEach(k=>{
+      const c1 = today[k] ? today[k].cost : 0;
+      const c0 = yesterday[k] ? yesterday[k].cost : 0;
+      const delta = c1-c0;
+      if(Math.abs(delta) > Math.abs(topDelta)){ topDelta = delta; topCampaign = (today[k]||yesterday[k]).label; }
+    });
+    const explainedShare = absDelta!==0 ? (topDelta/absDelta*100) : 0;
+    results.push({date:d, pctChange, absDelta, topCampaign, explainedShare});
+  }
+  return results.sort((a,b)=>Math.abs(b.pctChange)-Math.abs(a.pctChange));
+}
+
+// Same idea for CPA, but attribution uses a leave-one-out counterfactual: "if
+// only this campaign's cost/conversion had stayed at yesterday's level, what
+// would today's overall CPA have been?" The campaign whose reversal moves CPA
+// the most is the one driving the change.
+function computeDailyCpaDrivers(joined){
+  const pivot = pivotByDateCampaign(joined);
+  const dates = Object.keys(pivot).sort();
+  if(dates.length < 3) return [];
+  const dayAgg = d => {
+    const cost = Object.values(pivot[d]).reduce((s,c)=>s+c.cost,0);
+    const conv = Object.values(pivot[d]).reduce((s,c)=>s+c.conversion,0);
+    return {cost, conv, cpa: conv>0 ? cost/conv : null};
+  };
+  const totals = dates.map(d=>({date:d, ...dayAgg(d)}));
+
+  const cpaChanges = [];
+  for(let i=1;i<totals.length;i++){
+    if(totals[i-1].cpa!==null && totals[i].cpa!==null) cpaChanges.push((totals[i].cpa-totals[i-1].cpa)/totals[i-1].cpa*100);
+  }
+  const m = mean(cpaChanges), sd = stdev(cpaChanges, m);
+
+  const results = [];
+  for(let i=1;i<dates.length;i++){
+    const d = dates[i], prevD = dates[i-1];
+    const today = totals[i], yesterday = totals[i-1];
+    if(today.cpa===null || yesterday.cpa===null) continue;
+    const pctChange = (today.cpa-yesterday.cpa)/yesterday.cpa*100;
+    const zLike = sd>0 ? Math.abs(pctChange-m)/sd : 0;
+    if(zLike < 1.5 || Math.abs(pctChange) < 10) continue;
+
+    const todayC = pivot[d], yesterdayC = pivot[prevD];
+    const allKeys = new Set([...Object.keys(todayC), ...Object.keys(yesterdayC)]);
+    let best = null;
+    allKeys.forEach(k=>{
+      const c1 = todayC[k] ? todayC[k].cost : 0;
+      const v1 = todayC[k] ? todayC[k].conversion : 0;
+      const c0 = yesterdayC[k] ? yesterdayC[k].cost : 0;
+      const v0 = yesterdayC[k] ? yesterdayC[k].conversion : 0;
+      const cfCost = today.cost - c1 + c0;
+      const cfConv = today.conv - v1 + v0;
+      if(cfConv<=0) return;
+      const cfCpa = cfCost/cfConv;
+      const contribution = today.cpa - cfCpa;
+      if(!best || Math.abs(contribution) > Math.abs(best.contribution)){
+        best = {campaign:(todayC[k]||yesterdayC[k]).label, contribution};
+      }
+    });
+    results.push({date:d, pctChange, topCampaign: best?best.campaign:null, contribution: best?best.contribution:null});
+  }
+  return results.sort((a,b)=>Math.abs(b.pctChange)-Math.abs(a.pctChange));
+}
+
+// Two-proportion z-test: for each Adgroup/Creative segment within a campaign,
+// compare its Installs->conversion rate against the rest of that campaign.
+// Only flags segments with a large-enough sample (n>=30 both sides) AND a
+// statistically significant lower conversion rate (one-tailed z <= -1.645, ~95%).
+function computeAdgroupCreativeIssues(project){
+  const st = projectState[project.id];
+  const inCampaign = c => st.campaigns === 'ALL' || st.campaigns.has(c);
+  const rows = project.rawRef.filter(r=>inCampaign(r.campaign));
+
+  const MIN_N = 30;
+  const Z_THRESHOLD = 1.645;
 
   const byCampaign = {};
-  joined.forEach(r=>{
-    if(!byCampaign[r.campaign]) byCampaign[r.campaign] = {label:r.campaignLabel, cost:0, conversion:0};
-    byCampaign[r.campaign].cost += r.cost;
-    byCampaign[r.campaign].conversion += r.conversion;
+  rows.forEach(r=>{
+    if(!byCampaign[r.campaign]) byCampaign[r.campaign] = {label:r.campaignLabel, installs:0, conversion:0, segments:{}};
+    const camp = byCampaign[r.campaign];
+    camp.installs += r.installs;
+    camp.conversion += r.conversion;
+    const segKey = r.adgroup + ' / ' + r.creative;
+    if(!camp.segments[segKey]) camp.segments[segKey] = {installs:0, conversion:0};
+    camp.segments[segKey].installs += r.installs;
+    camp.segments[segKey].conversion += r.conversion;
   });
-  const campaignsArr = Object.values(byCampaign).map(c=>({...c, cpa: c.conversion>0 ? c.cost/c.conversion : null}));
-  const totalCost = sum(joined,'cost');
-  const topCampaign = campaignsArr.length ? [...campaignsArr].sort((a,b)=>b.cost-a.cost)[0] : null;
-  const topShare = (topCampaign && totalCost>0) ? (topCampaign.cost/totalCost*100) : null;
-  const withCpa = campaignsArr.filter(c=>c.cpa!==null);
-  const bestCampaign = withCpa.length ? [...withCpa].sort((a,b)=>a.cpa-b.cpa)[0] : null;
-  const worstCampaign = withCpa.length>1 ? [...withCpa].sort((a,b)=>b.cpa-a.cpa)[0] : null;
 
-  const byDate = {};
-  joined.forEach(r=>{
-    if(!byDate[r.date]) byDate[r.date] = {cost:0, conversion:0};
-    byDate[r.date].cost += r.cost; byDate[r.date].conversion += r.conversion;
+  const flags = [];
+  Object.values(byCampaign).forEach(camp=>{
+    if(camp.installs < MIN_N*2) return; // campaign itself too small to split meaningfully
+    Object.entries(camp.segments).forEach(([segKey, seg])=>{
+      if(seg.installs < MIN_N) return;
+      const restInstalls = camp.installs - seg.installs;
+      const restConversion = camp.conversion - seg.conversion;
+      if(restInstalls < MIN_N) return;
+      const p1 = seg.conversion/seg.installs;
+      const p2 = restConversion/restInstalls;
+      const pooled = (seg.conversion+restConversion)/(seg.installs+restInstalls);
+      if(pooled<=0 || pooled>=1) return;
+      const se = Math.sqrt(pooled*(1-pooled)*(1/seg.installs+1/restInstalls));
+      if(se===0) return;
+      const z = (p1-p2)/se;
+      if(z <= -Z_THRESHOLD){
+        flags.push({campaign:camp.label, segment:segKey, segRate:p1, restRate:p2, installs:seg.installs, z});
+      }
+    });
   });
-  const dayArr = Object.entries(byDate).map(([d,v])=>({date:d, cpa: v.conversion>0 ? v.cost/v.conversion : null}));
-  const daysWithCpa = dayArr.filter(d=>d.cpa!==null);
-  const bestDay = daysWithCpa.length ? [...daysWithCpa].sort((a,b)=>a.cpa-b.cpa)[0] : null;
-  const worstDay = daysWithCpa.length>1 ? [...daysWithCpa].sort((a,b)=>b.cpa-a.cpa)[0] : null;
-
-  const sentences = [];
-  if(costChangePct!==null){
-    sentences.push(`هزینه در نیمه‌ی دوم بازه نسبت به نیمه‌ی اول ${Math.abs(costChangePct).toFixed(0)}% ${costChangePct>=0?'افزایش':'کاهش'} داشته`);
-  }
-  if(cpaChangePct!==null){
-    sentences.push(`CPA نسبت به نیمه‌ی اول ${Math.abs(cpaChangePct).toFixed(0)}% ${cpaChangePct<=0?'بهبود':'افت'} پیدا کرده`);
-  }
-  let narrative = sentences.length ? sentences.join('، ') + '.' : 'برای مقایسه‌ی روند، داده‌ی کافی (حداقل ۲ روز) توی این بازه نیست.';
-  if(topCampaign && topShare!==null){
-    narrative += ` کمپین «${topCampaign.label}» با ${topShare.toFixed(0)}% از کل هزینه، بیشترین سهم رو داره.`;
-  }
-  if(bestCampaign && worstCampaign && bestCampaign.label !== worstCampaign.label){
-    narrative += ` «${bestCampaign.label}» کارآمدترین کمپین (CPA ${fmtMoney(bestCampaign.cpa)}) و «${worstCampaign.label}» گرون‌ترین (CPA ${fmtMoney(worstCampaign.cpa)}) بوده.`;
-  }
-
-  const chips = [];
-  if(costChangePct!==null) chips.push({label:'روند هزینه (نیمه دوم به اول)', value:(costChangePct>=0?'▲ ':'▼ ')+Math.abs(costChangePct).toFixed(0)+'%', tone:'neutral'});
-  if(cpaChangePct!==null) chips.push({label:'روند CPA (نیمه دوم به اول)', value:(cpaChangePct<=0?'▼ ':'▲ ')+Math.abs(cpaChangePct).toFixed(0)+'%', tone: cpaChangePct<=0?'good':'bad'});
-  if(topCampaign) chips.push({label:'بیشترین سهم هزینه', value: `${topCampaign.label} (${topShare.toFixed(0)}%)`, tone:'neutral'});
-  if(bestCampaign) chips.push({label:'کارآمدترین کمپین', value: bestCampaign.label, tone:'good'});
-  if(worstCampaign) chips.push({label:'گرون‌ترین کمپین', value: worstCampaign.label, tone:'bad'});
-  if(bestDay) chips.push({label:'بهترین روز (کمترین CPA)', value: fmtDateLabel(bestDay.date), tone:'good'});
-  if(worstDay) chips.push({label:'ضعیف‌ترین روز (بیشترین CPA)', value: fmtDateLabel(worstDay.date), tone:'bad'});
-
-  return {narrative, chips};
+  return flags.sort((a,b)=>a.z-b.z);
 }
+
+function renderCostDrivers(project, joined){
+  const results = computeDailyCostDrivers(joined);
+  const el = document.getElementById(`costDrivers-${project.id}`);
+  if(!results.length){ el.innerHTML = `<div class="deep-empty">توی این بازه، تغییر روزانه‌ای که از نوسان عادی بیشتر باشه پیدا نشد.</div>`; return; }
+  el.innerHTML = `<ul class="deep-list">` + results.slice(0,6).map(r=>`
+    <li class="deep-item">
+      <span class="di-tag ${r.pctChange>=0?'up':'down'}">${r.pctChange>=0?'▲':'▼'} ${Math.abs(r.pctChange).toFixed(0)}%</span>
+      <span class="di-date">${fmtDateLabel(r.date)}</span><br>
+      هزینه نسبت به روز قبل ${r.pctChange>=0?'افزایش':'کاهش'} داشته (${fmtMoney(Math.abs(r.absDelta))}) — عامل اصلی: <b>${escapeHtml(r.topCampaign||'—')}</b>${Math.abs(r.explainedShare)>=1?` (${Math.abs(r.explainedShare).toFixed(0)}٪ از این تغییر رو توضیح می‌ده)`:''}
+    </li>`).join('') + `</ul>`;
+}
+function renderCpaDrivers(project, joined){
+  const results = computeDailyCpaDrivers(joined);
+  const el = document.getElementById(`cpaDrivers-${project.id}`);
+  if(!results.length){ el.innerHTML = `<div class="deep-empty">توی این بازه، تغییر CPA روزانه‌ای که از نوسان عادی بیشتر باشه پیدا نشد.</div>`; return; }
+  el.innerHTML = `<ul class="deep-list">` + results.slice(0,6).map(r=>`
+    <li class="deep-item">
+      <span class="di-tag ${r.pctChange>=0?'up':'down'}">${r.pctChange>=0?'▲':'▼'} ${Math.abs(r.pctChange).toFixed(0)}%</span>
+      <span class="di-date">${fmtDateLabel(r.date)}</span><br>
+      CPA نسبت به روز قبل ${r.pctChange>=0?'بدتر':'بهتر'} شده — بیشترین اثر از: <b>${escapeHtml(r.topCampaign||'—')}</b>${r.contribution!==null?` (${r.contribution>=0?'+':''}${fmtMoney(r.contribution)} از تغییر CPA)`:''}
+    </li>`).join('') + `</ul>`;
+}
+function renderSegmentIssues(project){
+  const flags = computeAdgroupCreativeIssues(project);
+  const el = document.getElementById(`segmentIssues-${project.id}`);
+  if(!flags.length){ el.innerHTML = `<div class="deep-empty">با آستانه‌ی آماری فعلی (حداقل ۳۰ نصب در هر گروه، z ≤ ۱.۶۴۵-)، Adgroup/Creative مشکل‌دار معناداری پیدا نشد.</div>`; return; }
+  el.innerHTML = `<ul class="deep-list">` + flags.slice(0,6).map(f=>`
+    <li class="deep-item">
+      <b>${escapeHtml(f.campaign)}</b> ← ${escapeHtml(f.segment)}<br>
+      نرخ تبدیل این گروه: <span class="seg-rate low">${(f.segRate*100).toFixed(1)}٪</span> — میانگین بقیه‌ی کمپین: <span class="seg-rate">${(f.restRate*100).toFixed(1)}٪</span>
+      (n=${fmtNum(f.installs)} نصب، z=${f.z.toFixed(2)})
+    </li>`).join('') + `</ul>`;
+}
+
 
 function updateSection(project){
   if(project.error) return;
@@ -855,20 +1010,9 @@ function updateSection(project){
     }
   });
 
-  const insights = computeInsights(joined);
-  const textEl = document.getElementById(`insightText-${project.id}`);
-  const chipsEl = document.getElementById(`insightChips-${project.id}`);
-  if(insights){
-    textEl.textContent = insights.narrative;
-    chipsEl.innerHTML = insights.chips.map(c=>`
-      <div class="insight-chip ${c.tone}">
-        <div class="ic-label">${escapeHtml(c.label)}</div>
-        <div class="ic-value">${escapeHtml(c.value)}</div>
-      </div>`).join('');
-  } else {
-    textEl.textContent = 'داده‌ای برای تحلیل توی این بازه/فیلتر نیست.';
-    chipsEl.innerHTML = '';
-  }
+  renderCostDrivers(project, joined);
+  renderCpaDrivers(project, joined);
+  renderSegmentIssues(project);
 }
 function hexToRgba(hex, alpha){
   const h = hex.replace('#','');
