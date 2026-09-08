@@ -6,7 +6,8 @@ const { JWT } = require('google-auth-library');
 const ALLOWED_SPREADSHEETS = new Set([
   '1r9f3Vdl6ldgQeL50tHX4TxjVP0H_UxYeYFKhGFp0yeQ', // Yektanet
   '1DdhvkT6gVXKoDiicgXnXHTq32yZg3aGpJx97RT4wYeU', // Blue
-  '18ohsYVwngt7UJ5BwvBBWdhpQ2IOxO4b08-D4OMm2VEQ'  // Wepod
+  '18ohsYVwngt7UJ5BwvBBWdhpQ2IOxO4b08-D4OMm2VEQ', // Wepod
+  '1EvYoVf6HYp3Nbo02N47qYtaLesJBDVi9urQvOXVs1LQ'  // Bankino
 ]);
 
 let cachedClient = null;
