@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Marketing Pulse — داشبورد مارکتینگ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Vazirmatn:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#EEF1F5;
+    --surface:#FFFFFF;
+    --border:#D8DEE7;
+    --border-soft:#E6EAF0;
+    --ink:#1B2430;
+    --muted:#6B7686;
+    --faint:#9AA3B2;
+    --accent:#5B4FE0;
+    --accent-soft:#EDEBFC;
+    --positive:#1E9E8B;
+    --positive-soft:#E6F5F3;
+    --negative:#E8604C;
+    --negative-soft:#FCEBE8;
+    --amber:#F2A93B;
+    --amber-soft:#FCF1DE;
+    --radius:10px;
+    --font-ui:'Vazirmatn','Public Sans',system-ui,-apple-system,sans-serif;
+    --font-mono:'IBM Plex Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--font-ui);
+    font-size:14px;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1320px;margin:0 auto;padding:28px 24px 64px;}
+
+  /* Topbar */
+  .topbar{
+    display:flex;align-items:center;justify-content:space-between;
+    gap:16px;margin-bottom:24px;flex-wrap:wrap;
+  }
+  .topbar h1{font-size:21px;font-weight:800;margin:0;letter-spacing:-0.01em;}
+  .topbar .sub{color:var(--muted);font-size:12.5px;margin-top:3px;}
+  .topbar-actions{display:flex;align-items:center;gap:10px;}
+  .status-pill{
+    display:flex;align-items:center;gap:7px;
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:999px;padding:6px 13px;font-size:12.5px;color:var(--muted);
+  }
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--faint);flex-shrink:0;}
+  .dot.live{background:var(--positive);box-shadow:0 0 0 3px var(--positive-soft);}
+  .dot.err{background:var(--negative);box-shadow:0 0 0 3px var(--negative-soft);}
+  .dot.loading{background:var(--amber);box-shadow:0 0 0 3px var(--amber-soft);animation:pulse 1.2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+  button{font-family:inherit;cursor:pointer;}
+  .btn{
+    display:inline-flex;align-items:center;gap:7px;
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600;color:var(--ink);
+    transition:border-color .15s, background .15s;
+  }
+  .btn:hover{border-color:var(--accent);background:var(--accent-soft);}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .btn.primary:hover{background:#4d41cf;}
+  .btn svg{width:15px;height:15px;flex-shrink:0;}
+
+  /* KPI strip */
+  .kpis{
+    display:grid;grid-template-columns:repeat(6,1fr);
+    gap:1px;background:var(--border);
+    border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;
+    margin-bottom:20px;
+  }
+  .kpi{background:var(--surface);padding:16px 18px;}
+  .kpi .label{font-size:12px;color:var(--muted);margin-bottom:8px;font-weight:500;}
+  .kpi .value{font-family:var(--font-mono);font-size:22px;font-weight:600;letter-spacing:-0.02em;}
+  .kpi .value.accent{color:var(--accent);}
+
+  /* Grid layout */
+  .grid{display:grid;grid-template-columns:1.6fr 1fr;gap:16px;margin-bottom:16px;}
+  .card{
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:var(--radius);padding:18px 20px;
+  }
+  .card h2{font-size:14.5px;font-weight:700;margin:0 0 3px;}
+  .card .card-sub{font-size:12px;color:var(--muted);margin-bottom:14px;}
+  .chart-box{position:relative;height:260px;}
+  .chart-box.small{height:220px;}
+
+  /* Ranked list */
+  .ranked{list-style:none;margin:0;padding:0;}
+  .ranked li{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:9px 0;border-bottom:1px solid var(--border-soft);font-size:13px;
+  }
+  .ranked li:last-child{border-bottom:none;}
+  .ranked .name{display:flex;align-items:center;gap:9px;min-width:0;}
+  .ranked .chip{width:8px;height:8px;border-radius:2px;flex-shrink:0;}
+  .ranked .name span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .ranked .num{font-family:var(--font-mono);color:var(--muted);flex-shrink:0;padding-inline-start:10px;}
+
+  /* Table */
+  .table-card{margin-bottom:16px;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  thead th{
+    text-align:right;color:var(--muted);font-weight:600;font-size:12px;
+    padding:0 10px 10px;border-bottom:1px solid var(--border);cursor:pointer;user-select:none;
+    white-space:nowrap;
+  }
+  thead th:hover{color:var(--ink);}
+  thead th .arrow{opacity:.4;font-size:10px;margin-inline-start:3px;}
+  tbody td{padding:10px;border-bottom:1px solid var(--border-soft);white-space:nowrap;}
+  tbody td.num{font-family:var(--font-mono);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover{background:#FAFBFC;}
+  .empty-row td{text-align:center;color:var(--muted);padding:36px 10px;font-family:var(--font-ui);}
+
+  /* Sources */
+  .sources{display:flex;flex-wrap:wrap;gap:10px;}
+  .source-chip{
+    display:flex;align-items:center;gap:8px;
+    background:var(--surface);border:1px solid var(--border);border-radius:8px;
+    padding:8px 12px;font-size:12.5px;
+  }
+  .source-chip .name{font-weight:600;}
+  .source-chip .meta{color:var(--muted);}
+  .source-chip button{background:none;border:none;color:var(--faint);font-size:15px;padding:0 2px;line-height:1;}
+  .source-chip button:hover{color:var(--negative);}
+  .add-chip{
+    display:flex;align-items:center;gap:6px;
+    border:1px dashed var(--border);border-radius:8px;padding:8px 14px;
+    font-size:12.5px;color:var(--muted);background:transparent;
+  }
+  .add-chip:hover{border-color:var(--accent);color:var(--accent);}
+
+  /* Empty state */
+  .empty-state{
+    text-align:center;padding:60px 20px;background:var(--surface);
+    border:1px solid var(--border);border-radius:var(--radius);
+  }
+  .empty-state h2{font-size:17px;margin:0 0 8px;}
+  .empty-state p{color:var(--muted);max-width:420px;margin:0 auto 20px;font-size:13.5px;}
+
+  /* Modal */
+  .overlay{
+    position:fixed;inset:0;background:rgba(20,24,32,.45);
+    display:none;align-items:center;justify-content:center;z-index:50;padding:20px;
+  }
+  .overlay.open{display:flex;}
+  .modal{
+    background:var(--surface);border-radius:14px;width:100%;max-width:520px;
+    padding:26px 26px 22px;box-shadow:0 24px 60px rgba(20,24,40,.25);
+  }
+  .modal h3{margin:0 0 4px;font-size:17px;}
+  .modal .hint{color:var(--muted);font-size:12.5px;margin-bottom:18px;}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:12.5px;font-weight:600;margin-bottom:6px;}
+  .field input{
+    width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;
+    font-family:inherit;font-size:13.5px;background:#FBFCFD;
+  }
+  .field input:focus{outline:none;border-color:var(--accent);background:#fff;}
+  .field .help{font-size:11.5px;color:var(--faint);margin-top:5px;}
+  .modal-actions{display:flex;justify-content:flex-start;gap:8px;margin-top:18px;}
+  .modal-close{
+    position:absolute;top:16px;left:16px;background:none;border:none;
+    color:var(--faint);font-size:18px;
+  }
+  .modal{position:relative;}
+  .modal-error{
+    background:var(--negative-soft);color:var(--negative);border-radius:8px;
+    padding:9px 12px;font-size:12.5px;margin-bottom:14px;display:none;
+  }
+  .modal-error.show{display:block;}
+
+  .source-list-modal{margin-bottom:16px;}
+  .source-row{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:8px 0;border-bottom:1px solid var(--border-soft);font-size:13px;
+  }
+  .source-row:last-child{border-bottom:none;}
+  .source-row button{background:none;border:none;color:var(--faint);font-size:12px;}
+  .source-row button:hover{color:var(--negative);}
+
+  @media (max-width:900px){
+    .grid{grid-template-columns:1fr;}
+    .kpis{grid-template-columns:repeat(3,1fr);}
+    .kpi:nth-child(n+4){border-top:1px solid var(--border);}
+  }
+  @media (max-width:520px){
+    .kpis{grid-template-columns:repeat(2,1fr);}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <div>
+      <h1>Marketing Pulse</h1>
+      <div class="sub">داشبورد زنده‌ی کمپین‌های مارکتینگ از گوگل شیت</div>
+    </div>
+    <div class="topbar-actions">
+      <div class="status-pill">
+        <span class="dot" id="statusDot"></span>
+        <span id="statusText">هنوز منبعی وصل نیست</span>
+      </div>
+      <button class="btn" id="refreshBtn" title="بروزرسانی">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5"/></svg>
+        بروزرسانی
+      </button>
+      <button class="btn primary" id="openSettingsBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+        منابع داده
+      </button>
+    </div>
+  </div>
+
+  <!-- KPI strip -->
+  <div class="kpis" id="kpiStrip">
+    <div class="kpi"><div class="label">هزینه کل</div><div class="value" id="kpiSpend">—</div></div>
+    <div class="kpi"><div class="label">نمایش (Impressions)</div><div class="value" id="kpiImpr">—</div></div>
+    <div class="kpi"><div class="label">کلیک</div><div class="value" id="kpiClicks">—</div></div>
+    <div class="kpi"><div class="label">CTR</div><div class="value accent" id="kpiCtr">—</div></div>
+    <div class="kpi"><div class="label">تبدیل (Conversions)</div><div class="value" id="kpiConv">—</div></div>
+    <div class="kpi"><div class="label">CPA / ROAS</div><div class="value" id="kpiCpa">—</div></div>
+  </div>
+
+  <div id="mainContent">
+    <!-- Empty state OR charts, injected by JS -->
+  </div>
+
+</div>
+
+<!-- Settings modal -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <button class="modal-close" id="closeModalBtn">&times;</button>
+    <h3>منابع گوگل شیت</h3>
+    <div class="hint">شیت باید با دسترسی «هرکسی با لینک — بازبین» (Anyone with the link – Viewer) شیر شده باشه تا مرورگر بتونه مستقیم بخونتش.</div>
+
+    <div class="modal-error" id="modalError"></div>
+
+    <div class="source-list-modal" id="sourceListModal"></div>
+
+    <div class="field">
+      <label for="srcName">اسم منبع (مثلاً: کمپین‌های گوگل ادز)</label>
+      <input type="text" id="srcName" placeholder="Google Ads">
+    </div>
+    <div class="field">
+      <label for="srcUrl">لینک گوگل شیت</label>
+      <input type="text" id="srcUrl" placeholder="https://docs.google.com/spreadsheets/d/....../edit#gid=0">
+      <div class="help">کل لینک شیت رو پیست کن؛ ID و gid خودکار استخراج می‌شه.</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn primary" id="addSourceBtn">افزودن منبع</button>
+      <button class="btn" id="doneBtn">اتمام و بروزرسانی</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- State ----------
+  let sources = [];          // [{id, name, sheetId, gid}]
+  let rows = [];              // combined normalized rows across all sources
+  let sortState = {key:'spend', dir:'desc'};
+  let charts = {trend:null, channel:null};
+
+  const STORAGE_KEY = 'mktpulse_sources_v1';
+
+  function loadSourcesFromStorage(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(raw) sources = JSON.parse(raw);
+    }catch(e){ /* storage unavailable (e.g. sandboxed preview) — start empty, session-only */ }
+  }
+  function saveSourcesToStorage(){
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(sources)); }catch(e){ /* ignore */ }
+  }
+
+  // ---------- Helpers ----------
+  function parseSheetUrl(url){
+    const idMatch = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+    if(!idMatch) return null;
+    const sheetId = idMatch[1];
+    let gid = '0';
+    const gidHash = url.match(/[#&]gid=(\d+)/);
+    if(gidHash) gid = gidHash[1];
+    return {sheetId, gid};
+  }
+
+  function csvUrlFor(sheetId, gid){
+    return `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&gid=${gid}`;
+  }
+
+  function fmtNum(n, digits){
+    if(n===null || n===undefined || isNaN(n)) return '—';
+    if(digits===undefined) digits = 0;
+    return Number(n).toLocaleString('en-US', {maximumFractionDigits:digits, minimumFractionDigits:digits});
+  }
+  function fmtMoney(n){
+    if(n===null || n===undefined || isNaN(n)) return '—';
+    return '$' + fmtNum(n,0);
+  }
+
+  const COLUMN_ALIASES = {
+    date:        ['date','day','تاریخ'],
+    campaign:    ['campaign','campaign name','ad campaign','کمپین'],
+    channel:     ['channel','platform','source','network','کانال','پلتفرم'],
+    spend:       ['spend','cost','amount spent','budget spent','هزینه'],
+    impressions: ['impressions','impr','reach','نمایش'],
+    clicks:      ['clicks','کلیک'],
+    conversions: ['conversions','conv','results','purchases','leads','تبدیل'],
+    revenue:     ['revenue','sales','income','درآمد']
+  };
+
+  function normalizeHeader(h){
+    return String(h||'').trim().toLowerCase();
+  }
+
+  function detectColumnMap(headers){
+    const map = {};
+    const normHeaders = headers.map(normalizeHeader);
+    Object.keys(COLUMN_ALIASES).forEach(field=>{
+      const aliases = COLUMN_ALIASES[field];
+      let found = null;
+      for(let i=0;i<normHeaders.length;i++){
+        if(aliases.includes(normHeaders[i])){ found = headers[i]; break; }
+      }
+      if(!found){
+        for(let i=0;i<normHeaders.length;i++){
+          if(aliases.some(a=>normHeaders[i].includes(a))){ found = headers[i]; break; }
+        }
+      }
+      map[field] = found;
+    });
+    return map;
+  }
+
+  function toNumber(v){
+    if(v===null||v===undefined) return 0;
+    const cleaned = String(v).replace(/[^0-9.\-]/g,'');
+    const n = parseFloat(cleaned);
+    return isNaN(n) ? 0 : n;
+  }
+
+  // ---------- Fetch & parse ----------
+  async function fetchSource(source){
+    const url = csvUrlFor(source.sheetId, source.gid);
+    const res = await fetch(url);
+    if(!res.ok) throw new Error('sheet not accessible');
+    const text = await res.text();
+    const parsed = Papa.parse(text, {header:true, skipEmptyLines:true});
+    if(parsed.errors && parsed.errors.length && (!parsed.data || !parsed.data.length)){
+      throw new Error('parse failed');
+    }
+    const headers = parsed.meta.fields || [];
+    const colMap = detectColumnMap(headers);
+    const normalized = parsed.data.map(r=>({
+      source: source.name,
+      date: colMap.date ? r[colMap.date] : '',
+      campaign: colMap.campaign ? r[colMap.campaign] : '(بدون نام)',
+      channel: colMap.channel ? r[colMap.channel] : source.name,
+      spend: colMap.spend ? toNumber(r[colMap.spend]) : 0,
+      impressions: colMap.impressions ? toNumber(r[colMap.impressions]) : 0,
+      clicks: colMap.clicks ? toNumber(r[colMap.clicks]) : 0,
+      conversions: colMap.conversions ? toNumber(r[colMap.conversions]) : 0,
+      revenue: colMap.revenue ? toNumber(r[colMap.revenue]) : 0,
+    })).filter(r=> r.campaign && r.campaign !== '(بدون نام)' || r.spend || r.clicks || r.impressions);
+    return normalized;
+  }
+
+  async function refreshAll(){
+    if(!sources.length){
+      renderEmptyState();
+      setStatus('empty','هنوز منبعی وصل نیست');
+      return;
+    }
+    setStatus('loading','در حال دریافت داده...');
+    let combined = [];
+    let anyError = false;
+    for(const src of sources){
+      try{
+        const data = await fetchSource(src);
+        combined = combined.concat(data);
+        src._status = 'ok';
+        src._error = null;
+      }catch(e){
+        src._status = 'error';
+        src._error = 'قابل خوندن نیست — دسترسی شیت رو چک کن';
+        anyError = true;
+      }
+    }
+    rows = combined;
+    renderDashboard();
+    renderSourceChips();
+    if(anyError){
+      setStatus('err','بعضی منابع خطا دادن');
+    } else {
+      const now = new Date();
+      setStatus('live', 'همگام‌سازی شد — ' + now.toLocaleTimeString('fa-IR',{hour:'2-digit',minute:'2-digit'}));
+    }
+  }
+
+  function setStatus(kind, text){
+    const dot = document.getElementById('statusDot');
+    const t = document.getElementById('statusText');
+    dot.className = 'dot' + (kind==='live'?' live':kind==='err'?' err':kind==='loading'?' loading':'');
+    t.textContent = text;
+  }
+
+  // ---------- Render: empty state ----------
+  function renderEmptyState(){
+    document.getElementById('mainContent').innerHTML = `
+      <div class="empty-state">
+        <h2>هنوز به هیچ گوگل‌شیتی وصل نشدی</h2>
+        <p>روی «منابع داده» بزن و لینک شیت کمپین‌هات رو اضافه کن. شیت باید با دسترسی «هرکسی با لینک — بازبین» شیر شده باشه.</p>
+        <button class="btn primary" onclick="document.getElementById('openSettingsBtn').click()">افزودن اولین منبع</button>
+      </div>
+      <div style="margin-top:16px;"><div class="sources" id="sourcesInline"></div></div>
+    `;
+  }
+
+  // ---------- Render: dashboard ----------
+  function renderDashboard(){
+    document.getElementById('mainContent').innerHTML = `
+      <div class="grid">
+        <div class="card">
+          <h2>روند هزینه و تبدیل</h2>
+          <div class="card-sub">جمع روزانه در همه‌ی منابع متصل</div>
+          <div class="chart-box"><canvas id="trendChart"></canvas></div>
+        </div>
+        <div class="card">
+          <h2>هزینه به تفکیک کانال</h2>
+          <div class="card-sub">سهم هر کانال از کل هزینه</div>
+          <div class="chart-box small"><canvas id="channelChart"></canvas></div>
+        </div>
+      </div>
+
+      <div class="grid" style="grid-template-columns:1fr;">
+        <div class="card">
+          <h2>پرهزینه‌ترین کمپین‌ها</h2>
+          <div class="card-sub">مرتب‌شده بر اساس هزینه</div>
+          <ul class="ranked" id="topCampaigns"></ul>
+        </div>
+      </div>
+
+      <div class="card table-card">
+        <h2>همه کمپین‌ها</h2>
+        <div class="card-sub">روی هدر ستون کلیک کن تا مرتب بشه</div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th data-key="campaign">کمپین</th>
+                <th data-key="channel">کانال</th>
+                <th data-key="spend">هزینه</th>
+                <th data-key="impressions">نمایش</th>
+                <th data-key="clicks">کلیک</th>
+                <th data-key="ctr">CTR</th>
+                <th data-key="conversions">تبدیل</th>
+              </tr>
+            </thead>
+            <tbody id="campaignTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>منابع متصل</h2>
+        <div class="card-sub">وضعیت همگام‌سازی هر شیت</div>
+        <div class="sources" id="sourcesInline"></div>
+      </div>
+    `;
+
+    renderKpis();
+    renderTrendChart();
+    renderChannelChart();
+    renderTopCampaigns();
+    renderTable();
+
+    document.querySelectorAll('thead th[data-key]').forEach(th=>{
+      th.addEventListener('click', ()=>{
+        const key = th.dataset.key;
+        if(sortState.key === key){ sortState.dir = sortState.dir==='asc'?'desc':'asc'; }
+        else { sortState.key = key; sortState.dir = 'desc'; }
+        renderTable();
+      });
+    });
+  }
+
+  function renderKpis(){
+    const totalSpend = rows.reduce((s,r)=>s+r.spend,0);
+    const totalImpr = rows.reduce((s,r)=>s+r.impressions,0);
+    const totalClicks = rows.reduce((s,r)=>s+r.clicks,0);
+    const totalConv = rows.reduce((s,r)=>s+r.conversions,0);
+    const totalRevenue = rows.reduce((s,r)=>s+r.revenue,0);
+    const ctr = totalImpr ? (totalClicks/totalImpr*100) : null;
+    const cpa = totalConv ? (totalSpend/totalConv) : null;
+    const roas = (totalRevenue && totalSpend) ? (totalRevenue/totalSpend) : null;
+
+    document.getElementById('kpiSpend').textContent = fmtMoney(totalSpend);
+    document.getElementById('kpiImpr').textContent = fmtNum(totalImpr);
+    document.getElementById('kpiClicks').textContent = fmtNum(totalClicks);
+    document.getElementById('kpiCtr').textContent = ctr!==null ? ctr.toFixed(2)+'%' : '—';
+    document.getElementById('kpiConv').textContent = fmtNum(totalConv);
+    document.getElementById('kpiCpa').textContent = roas!==null ? ('ROAS '+roas.toFixed(2)+'x') : (cpa!==null ? fmtMoney(cpa)+'/تبدیل' : '—');
+  }
+
+  function groupByDate(){
+    const map = {};
+    rows.forEach(r=>{
+      const d = (r.date || 'نامشخص').trim() || 'نامشخص';
+      if(!map[d]) map[d] = {spend:0, conversions:0};
+      map[d].spend += r.spend;
+      map[d].conversions += r.conversions;
+    });
+    const keys = Object.keys(map).filter(k=>k!=='نامشخص').sort((a,b)=> new Date(a) - new Date(b));
+    return {labels: keys, spend: keys.map(k=>map[k].spend), conv: keys.map(k=>map[k].conversions)};
+  }
+
+  function renderTrendChart(){
+    const {labels, spend, conv} = groupByDate();
+    const ctx = document.getElementById('trendChart');
+    if(charts.trend) charts.trend.destroy();
+    if(!labels.length){
+      ctx.parentElement.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:12.5px;">ستون تاریخ در دیتا پیدا نشد</div>';
+      return;
+    }
+    charts.trend = new Chart(ctx, {
+      type:'line',
+      data:{
+        labels,
+        datasets:[
+          {label:'هزینه', data:spend, borderColor:'#5B4FE0', backgroundColor:'rgba(91,79,224,0.08)', fill:true, tension:.3, yAxisID:'y', pointRadius:0, borderWidth:2},
+          {label:'تبدیل', data:conv, borderColor:'#F2A93B', backgroundColor:'rgba(242,169,59,0.08)', fill:true, tension:.3, yAxisID:'y1', pointRadius:0, borderWidth:2}
+        ]
+      },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        interaction:{mode:'index', intersect:false},
+        plugins:{legend:{position:'top', align:'end', labels:{boxWidth:8, boxHeight:8, usePointStyle:true, font:{size:11}}}},
+        scales:{
+          y:{position:'left', grid:{color:'#EEF1F5'}, ticks:{font:{size:10}}},
+          y1:{position:'right', grid:{display:false}, ticks:{font:{size:10}}},
+          x:{grid:{display:false}, ticks:{font:{size:10}, maxRotation:0, autoSkip:true, maxTicksLimit:7}}
+        }
+      }
+    });
+  }
+
+  function groupByChannel(){
+    const map = {};
+    rows.forEach(r=>{
+      const c = r.channel || 'نامشخص';
+      map[c] = (map[c]||0) + r.spend;
+    });
+    const entries = Object.entries(map).sort((a,b)=>b[1]-a[1]);
+    return entries;
+  }
+
+  const PALETTE = ['#5B4FE0','#F2A93B','#1E9E8B','#E8604C','#4C8DFF','#9A6BD6','#3FB6A8'];
+
+  function renderChannelChart(){
+    const entries = groupByChannel();
+    const ctx = document.getElementById('channelChart');
+    if(charts.channel) charts.channel.destroy();
+    if(!entries.length){
+      ctx.parentElement.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:12.5px;">داده‌ای برای نمایش نیست</div>';
+      return;
+    }
+    charts.channel = new Chart(ctx, {
+      type:'bar',
+      data:{
+        labels: entries.map(e=>e[0]),
+        datasets:[{data: entries.map(e=>e[1]), backgroundColor: entries.map((_,i)=>PALETTE[i%PALETTE.length]), borderRadius:5, maxBarThickness:34}]
+      },
+      options:{
+        indexAxis:'y', responsive:true, maintainAspectRatio:false,
+        plugins:{legend:{display:false}},
+        scales:{
+          x:{grid:{color:'#EEF1F5'}, ticks:{font:{size:10}}},
+          y:{grid:{display:false}, ticks:{font:{size:11}}}
+        }
+      }
+    });
+  }
+
+  function renderTopCampaigns(){
+    const byCampaign = {};
+    rows.forEach(r=>{
+      const key = r.campaign;
+      if(!byCampaign[key]) byCampaign[key] = {spend:0, channel:r.channel};
+      byCampaign[key].spend += r.spend;
+    });
+    const top = Object.entries(byCampaign).sort((a,b)=>b[1].spend-a[1].spend).slice(0,6);
+    const el = document.getElementById('topCampaigns');
+    if(!top.length){ el.innerHTML = '<li style="color:var(--muted);">داده‌ای نیست</li>'; return; }
+    el.innerHTML = top.map((t,i)=>`
+      <li>
+        <span class="name"><span class="chip" style="background:${PALETTE[i%PALETTE.length]}"></span><span>${escapeHtml(t[0])}</span></span>
+        <span class="num">${fmtMoney(t[1].spend)}</span>
+      </li>`).join('');
+  }
+
+  function renderTable(){
+    const byCampaign = {};
+    rows.forEach(r=>{
+      const key = r.campaign + '||' + r.channel;
+      if(!byCampaign[key]) byCampaign[key] = {campaign:r.campaign, channel:r.channel, spend:0, impressions:0, clicks:0, conversions:0};
+      byCampaign[key].spend += r.spend;
+      byCampaign[key].impressions += r.impressions;
+      byCampaign[key].clicks += r.clicks;
+      byCampaign[key].conversions += r.conversions;
+    });
+    let list = Object.values(byCampaign).map(r=>({...r, ctr: r.impressions ? (r.clicks/r.impressions*100) : 0}));
+
+    const {key, dir} = sortState;
+    list.sort((a,b)=>{
+      let av = a[key], bv = b[key];
+      if(typeof av === 'string'){ av = av.toLowerCase(); bv = bv.toLowerCase(); return dir==='asc' ? av.localeCompare(bv) : bv.localeCompare(av); }
+      return dir==='asc' ? av-bv : bv-av;
+    });
+
+    const tbody = document.getElementById('campaignTableBody');
+    if(!list.length){
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="7">داده‌ای برای نمایش نیست</td></tr>';
+      return;
+    }
+    tbody.innerHTML = list.map(r=>`
+      <tr>
+        <td>${escapeHtml(r.campaign)}</td>
+        <td>${escapeHtml(r.channel)}</td>
+        <td class="num">${fmtMoney(r.spend)}</td>
+        <td class="num">${fmtNum(r.impressions)}</td>
+        <td class="num">${fmtNum(r.clicks)}</td>
+        <td class="num">${r.ctr.toFixed(2)}%</td>
+        <td class="num">${fmtNum(r.conversions)}</td>
+      </tr>`).join('');
+
+    document.querySelectorAll('thead th[data-key]').forEach(th=>{
+      const arrow = th.querySelector('.arrow');
+      if(arrow) arrow.remove();
+      if(th.dataset.key === sortState.key){
+        th.insertAdjacentHTML('beforeend', `<span class="arrow">${sortState.dir==='asc'?'▲':'▼'}</span>`);
+      }
+    });
+  }
+
+  function renderSourceChips(){
+    const el = document.getElementById('sourcesInline');
+    if(!el) return;
+    if(!sources.length){ el.innerHTML = ''; return; }
+    el.innerHTML = sources.map(s=>{
+      const ok = s._status === 'ok';
+      const err = s._status === 'error';
+      const dotClass = ok ? 'live' : err ? 'err' : '';
+      const meta = err ? (s._error||'خطا') : (ok ? 'متصل' : 'در انتظار');
+      return `<div class="source-chip"><span class="dot ${dotClass}"></span><span class="name">${escapeHtml(s.name)}</span><span class="meta">${meta}</span></div>`;
+    }).join('') + `<button class="add-chip" onclick="document.getElementById('openSettingsBtn').click()">+ افزودن منبع</button>`;
+  }
+
+  function escapeHtml(str){
+    return String(str).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  }
+
+  // ---------- Modal ----------
+  function renderSourceListModal(){
+    const el = document.getElementById('sourceListModal');
+    if(!sources.length){
+      el.innerHTML = '<div style="color:var(--muted);font-size:12.5px;margin-bottom:6px;">هنوز منبعی اضافه نشده</div>';
+      return;
+    }
+    el.innerHTML = sources.map((s,i)=>`
+      <div class="source-row">
+        <span>${escapeHtml(s.name)}</span>
+        <button data-idx="${i}" class="remove-src">حذف</button>
+      </div>`).join('');
+    el.querySelectorAll('.remove-src').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        sources.splice(parseInt(btn.dataset.idx),1);
+        saveSourcesToStorage();
+        renderSourceListModal();
+      });
+    });
+  }
+
+  function showModalError(msg){
+    const el = document.getElementById('modalError');
+    el.textContent = msg;
+    el.classList.add('show');
+  }
+  function hideModalError(){
+    document.getElementById('modalError').classList.remove('show');
+  }
+
+  function openModal(){
+    hideModalError();
+    renderSourceListModal();
+    document.getElementById('overlay').classList.add('open');
+  }
+  function closeModal(){
+    document.getElementById('overlay').classList.remove('open');
+  }
+
+  document.getElementById('openSettingsBtn').addEventListener('click', openModal);
+  document.getElementById('closeModalBtn').addEventListener('click', closeModal);
+  document.getElementById('doneBtn').addEventListener('click', ()=>{ closeModal(); refreshAll(); });
+  document.getElementById('overlay').addEventListener('click', (e)=>{ if(e.target.id==='overlay') closeModal(); });
+
+  document.getElementById('addSourceBtn').addEventListener('click', ()=>{
+    hideModalError();
+    const nameInput = document.getElementById('srcName');
+    const urlInput = document.getElementById('srcUrl');
+    const name = nameInput.value.trim();
+    const url = urlInput.value.trim();
+    if(!name || !url){ showModalError('اسم و لینک شیت رو پر کن.'); return; }
+    const parsed = parseSheetUrl(url);
+    if(!parsed){ showModalError('لینک گوگل شیت معتبر نیست.'); return; }
+    sources.push({id: Date.now(), name, sheetId: parsed.sheetId, gid: parsed.gid});
+    saveSourcesToStorage();
+    nameInput.value = '';
+    urlInput.value = '';
+    renderSourceListModal();
+  });
+
+  document.getElementById('refreshBtn').addEventListener('click', refreshAll);
+
+  // ---------- Init ----------
+  loadSourcesFromStorage();
+  if(sources.length){ refreshAll(); } else { renderEmptyState(); renderSourceChips(); }
+
+})();
+</script>
+</body>
+</html>
