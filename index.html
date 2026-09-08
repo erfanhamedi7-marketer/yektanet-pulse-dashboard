@@ -409,6 +409,7 @@ function renderDashboard(joined, coverage){
   Chart.defaults.color = '#8A93A8';
   Chart.defaults.font.family = "'Vazirmatn', system-ui, sans-serif";
   new Chart(document.getElementById('trendChart'), {
+    type:'bar',
     data:{
       labels,
       datasets:[
