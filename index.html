@@ -705,8 +705,8 @@ function renderSectionsShell(){
           </div>
         </div>
 
-        <div class="deep-subhead">تغییرات قابل‌توجه هزینه‌ی روزانه</div>
-        <div class="deep-subtext">نسبت به روز قبل — فقط تغییرهایی که از نوسان عادی این بازه بیشترن</div>
+        <div class="deep-subhead">عامل تغییر هزینه (آخرین روز نسبت به روز قبلش)</div>
+        <div class="deep-subtext">فقط دو روز آخر بازه‌ی فیلترشده — همه‌ی کمپین‌هایی که توی این تغییر نقش داشتن</div>
         <div id="costDrivers-${p.id}"></div>
 
         <div class="deep-subhead">تغییرات قابل‌توجه CPA روزانه</div>
@@ -774,45 +774,35 @@ function stdev(arr, m){
 // For each day, is the day-over-day cost change large enough (relative to this
 // section's own normal day-to-day noise) to be worth explaining? If so, find
 // which single campaign's own cost delta best explains the total delta.
-function computeDailyCostDrivers(joined){
+// Only compares the most recent available day against the one before it (not
+// the whole range), and lists every campaign that contributed to the change
+// in spend, ranked by the size of its own contribution.
+function computeLatestCostBreakdown(joined){
   const pivot = pivotByDateCampaign(joined);
   const dates = Object.keys(pivot).sort();
-  if(dates.length < 3) return []; // need enough days to know what "normal" noise looks like
-  const dayCost = d => Object.values(pivot[d]).reduce((s,c)=>s+c.cost,0);
-  const totals = dates.map(d=>({date:d, cost:dayCost(d)}));
-  const avgDaily = mean(totals.map(t=>t.cost));
+  if(dates.length < 2) return null;
+  const d = dates[dates.length-1], prevD = dates[dates.length-2];
+  const today = pivot[d], yesterday = pivot[prevD];
+  const totalToday = Object.values(today).reduce((s,c)=>s+c.cost,0);
+  const totalYesterday = Object.values(yesterday).reduce((s,c)=>s+c.cost,0);
+  const totalDelta = totalToday - totalYesterday;
+  const pctChange = totalYesterday>0 ? (totalDelta/totalYesterday*100) : null;
 
-  const pctChanges = [];
-  for(let i=1;i<totals.length;i++){
-    if(totals[i-1].cost>0) pctChanges.push((totals[i].cost-totals[i-1].cost)/totals[i-1].cost*100);
-  }
-  const m = mean(pctChanges), sd = stdev(pctChanges, m);
-
-  const results = [];
-  for(let i=1;i<dates.length;i++){
-    const d = dates[i], prevD = dates[i-1];
-    const curCost = totals[i].cost, prevCost = totals[i-1].cost;
-    if(prevCost<=0) continue;
-    const pctChange = (curCost-prevCost)/prevCost*100;
-    const absDelta = curCost-prevCost;
-    // "significant" = clearly outside this section's normal day-to-day swing,
-    // AND large enough in absolute terms to matter (>=8% of an average day's spend)
-    const zLike = sd>0 ? Math.abs(pctChange-m)/sd : 0;
-    if(zLike < 1.5 || Math.abs(absDelta) < avgDaily*0.08) continue;
-
-    const today = pivot[d], yesterday = pivot[prevD];
-    const allKeys = new Set([...Object.keys(today), ...Object.keys(yesterday)]);
-    let topCampaign = null, topDelta = 0;
-    allKeys.forEach(k=>{
-      const c1 = today[k] ? today[k].cost : 0;
-      const c0 = yesterday[k] ? yesterday[k].cost : 0;
-      const delta = c1-c0;
-      if(Math.abs(delta) > Math.abs(topDelta)){ topDelta = delta; topCampaign = (today[k]||yesterday[k]).label; }
+  const allKeys = new Set([...Object.keys(today), ...Object.keys(yesterday)]);
+  const contributions = [];
+  allKeys.forEach(k=>{
+    const c1 = today[k] ? today[k].cost : 0;
+    const c0 = yesterday[k] ? yesterday[k].cost : 0;
+    const delta = c1-c0;
+    if(Math.abs(delta) < 1) return; // ignore true zero / rounding noise
+    contributions.push({
+      campaign: (today[k]||yesterday[k]).label,
+      delta, todayCost:c1, yesterdayCost:c0,
+      share: totalDelta!==0 ? (delta/totalDelta*100) : 0
     });
-    const explainedShare = absDelta!==0 ? (topDelta/absDelta*100) : 0;
-    results.push({date:d, pctChange, absDelta, topCampaign, explainedShare});
-  }
-  return results.sort((a,b)=>Math.abs(b.pctChange)-Math.abs(a.pctChange));
+  });
+  contributions.sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta));
+  return {date:d, prevDate:prevD, totalToday, totalYesterday, totalDelta, pctChange, contributions};
 }
 
 // Same idea for CPA, but attribution uses a leave-one-out counterfactual: "if
@@ -915,15 +905,27 @@ function computeAdgroupCreativeIssues(project){
 }
 
 function renderCostDrivers(project, joined){
-  const results = computeDailyCostDrivers(joined);
+  const b = computeLatestCostBreakdown(joined);
   const el = document.getElementById(`costDrivers-${project.id}`);
-  if(!results.length){ el.innerHTML = `<div class="deep-empty">توی این بازه، تغییر روزانه‌ای که از نوسان عادی بیشتر باشه پیدا نشد.</div>`; return; }
-  el.innerHTML = `<ul class="deep-list">` + results.slice(0,6).map(r=>`
+  if(!b){ el.innerHTML = `<div class="deep-empty">برای مقایسه‌ی آخرین روز با روز قبلش، حداقل ۲ روز داده لازمه.</div>`; return; }
+  const headline = `
+    <div class="deep-item" style="border-bottom:1px solid var(--border);padding-bottom:12px;">
+      <span class="di-tag ${b.totalDelta>=0?'up':'down'}">${b.totalDelta>=0?'▲':'▼'} ${b.pctChange!==null?Math.abs(b.pctChange).toFixed(0)+'٪':'—'}</span>
+      <span class="di-date">${fmtDateLabel(b.prevDate)} ← ${fmtDateLabel(b.date)}</span><br>
+      هزینه از <b>${fmtMoney(b.totalYesterday)}</b> به <b>${fmtMoney(b.totalToday)}</b> ${b.totalDelta>=0?'رسیده (افزایش':'رسیده (کاهش'} ${fmtMoney(Math.abs(b.totalDelta))})
+    </div>`;
+  if(!b.contributions.length){
+    el.innerHTML = headline + `<div class="deep-empty">هیچ کمپینی تغییر هزینه‌ی قابل‌ثبتی نداشته.</div>`;
+    return;
+  }
+  const rows = b.contributions.slice(0,8).map(c=>`
     <li class="deep-item">
-      <span class="di-tag ${r.pctChange>=0?'up':'down'}">${r.pctChange>=0?'▲':'▼'} ${Math.abs(r.pctChange).toFixed(0)}%</span>
-      <span class="di-date">${fmtDateLabel(r.date)}</span><br>
-      هزینه نسبت به روز قبل ${r.pctChange>=0?'افزایش':'کاهش'} داشته (${fmtMoney(Math.abs(r.absDelta))}) — عامل اصلی: <b>${escapeHtml(r.topCampaign||'—')}</b>${Math.abs(r.explainedShare)>=1?` (${Math.abs(r.explainedShare).toFixed(0)}٪ از این تغییر رو توضیح می‌ده)`:''}
-    </li>`).join('') + `</ul>`;
+      <span class="di-tag ${c.delta>=0?'up':'down'}">${c.delta>=0?'+':''}${fmtMoney(c.delta)}</span>
+      <b>${escapeHtml(c.campaign)}</b>
+      <span class="di-date">${fmtMoney(c.yesterdayCost)} ← ${fmtMoney(c.todayCost)}</span>
+      ${b.totalDelta!==0?` — ${Math.abs(c.share).toFixed(0)}٪ از کل تغییر`:''}
+    </li>`).join('');
+  el.innerHTML = headline + `<ul class="deep-list">${rows}</ul>`;
 }
 function renderCpaDrivers(project, joined){
   const results = computeDailyCpaDrivers(joined);
