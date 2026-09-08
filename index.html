@@ -151,6 +151,29 @@
   }
   @keyframes spin{to{transform:rotate(360deg);}}
 
+  .filter-bar{
+    display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+    background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+    padding:14px 18px;margin-bottom:16px;box-shadow:var(--shadow-card);
+  }
+  .filter-group{display:flex;align-items:center;gap:8px;}
+  .filter-group label{font-size:12px;color:var(--text-muted);font-weight:500;}
+  .filter-bar input[type="date"]{
+    background:var(--surface-2);border:1px solid var(--border);border-radius:8px;
+    padding:7px 10px;font-family:var(--font-mono);font-size:12.5px;color:var(--text);
+    color-scheme:dark;
+  }
+  .filter-bar input[type="date"]:focus{outline:none;border-color:var(--accent);}
+  .filter-presets{display:flex;gap:6px;margin-inline-start:auto;flex-wrap:wrap;}
+  .preset-btn{
+    background:var(--surface-2);border:1px solid var(--border);border-radius:999px;
+    padding:6px 13px;font-size:12px;color:var(--text-muted);font-family:var(--font-ui);cursor:pointer;
+    transition:all .15s;
+  }
+  .preset-btn:hover{border-color:var(--accent);color:var(--text);}
+  .preset-btn.active{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-2);font-weight:600;}
+  .filter-range-label{font-size:11.5px;color:var(--text-faint);font-family:var(--font-mono);}
+
   @media (max-width:900px){
     .kpis{grid-template-columns:repeat(2,1fr);}
   }
@@ -179,6 +202,7 @@
   <div id="mainContent">
     <div class="loading-state"><div class="spinner"></div>در حال خوندن Adtrace و Cost - Yektanet...</div>
   </div>
+  <div id="resultsContent"></div>
 </div>
 
 <script>
@@ -244,31 +268,41 @@ async function fetchCsv(gid){
   return parsed.data;
 }
 
-function aggregateAdtrace(rows){
-  const map = {};
-  rows.forEach(r=>{
+function normalizeAdtraceRows(rows){
+  return rows.map(r=>{
     const date = normDate(r['Date']);
     const campaignRaw = r['Campaign'];
     const campaign = normCampaign(campaignRaw);
-    if(!date || !campaign) return;
-    const key = date + '||' + campaign;
-    if(!map[key]) map[key] = {date, campaign, campaignLabel:(campaignRaw||'').trim(), installs:0, kyc:0};
-    map[key].installs += toNumber(r['Installs']);
-    map[key].kyc += toNumber(r['KYC']);
+    if(!date || !campaign) return null;
+    return {date, campaign, campaignLabel:(campaignRaw||'').trim(), installs: toNumber(r['Installs']), kyc: toNumber(r['KYC'])};
+  }).filter(Boolean);
+}
+function normalizeCostRows(rows){
+  return rows.map(r=>{
+    const date = normDate(r['Date']);
+    const campaign = normCampaign(r['Campaign']);
+    if(!date || !campaign) return null;
+    return {date, campaign, cost: toNumber(r['Cost']), impressions: toNumber(r['Impressions']), clicks: toNumber(r['Clicks'])};
+  }).filter(Boolean);
+}
+function aggregateAdtrace(rows){
+  const map = {};
+  rows.forEach(r=>{
+    const key = r.date + '||' + r.campaign;
+    if(!map[key]) map[key] = {date:r.date, campaign:r.campaign, campaignLabel:r.campaignLabel, installs:0, kyc:0};
+    map[key].installs += r.installs;
+    map[key].kyc += r.kyc;
   });
   return map;
 }
 function aggregateCostYektanet(rows){
   const map = {};
   rows.forEach(r=>{
-    const date = normDate(r['Date']);
-    const campaign = normCampaign(r['Campaign']);
-    if(!date || !campaign) return;
-    const key = date + '||' + campaign;
+    const key = r.date + '||' + r.campaign;
     if(!map[key]) map[key] = {cost:0, impressions:0, clicks:0};
-    map[key].cost += toNumber(r['Cost']);
-    map[key].impressions += toNumber(r['Impressions']);
-    map[key].clicks += toNumber(r['Clicks']);
+    map[key].cost += r.cost;
+    map[key].impressions += r.impressions;
+    map[key].clicks += r.clicks;
   });
   return map;
 }
@@ -317,14 +351,16 @@ function renderError(msg){
   setStatus('err','خطا در دریافت داده');
 }
 
-function renderDashboard(joined, coverage){
+let currentChart = null;
+
+function renderResults(joined, coverage){
   const totalCost = joined.reduce((s,r)=>s+r.cost,0);
   const totalKyc = joined.reduce((s,r)=>s+r.kyc,0);
   const totalInstalls = joined.reduce((s,r)=>s+r.installs,0);
   const overallCpa = totalKyc>0 ? totalCost/totalKyc : null;
   const matchPct = coverage.totalCostInSheet>0 ? Math.round(coverage.matchedCost/coverage.totalCostInSheet*100) : 0;
 
-  document.getElementById('mainContent').innerHTML = `
+  document.getElementById('resultsContent').innerHTML = `
     <div class="coverage-card">
       <div class="coverage-top">
         <span class="title">پوشش Join — چقدر از هزینه‌ی Cost-Yektanet به یه کمپین در Adtrace وصل شد</span>
@@ -408,7 +444,8 @@ function renderDashboard(joined, coverage){
   const {labels, cost, cpa} = groupByDate(joined);
   Chart.defaults.color = '#8A93A8';
   Chart.defaults.font.family = "'Vazirmatn', system-ui, sans-serif";
-  new Chart(document.getElementById('trendChart'), {
+  if(currentChart){ currentChart.destroy(); currentChart = null; }
+  currentChart = new Chart(document.getElementById('trendChart'), {
     type:'bar',
     data:{
       labels,
@@ -479,6 +516,90 @@ function renderDashboard(joined, coverage){
   setStatus('live', 'همگام‌سازی شد — ' + new Date().toLocaleTimeString('fa-IR',{hour:'2-digit',minute:'2-digit'}));
 }
 
+// ---------- Date range filtering ----------
+let rawAdtrace = [];
+let rawCost = [];
+let sheetMinDate = null; // 'YYYYMMDD'
+let sheetMaxDate = null;
+let currentFrom = null;
+let currentTo = null;
+
+function toInputDate(yyyymmdd){
+  const s = String(yyyymmdd);
+  return s.slice(0,4)+'-'+s.slice(4,6)+'-'+s.slice(6,8);
+}
+function fromInputDate(isoDate){
+  return isoDate.replace(/-/g,'');
+}
+
+function computeForRange(from, to){
+  const inRange = d => (!from || d >= from) && (!to || d <= to);
+  const adtraceFiltered = rawAdtrace.filter(r=>inRange(r.date));
+  const costFiltered = rawCost.filter(r=>inRange(r.date));
+  const adtraceMap = aggregateAdtrace(adtraceFiltered);
+  const costMap = aggregateCostYektanet(costFiltered);
+  return buildJoinedRows(adtraceMap, costMap);
+}
+
+function applyFilter(){
+  const fromVal = document.getElementById('fromDate').value;
+  const toVal = document.getElementById('toDate').value;
+  currentFrom = fromVal ? fromInputDate(fromVal) : sheetMinDate;
+  currentTo = toVal ? fromInputDate(toVal) : sheetMaxDate;
+  document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
+  const {joined, matchedCost, totalCostInSheet, unmatchedCost} = computeForRange(currentFrom, currentTo);
+  renderResults(joined, {matchedCost, totalCostInSheet, unmatchedCost});
+}
+
+function setPreset(days, btn){
+  document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  if(days === null){
+    document.getElementById('fromDate').value = toInputDate(sheetMinDate);
+    document.getElementById('toDate').value = toInputDate(sheetMaxDate);
+  } else {
+    const maxD = new Date(toInputDate(sheetMaxDate));
+    const fromD = new Date(maxD);
+    fromD.setDate(fromD.getDate() - (days - 1));
+    const minD = new Date(toInputDate(sheetMinDate));
+    const clampedFrom = fromD < minD ? minD : fromD;
+    document.getElementById('fromDate').value = clampedFrom.toISOString().slice(0,10);
+    document.getElementById('toDate').value = toInputDate(sheetMaxDate);
+  }
+  applyFilter();
+}
+
+function renderFilterBar(){
+  document.getElementById('mainContent').innerHTML = `
+    <div class="filter-bar">
+      <div class="filter-group">
+        <label>از</label>
+        <input type="date" id="fromDate" value="${toInputDate(sheetMinDate)}" min="${toInputDate(sheetMinDate)}" max="${toInputDate(sheetMaxDate)}">
+      </div>
+      <div class="filter-group">
+        <label>تا</label>
+        <input type="date" id="toDate" value="${toInputDate(sheetMaxDate)}" min="${toInputDate(sheetMinDate)}" max="${toInputDate(sheetMaxDate)}">
+      </div>
+      <div class="filter-presets">
+        <button class="preset-btn active" id="presetAll">کل بازه</button>
+        <button class="preset-btn" id="preset7">۷ روز اخیر</button>
+        <button class="preset-btn" id="preset30">۳۰ روز اخیر</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('fromDate').addEventListener('change', ()=>{
+    document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
+    applyFilter();
+  });
+  document.getElementById('toDate').addEventListener('change', ()=>{
+    document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
+    applyFilter();
+  });
+  document.getElementById('presetAll').addEventListener('click', (e)=>setPreset(null, e.target));
+  document.getElementById('preset7').addEventListener('click', (e)=>setPreset(7, e.target));
+  document.getElementById('preset30').addEventListener('click', (e)=>setPreset(30, e.target));
+}
+
 async function init(){
   setStatus('loading','در حال خوندن Adtrace...');
   let adtraceRows, costRows;
@@ -487,10 +608,20 @@ async function init(){
   setStatus('loading','در حال خوندن Cost - Yektanet...');
   try{ costRows = await fetchCsv(GID_COST_YEKTANET); }
   catch(e){ renderError('نتونستم تب Cost - Yektanet رو بخونم. مطمئن شو شیت با دسترسی «هرکسی با لینک — بازبین» شیر شده.'); return; }
-  const adtraceMap = aggregateAdtrace(adtraceRows);
-  const costMap = aggregateCostYektanet(costRows);
-  const {joined, matchedCost, totalCostInSheet, unmatchedCost} = buildJoinedRows(adtraceMap, costMap);
-  renderDashboard(joined, {matchedCost, totalCostInSheet, unmatchedCost});
+
+  rawAdtrace = normalizeAdtraceRows(adtraceRows);
+  rawCost = normalizeCostRows(costRows);
+
+  const allDates = [...rawAdtrace.map(r=>r.date), ...rawCost.map(r=>r.date)].sort();
+  if(!allDates.length){ renderError('هیچ ردیف معتبری با Date و Campaign پیدا نشد.'); return; }
+  sheetMinDate = allDates[0];
+  sheetMaxDate = allDates[allDates.length-1];
+  currentFrom = sheetMinDate;
+  currentTo = sheetMaxDate;
+
+  renderFilterBar();
+  const {joined, matchedCost, totalCostInSheet, unmatchedCost} = computeForRange(sheetMinDate, sheetMaxDate);
+  renderResults(joined, {matchedCost, totalCostInSheet, unmatchedCost});
 }
 
 init();
