@@ -222,6 +222,19 @@
 
   .section-filter-bar{margin-bottom:14px;}
 
+  .insight-text{font-size:13.5px;line-height:1.9;color:var(--text);margin:0 0 16px;}
+  .insight-chips{display:flex;flex-wrap:wrap;gap:10px;}
+  .insight-chip{
+    background:var(--surface-2);border:1px solid var(--border);border-radius:10px;
+    padding:10px 14px;min-width:150px;flex:1 1 150px;
+  }
+  .insight-chip .ic-label{font-size:11px;color:var(--text-muted);margin-bottom:5px;}
+  .insight-chip .ic-value{font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .insight-chip.good{border-color:rgba(52,211,153,.35);}
+  .insight-chip.good .ic-value{color:var(--positive);}
+  .insight-chip.bad{border-color:rgba(251,113,133,.35);}
+  .insight-chip.bad .ic-value{color:var(--negative);}
+
   @media (max-width:900px){
     .kpis{grid-template-columns:repeat(2,1fr);}
   }
@@ -664,6 +677,16 @@ function renderSectionsShell(){
         </div>
         <div class="chart-box"><canvas id="trendChart-${p.id}"></canvas></div>
       </div>
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h2>تحلیل خودکار</h2>
+            <div class="card-sub">بر اساس همین بازه‌ی تاریخ و فیلتر کمپین محاسبه می‌شه</div>
+          </div>
+        </div>
+        <p class="insight-text" id="insightText-${p.id}"></p>
+        <div class="insight-chips" id="insightChips-${p.id}"></div>
+      </div>
     </div>
   `).join('');
 
@@ -698,6 +721,77 @@ function renderSectionsShell(){
       setOwnPreset(p, p.defaultRangeDays || 30, document.getElementById(`ownPreset30-${p.id}`));
     }
   });
+}
+
+function computeInsights(joined){
+  if(!joined.length) return null;
+  const sum = (rows,key)=>rows.reduce((s,r)=>s+r[key],0);
+  const dates = Array.from(new Set(joined.map(r=>r.date))).sort();
+
+  let costChangePct = null, cpaChangePct = null;
+  if(dates.length >= 2){
+    const mid = Math.ceil(dates.length/2);
+    const firstDates = new Set(dates.slice(0,mid));
+    const secondDates = new Set(dates.slice(mid));
+    const firstRows = joined.filter(r=>firstDates.has(r.date));
+    const secondRows = joined.filter(r=>secondDates.has(r.date));
+    const firstCost = sum(firstRows,'cost'), secondCost = sum(secondRows,'cost');
+    const firstConv = sum(firstRows,'conversion'), secondConv = sum(secondRows,'conversion');
+    const firstCpa = firstConv>0 ? firstCost/firstConv : null;
+    const secondCpa = secondConv>0 ? secondCost/secondConv : null;
+    if(firstCost>0) costChangePct = (secondCost-firstCost)/firstCost*100;
+    if(firstCpa!==null && secondCpa!==null) cpaChangePct = (secondCpa-firstCpa)/firstCpa*100;
+  }
+
+  const byCampaign = {};
+  joined.forEach(r=>{
+    if(!byCampaign[r.campaign]) byCampaign[r.campaign] = {label:r.campaignLabel, cost:0, conversion:0};
+    byCampaign[r.campaign].cost += r.cost;
+    byCampaign[r.campaign].conversion += r.conversion;
+  });
+  const campaignsArr = Object.values(byCampaign).map(c=>({...c, cpa: c.conversion>0 ? c.cost/c.conversion : null}));
+  const totalCost = sum(joined,'cost');
+  const topCampaign = campaignsArr.length ? [...campaignsArr].sort((a,b)=>b.cost-a.cost)[0] : null;
+  const topShare = (topCampaign && totalCost>0) ? (topCampaign.cost/totalCost*100) : null;
+  const withCpa = campaignsArr.filter(c=>c.cpa!==null);
+  const bestCampaign = withCpa.length ? [...withCpa].sort((a,b)=>a.cpa-b.cpa)[0] : null;
+  const worstCampaign = withCpa.length>1 ? [...withCpa].sort((a,b)=>b.cpa-a.cpa)[0] : null;
+
+  const byDate = {};
+  joined.forEach(r=>{
+    if(!byDate[r.date]) byDate[r.date] = {cost:0, conversion:0};
+    byDate[r.date].cost += r.cost; byDate[r.date].conversion += r.conversion;
+  });
+  const dayArr = Object.entries(byDate).map(([d,v])=>({date:d, cpa: v.conversion>0 ? v.cost/v.conversion : null}));
+  const daysWithCpa = dayArr.filter(d=>d.cpa!==null);
+  const bestDay = daysWithCpa.length ? [...daysWithCpa].sort((a,b)=>a.cpa-b.cpa)[0] : null;
+  const worstDay = daysWithCpa.length>1 ? [...daysWithCpa].sort((a,b)=>b.cpa-a.cpa)[0] : null;
+
+  const sentences = [];
+  if(costChangePct!==null){
+    sentences.push(`هزینه در نیمه‌ی دوم بازه نسبت به نیمه‌ی اول ${Math.abs(costChangePct).toFixed(0)}% ${costChangePct>=0?'افزایش':'کاهش'} داشته`);
+  }
+  if(cpaChangePct!==null){
+    sentences.push(`CPA نسبت به نیمه‌ی اول ${Math.abs(cpaChangePct).toFixed(0)}% ${cpaChangePct<=0?'بهبود':'افت'} پیدا کرده`);
+  }
+  let narrative = sentences.length ? sentences.join('، ') + '.' : 'برای مقایسه‌ی روند، داده‌ی کافی (حداقل ۲ روز) توی این بازه نیست.';
+  if(topCampaign && topShare!==null){
+    narrative += ` کمپین «${topCampaign.label}» با ${topShare.toFixed(0)}% از کل هزینه، بیشترین سهم رو داره.`;
+  }
+  if(bestCampaign && worstCampaign && bestCampaign.label !== worstCampaign.label){
+    narrative += ` «${bestCampaign.label}» کارآمدترین کمپین (CPA ${fmtMoney(bestCampaign.cpa)}) و «${worstCampaign.label}» گرون‌ترین (CPA ${fmtMoney(worstCampaign.cpa)}) بوده.`;
+  }
+
+  const chips = [];
+  if(costChangePct!==null) chips.push({label:'روند هزینه (نیمه دوم به اول)', value:(costChangePct>=0?'▲ ':'▼ ')+Math.abs(costChangePct).toFixed(0)+'%', tone:'neutral'});
+  if(cpaChangePct!==null) chips.push({label:'روند CPA (نیمه دوم به اول)', value:(cpaChangePct<=0?'▼ ':'▲ ')+Math.abs(cpaChangePct).toFixed(0)+'%', tone: cpaChangePct<=0?'good':'bad'});
+  if(topCampaign) chips.push({label:'بیشترین سهم هزینه', value: `${topCampaign.label} (${topShare.toFixed(0)}%)`, tone:'neutral'});
+  if(bestCampaign) chips.push({label:'کارآمدترین کمپین', value: bestCampaign.label, tone:'good'});
+  if(worstCampaign) chips.push({label:'گرون‌ترین کمپین', value: worstCampaign.label, tone:'bad'});
+  if(bestDay) chips.push({label:'بهترین روز (کمترین CPA)', value: fmtDateLabel(bestDay.date), tone:'good'});
+  if(worstDay) chips.push({label:'ضعیف‌ترین روز (بیشترین CPA)', value: fmtDateLabel(worstDay.date), tone:'bad'});
+
+  return {narrative, chips};
 }
 
 function updateSection(project){
@@ -760,6 +854,21 @@ function updateSection(project){
       }
     }
   });
+
+  const insights = computeInsights(joined);
+  const textEl = document.getElementById(`insightText-${project.id}`);
+  const chipsEl = document.getElementById(`insightChips-${project.id}`);
+  if(insights){
+    textEl.textContent = insights.narrative;
+    chipsEl.innerHTML = insights.chips.map(c=>`
+      <div class="insight-chip ${c.tone}">
+        <div class="ic-label">${escapeHtml(c.label)}</div>
+        <div class="ic-value">${escapeHtml(c.value)}</div>
+      </div>`).join('');
+  } else {
+    textEl.textContent = 'داده‌ای برای تحلیل توی این بازه/فیلتر نیست.';
+    chipsEl.innerHTML = '';
+  }
 }
 function hexToRgba(hex, alpha){
   const h = hex.replace('#','');
