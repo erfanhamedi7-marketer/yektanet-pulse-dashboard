@@ -247,8 +247,8 @@
     display:inline-flex;align-items:center;padding:2px 9px;border-radius:99px;
     font-size:11px;font-weight:700;font-family:var(--font-mono);margin-inline-end:8px;
   }
-  .di-tag.up{background:var(--negative-soft);color:var(--negative);}
-  .di-tag.down{background:var(--positive-soft);color:var(--positive);}
+  .di-tag.good{background:var(--positive-soft);color:var(--positive);}
+  .di-tag.bad{background:var(--negative-soft);color:var(--negative);}
   .deep-empty{font-size:12.5px;color:var(--text-faint);padding:8px 0;}
   .seg-rate{font-family:var(--font-mono);}
   .seg-rate.low{color:var(--negative);}
@@ -910,7 +910,7 @@ function renderCostDrivers(project, joined){
   if(!b){ el.innerHTML = `<div class="deep-empty">برای مقایسه‌ی آخرین روز با روز قبلش، حداقل ۲ روز داده لازمه.</div>`; return; }
   const headline = `
     <div class="deep-item" style="border-bottom:1px solid var(--border);padding-bottom:12px;">
-      <span class="di-tag ${b.totalDelta>=0?'up':'down'}">${b.totalDelta>=0?'▲':'▼'} ${b.pctChange!==null?Math.abs(b.pctChange).toFixed(0)+'٪':'—'}</span>
+      <span class="di-tag ${b.totalDelta>=0?'good':'bad'}">${b.totalDelta>=0?'▲':'▼'} ${b.pctChange!==null?Math.abs(b.pctChange).toFixed(0)+'٪':'—'}</span>
       <span class="di-date">${fmtDateLabel(b.prevDate)} ← ${fmtDateLabel(b.date)}</span><br>
       هزینه از <b>${fmtMoney(b.totalYesterday)}</b> به <b>${fmtMoney(b.totalToday)}</b> ${b.totalDelta>=0?'رسیده (افزایش':'رسیده (کاهش'} ${fmtMoney(Math.abs(b.totalDelta))})
     </div>`;
@@ -918,9 +918,20 @@ function renderCostDrivers(project, joined){
     el.innerHTML = headline + `<div class="deep-empty">هیچ کمپینی تغییر هزینه‌ی قابل‌ثبتی نداشته.</div>`;
     return;
   }
-  const rows = b.contributions.slice(0,8).map(c=>`
+  // Only surface the main driver(s): keep adding the next-largest contributor
+  // until they cumulatively explain ~80% of the total change, capped at 3 —
+  // this is "the main factor(s)", not an exhaustive list of every campaign.
+  const targetAbs = Math.abs(b.totalDelta) * 0.8;
+  const mainContributors = [];
+  let cum = 0;
+  for(const c of b.contributions){
+    mainContributors.push(c);
+    cum += Math.abs(c.delta);
+    if(cum >= targetAbs || mainContributors.length >= 3) break;
+  }
+  const rows = mainContributors.map(c=>`
     <li class="deep-item">
-      <span class="di-tag ${c.delta>=0?'up':'down'}">${c.delta>=0?'+':''}${fmtMoney(c.delta)}</span>
+      <span class="di-tag ${c.delta>=0?'good':'bad'}">${c.delta>=0?'+':''}${fmtMoney(c.delta)}</span>
       <b>${escapeHtml(c.campaign)}</b>
       <span class="di-date">${fmtMoney(c.yesterdayCost)} ← ${fmtMoney(c.todayCost)}</span>
       ${b.totalDelta!==0?` — ${Math.abs(c.share).toFixed(0)}٪ از کل تغییر`:''}
@@ -933,7 +944,7 @@ function renderCpaDrivers(project, joined){
   if(!results.length){ el.innerHTML = `<div class="deep-empty">توی این بازه، تغییر CPA روزانه‌ای که از نوسان عادی بیشتر باشه پیدا نشد.</div>`; return; }
   el.innerHTML = `<ul class="deep-list">` + results.slice(0,6).map(r=>`
     <li class="deep-item">
-      <span class="di-tag ${r.pctChange>=0?'up':'down'}">${r.pctChange>=0?'▲':'▼'} ${Math.abs(r.pctChange).toFixed(0)}%</span>
+      <span class="di-tag ${r.pctChange>=0?'bad':'good'}">${r.pctChange>=0?'▲':'▼'} ${Math.abs(r.pctChange).toFixed(0)}%</span>
       <span class="di-date">${fmtDateLabel(r.date)}</span><br>
       CPA نسبت به روز قبل ${r.pctChange>=0?'بدتر':'بهتر'} شده — بیشترین اثر از: <b>${escapeHtml(r.topCampaign||'—')}</b>${r.contribution!==null?` (${r.contribution>=0?'+':''}${fmtMoney(r.contribution)} از تغییر CPA)`:''}
     </li>`).join('') + `</ul>`;
