@@ -5,7 +5,8 @@ const { JWT } = require('google-auth-library');
 // Add a new line here whenever a new project's Google Sheet is connected.
 const ALLOWED_SPREADSHEETS = new Set([
   '1r9f3Vdl6ldgQeL50tHX4TxjVP0H_UxYeYFKhGFp0yeQ', // Yektanet
-  '1DdhvkT6gVXKoDiicgXnXHTq32yZg3aGpJx97RT4wYeU'  // Blue
+  '1DdhvkT6gVXKoDiicgXnXHTq32yZg3aGpJx97RT4wYeU', // Blue
+  '18ohsYVwngt7UJ5BwvBBWdhpQ2IOxO4b08-D4OMm2VEQ'  // Wepod
 ]);
 
 let cachedClient = null;

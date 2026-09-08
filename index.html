@@ -374,6 +374,25 @@ const PROJECTS = [
     theme: { accent: '#3B82F6', accent2: '#EF4444', accentSoft: 'rgba(59,130,246,0.12)' }
   },
   {
+    id: 'wepod',
+    title: 'پروژه ویپاد',
+    subtitle: 'Wepod - Metrix (مرجع) × Wepod - Yektanet',
+    spreadsheetId: '18ohsYVwngt7UJ5BwvBBWdhpQ2IOxO4b08-D4OMm2VEQ',
+    refSheet: 'Wepod - Metrix',
+    costSheet: 'Wepod - Yektanet',
+    conversionCol: 'v2_national',
+    conversionLabel: 'v2_national',
+    showInstalls: false,
+    installsCol: 'Total Installs',
+    adgroupCol: 'Ad Group',
+    creativeCol: 'Creative',
+    impressionsCol: 'Impression',
+    clicksCol: 'Click',
+    ownDateFilter: true,
+    defaultRangeDays: 30,
+    theme: { accent: '#10B981', accent2: '#F97316', accentSoft: 'rgba(16,185,129,0.12)' }
+  },
+  {
     id: 'yektanet',
     title: 'Yektanet',
     subtitle: 'Adtrace (مرجع) × Cost - Yektanet',
@@ -392,7 +411,9 @@ const PROJECTS = [
 const projectState = {}; // { [id]: { campaigns: 'ALL' | Set(keys), from, to } }
 const chartInstances = {};
 
-function normalizeRefRows(rows, conversionCol, installsCol){
+function normalizeRefRows(rows, conversionCol, installsCol, adgroupCol, creativeCol){
+  adgroupCol = adgroupCol || 'Adgroup';
+  creativeCol = creativeCol || 'Creative';
   return rows.map(r=>{
     const date = normDate(r['Date']);
     const campaignRaw = r['Campaign'];
@@ -400,19 +421,21 @@ function normalizeRefRows(rows, conversionCol, installsCol){
     if(!date || !campaign) return null;
     return {
       date, campaign, campaignLabel:(campaignRaw||'').trim(),
-      adgroup: (r['Adgroup']||'').trim() || '(بدون Adgroup)',
-      creative: (r['Creative']||'').trim() || '(بدون Creative)',
+      adgroup: (r[adgroupCol]||'').trim() || '(بدون Adgroup)',
+      creative: (r[creativeCol]||'').trim() || '(بدون Creative)',
       installs: installsCol ? toNumber(r[installsCol]) : 0,
       conversion: toNumber(r[conversionCol])
     };
   }).filter(Boolean);
 }
-function normalizeCostRows(rows){
+function normalizeCostRows(rows, impressionsCol, clicksCol){
+  impressionsCol = impressionsCol || 'Impressions';
+  clicksCol = clicksCol || 'Clicks';
   return rows.map(r=>{
     const date = normDate(r['Date']);
     const campaign = normCampaign(r['Campaign']);
     if(!date || !campaign) return null;
-    return {date, campaign, cost: toNumber(r['Cost']), impressions: toNumber(r['Impressions']), clicks: toNumber(r['Clicks'])};
+    return {date, campaign, cost: toNumber(r['Cost']), impressions: toNumber(r[impressionsCol]), clicks: toNumber(r[clicksCol])};
   }).filter(Boolean);
 }
 function aggregateRef(rows){
@@ -1159,8 +1182,8 @@ async function loadProject(project){
       fetchSheetData(project.spreadsheetId, project.refSheet),
       fetchSheetData(project.spreadsheetId, project.costSheet)
     ]);
-    project.rawRef = normalizeRefRows(refRows, project.conversionCol, project.installsCol);
-    project.rawCost = normalizeCostRows(costRows);
+    project.rawRef = normalizeRefRows(refRows, project.conversionCol, project.installsCol, project.adgroupCol, project.creativeCol);
+    project.rawCost = normalizeCostRows(costRows, project.impressionsCol, project.clicksCol);
     project.error = null;
     const allDates = [...project.rawRef.map(r=>r.date), ...project.rawCost.map(r=>r.date)].sort();
     project.minDate = allDates[0] || null;
