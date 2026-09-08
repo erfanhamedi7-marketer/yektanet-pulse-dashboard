@@ -950,16 +950,21 @@ function analyzeCampaignSegments(project){
   const filteredCost = project.rawCost.filter(r=>inCampaign(r.campaign));
   if(!project.maxDate) return [];
 
-  // Benchmark CPA also prefers the last 7 days, only reaching further back if
-  // there isn't enough conversion volume yet to trust the average.
+  // Benchmark CPA always comes from ALL campaigns (ignores the campaign
+  // filter) — it's the reference point a single filtered campaign gets
+  // compared against. If it used the filtered set too, filtering down to one
+  // campaign would make the benchmark equal to that campaign's own CPA and
+  // nothing would ever look "high" by comparison.
+  // It still prefers the last 7 days, only reaching further back if there
+  // isn't enough conversion volume yet to trust the average.
   const BENCHMARK_MIN_CONV = 30;
   let benchmarkCpa = null, benchmarkWindow = null;
   for(const w of WINDOWS_DAYS){
     const fromDate = w ? addDaysToDateStr(project.maxDate, -(w-1)) : project.minDate;
-    const refRows = filteredRef.filter(r=>r.date>=fromDate && r.date<=project.maxDate);
+    const refRows = project.rawRef.filter(r=>r.date>=fromDate && r.date<=project.maxDate);
     const conv = refRows.reduce((s,r)=>s+r.conversion,0);
     if(conv >= BENCHMARK_MIN_CONV || w===null){
-      const costRows = filteredCost.filter(r=>r.date>=fromDate && r.date<=project.maxDate);
+      const costRows = project.rawCost.filter(r=>r.date>=fromDate && r.date<=project.maxDate);
       const cost = costRows.reduce((s,r)=>s+r.cost,0);
       benchmarkCpa = conv>0 ? cost/conv : null;
       benchmarkWindow = w;
