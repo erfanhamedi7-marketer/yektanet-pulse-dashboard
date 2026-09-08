@@ -942,6 +942,15 @@ function analyzeCampaignSegments(project){
 
   campaignKeys.forEach(campKey=>{
     const label = (filteredRef.find(r=>r.campaign===campKey)||{}).campaignLabel || campKey;
+
+    // Skip campaigns with no spend in the last 7 days — not currently active,
+    // so no point optimizing them right now even if their older CPA was high.
+    const last7From = addDaysToDateStr(project.maxDate, -6);
+    const recentCost = filteredCost
+      .filter(r=>r.campaign===campKey && r.date>=last7From && r.date<=project.maxDate)
+      .reduce((s,r)=>s+r.cost,0);
+    if(recentCost <= 0) return;
+
     let chosen = null;
     for(const w of WINDOWS_DAYS){
       const fromDate = w ? addDaysToDateStr(project.maxDate, -(w-1)) : project.minDate;
