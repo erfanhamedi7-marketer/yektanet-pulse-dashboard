@@ -713,8 +713,8 @@ function renderSectionsShell(){
         <div class="deep-subtext">کمپینی که بیشترین سهم رو توی تغییر CPA کل روز داشته (روش leave-one-out)</div>
         <div id="cpaDrivers-${p.id}"></div>
 
-        <div class="deep-subhead">Adgroup / Creative های مشکل‌دار</div>
-        <div class="deep-subtext">تست دو-نسبتی نرخ تبدیل Installs→${escapeHtml(p.conversionLabel)}، حداقل ۳۰ نصب در هر گروه، روی کل بازه‌ی موجود دیتا (نه فقط فیلتر تاریخ فعلی سکشن)</div>
+        <div class="deep-subhead">بهینه‌سازی کمپین‌های گرون (Adgroup و Creative)</div>
+        <div class="deep-subtext">فقط کمپین‌هایی که CPA‌شون از میانگین کلی بالاتره؛ بازه‌ی تحلیل ترجیحاً ۷ روز اخیره و فقط در صورت کمبود دیتا عقب‌تر می‌ره؛ Adgroup و Creative مستقل از هم با تست دو-نسبتی (حداقل ۳۰ نصب هر گروه) بررسی می‌شن</div>
         <div id="segmentIssues-${p.id}"></div>
       </div>
     </div>
@@ -857,51 +857,87 @@ function computeDailyCpaDrivers(joined){
   return results.sort((a,b)=>Math.abs(b.pctChange)-Math.abs(a.pctChange));
 }
 
-// Two-proportion z-test: for each Adgroup/Creative segment within a campaign,
-// compare its Installs->conversion rate against the rest of that campaign.
-// Only flags segments with a large-enough sample (n>=30 both sides) AND a
-// statistically significant lower conversion rate (one-tailed z <= -1.645, ~95%).
-function computeAdgroupCreativeIssues(project){
-  const st = projectState[project.id];
-  const inCampaign = c => st.campaigns === 'ALL' || st.campaigns.has(c);
-  const rows = project.rawRef.filter(r=>inCampaign(r.campaign));
-
-  const MIN_N = 30;
-  const Z_THRESHOLD = 1.645;
-
-  const byCampaign = {};
+// Two-proportion z-test on Installs->conversion rate: is this segment's rate
+// significantly lower than the rest of the same campaign? Requires n>=30 on
+// both sides to be considered meaningful (one-tailed, ~95% confidence).
+const SEG_MIN_N = 30;
+const SEG_Z_THRESHOLD = 1.645;
+function runSegmentTest(rows, keyFn){
+  const totalInstalls = rows.reduce((s,r)=>s+r.installs,0);
+  const totalConv = rows.reduce((s,r)=>s+r.conversion,0);
+  const byKey = {};
   rows.forEach(r=>{
-    if(!byCampaign[r.campaign]) byCampaign[r.campaign] = {label:r.campaignLabel, installs:0, conversion:0, segments:{}};
-    const camp = byCampaign[r.campaign];
-    camp.installs += r.installs;
-    camp.conversion += r.conversion;
-    const segKey = r.adgroup + ' / ' + r.creative;
-    if(!camp.segments[segKey]) camp.segments[segKey] = {installs:0, conversion:0};
-    camp.segments[segKey].installs += r.installs;
-    camp.segments[segKey].conversion += r.conversion;
+    const k = keyFn(r);
+    if(!byKey[k]) byKey[k] = {installs:0, conversion:0};
+    byKey[k].installs += r.installs;
+    byKey[k].conversion += r.conversion;
   });
-
   const flags = [];
-  Object.values(byCampaign).forEach(camp=>{
-    if(camp.installs < MIN_N*2) return; // campaign itself too small to split meaningfully
-    Object.entries(camp.segments).forEach(([segKey, seg])=>{
-      if(seg.installs < MIN_N) return;
-      const restInstalls = camp.installs - seg.installs;
-      const restConversion = camp.conversion - seg.conversion;
-      if(restInstalls < MIN_N) return;
-      const p1 = seg.conversion/seg.installs;
-      const p2 = restConversion/restInstalls;
-      const pooled = (seg.conversion+restConversion)/(seg.installs+restInstalls);
-      if(pooled<=0 || pooled>=1) return;
-      const se = Math.sqrt(pooled*(1-pooled)*(1/seg.installs+1/restInstalls));
-      if(se===0) return;
-      const z = (p1-p2)/se;
-      if(z <= -Z_THRESHOLD){
-        flags.push({campaign:camp.label, segment:segKey, segRate:p1, restRate:p2, installs:seg.installs, z});
-      }
-    });
+  Object.entries(byKey).forEach(([k,seg])=>{
+    if(seg.installs < SEG_MIN_N) return;
+    const restInstalls = totalInstalls - seg.installs;
+    const restConv = totalConv - seg.conversion;
+    if(restInstalls < SEG_MIN_N) return;
+    const p1 = seg.conversion/seg.installs;
+    const p2 = restConv/restInstalls;
+    const pooled = (seg.conversion+restConv)/(seg.installs+restInstalls);
+    if(pooled<=0 || pooled>=1) return;
+    const se = Math.sqrt(pooled*(1-pooled)*(1/seg.installs+1/restInstalls));
+    if(se===0) return;
+    const z = (p1-p2)/se;
+    if(z <= -SEG_Z_THRESHOLD) flags.push({key:k, segRate:p1, restRate:p2, installs:seg.installs, z});
   });
   return flags.sort((a,b)=>a.z-b.z);
+}
+
+// For each campaign: pick the smallest recent window (7/14/30/60 days, else
+// all available data) that has enough installs to test — so recent days get
+// priority, and we only reach further back when there isn't enough recent
+// data. Only campaigns whose CPA in that window is meaningfully above the
+// project's overall benchmark CPA get the Adgroup/Creative breakdown, since
+// those are the ones actually worth optimizing.
+const CAMPAIGN_MIN_N = 100;
+const WINDOWS_DAYS = [7,14,30,60,null];
+function analyzeCampaignSegments(project){
+  const st = projectState[project.id];
+  const inCampaign = c => st.campaigns === 'ALL' || st.campaigns.has(c);
+  const filteredRef = project.rawRef.filter(r=>inCampaign(r.campaign));
+  const filteredCost = project.rawCost.filter(r=>inCampaign(r.campaign));
+
+  const totalCost = filteredCost.reduce((s,r)=>s+r.cost,0);
+  const totalConv = filteredRef.reduce((s,r)=>s+r.conversion,0);
+  const benchmarkCpa = totalConv>0 ? totalCost/totalConv : null;
+  if(benchmarkCpa===null || !project.maxDate) return [];
+
+  const campaignKeys = Array.from(new Set(filteredRef.map(r=>r.campaign)));
+  const results = [];
+
+  campaignKeys.forEach(campKey=>{
+    const label = (filteredRef.find(r=>r.campaign===campKey)||{}).campaignLabel || campKey;
+    let chosen = null;
+    for(const w of WINDOWS_DAYS){
+      const fromDate = w ? addDaysToDateStr(project.maxDate, -(w-1)) : project.minDate;
+      const refRows = filteredRef.filter(r=>r.campaign===campKey && r.date>=fromDate && r.date<=project.maxDate);
+      const installs = refRows.reduce((s,r)=>s+r.installs,0);
+      if(installs >= CAMPAIGN_MIN_N || w===null){
+        const costRows = filteredCost.filter(r=>r.campaign===campKey && r.date>=fromDate && r.date<=project.maxDate);
+        const conversion = refRows.reduce((s,r)=>s+r.conversion,0);
+        const cost = costRows.reduce((s,r)=>s+r.cost,0);
+        chosen = {window:w, fromDate, refRows, installs, conversion, cost, cpa: conversion>0 ? cost/conversion : null};
+        break;
+      }
+    }
+    if(!chosen || chosen.cpa===null) return;
+    if(chosen.cpa <= benchmarkCpa*1.1) return; // not meaningfully worse than the overall benchmark
+
+    const adgroupFlags = runSegmentTest(chosen.refRows, r=>r.adgroup);
+    const creativeFlags = runSegmentTest(chosen.refRows, r=>r.creative);
+    if(adgroupFlags.length || creativeFlags.length){
+      results.push({campaign:label, cpa:chosen.cpa, benchmarkCpa, window:chosen.window, installs:chosen.installs, adgroupFlags, creativeFlags});
+    }
+  });
+
+  return results.sort((a,b)=>b.cpa-a.cpa);
 }
 
 function renderCostDrivers(project, joined){
@@ -950,15 +986,37 @@ function renderCpaDrivers(project, joined){
     </li>`).join('') + `</ul>`;
 }
 function renderSegmentIssues(project){
-  const flags = computeAdgroupCreativeIssues(project);
+  const results = analyzeCampaignSegments(project);
   const el = document.getElementById(`segmentIssues-${project.id}`);
-  if(!flags.length){ el.innerHTML = `<div class="deep-empty">با آستانه‌ی آماری فعلی (حداقل ۳۰ نصب در هر گروه، z ≤ ۱.۶۴۵-)، Adgroup/Creative مشکل‌دار معناداری پیدا نشد.</div>`; return; }
-  el.innerHTML = `<ul class="deep-list">` + flags.slice(0,6).map(f=>`
-    <li class="deep-item">
-      <b>${escapeHtml(f.campaign)}</b> ← ${escapeHtml(f.segment)}<br>
-      نرخ تبدیل این گروه: <span class="seg-rate low">${(f.segRate*100).toFixed(1)}٪</span> — میانگین بقیه‌ی کمپین: <span class="seg-rate">${(f.restRate*100).toFixed(1)}٪</span>
-      (n=${fmtNum(f.installs)} نصب، z=${f.z.toFixed(2)})
-    </li>`).join('') + `</ul>`;
+  if(!results.length){
+    el.innerHTML = `<div class="deep-empty">کمپینی که هم CPA‌ش به‌طور معنادار از میانگین کلی بالاتر باشه، هم توش Adgroup/Creative مشکل‌دار آماری پیدا بشه، شناسایی نشد.</div>`;
+    return;
+  }
+  el.innerHTML = results.map(r=>{
+    const windowLabel = r.window ? `${r.window} روز اخیر` : 'کل بازه‌ی موجود (دیتای روزهای اخیر برای تحلیل کافی نبود)';
+    const diffPct = (r.cpa-r.benchmarkCpa)/r.benchmarkCpa*100;
+    let block = `
+      <div class="deep-item" style="border-bottom:1px solid var(--border);padding-bottom:10px;">
+        <b>${escapeHtml(r.campaign)}</b><br>
+        CPA این کمپین در ${windowLabel} (n=${fmtNum(r.installs)} نصب): <span class="seg-rate low">${fmtMoney(r.cpa)}</span>
+        — میانگین کلی پروژه: <span class="seg-rate">${fmtMoney(r.benchmarkCpa)}</span> (${diffPct>=0?'+':''}${diffPct.toFixed(0)}٪)
+      </div>`;
+    if(r.adgroupFlags.length){
+      block += `<div class="deep-subtext" style="margin:8px 0 4px;">Adgroup های مشکل‌دار (مستقل از Creative):</div>
+        <ul class="deep-list">` + r.adgroupFlags.slice(0,3).map(f=>`
+          <li class="deep-item">
+            «${escapeHtml(f.key)}»: نرخ تبدیل <span class="seg-rate low">${(f.segRate*100).toFixed(1)}٪</span> در مقابل <span class="seg-rate">${(f.restRate*100).toFixed(1)}٪</span> بقیه‌ی کمپین (n=${fmtNum(f.installs)}, z=${f.z.toFixed(2)})
+          </li>`).join('') + `</ul>`;
+    }
+    if(r.creativeFlags.length){
+      block += `<div class="deep-subtext" style="margin:8px 0 4px;">Creative های مشکل‌دار (مستقل از Adgroup):</div>
+        <ul class="deep-list">` + r.creativeFlags.slice(0,3).map(f=>`
+          <li class="deep-item">
+            «${escapeHtml(f.key)}»: نرخ تبدیل <span class="seg-rate low">${(f.segRate*100).toFixed(1)}٪</span> در مقابل <span class="seg-rate">${(f.restRate*100).toFixed(1)}٪</span> بقیه‌ی کمپین (n=${fmtNum(f.installs)}, z=${f.z.toFixed(2)})
+          </li>`).join('') + `</ul>`;
+    }
+    return block;
+  }).join('');
 }
 
 
