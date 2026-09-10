@@ -4,8 +4,9 @@ const { JWT } = require('google-auth-library');
 // be used as an open proxy to any sheet the service account happens to see.
 // Add a new line here whenever a new project's Google Sheet is connected.
 const ALLOWED_SPREADSHEETS = new Set([
-  '1r9f3Vdl6ldgQeL50tHX4TxjVP0H_UxYeYFKhGFp0yeQ', // Yektanet
+  '1r9f3Vdl6ldgQeL50tHX4TxjVP0H_UxYeYFKhGFp0yeQ', // Talaeen (formerly Yektanet)
   '1DdhvkT6gVXKoDiicgXnXHTq32yZg3aGpJx97RT4wYeU', // Blue
+  '1zBI8XWTlU0huKwd-_IQYvdwxAinvJjAnD7ZPwedO5UA', // Blue Junior
   '18ohsYVwngt7UJ5BwvBBWdhpQ2IOxO4b08-D4OMm2VEQ', // Wepod
   '1EvYoVf6HYp3Nbo02N47qYtaLesJBDVi9urQvOXVs1LQ'  // Bankino
 ]);
