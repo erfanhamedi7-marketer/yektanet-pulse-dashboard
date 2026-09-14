@@ -371,6 +371,9 @@ const PROJECTS = [
     installsCol: 'Installs',
     ownDateFilter: true,
     defaultRangeDays: 30,
+    // Exclude any campaign starting with "bj" except "bj-inapp-cpi" — applied
+    // to the raw data before anything else (KPIs, chart, deep analysis).
+    excludeCampaign: (key) => key.startsWith('bj') && key !== 'bj-inapp-cpi',
     theme: { accent: '#3B82F6', accent2: '#EF4444', accentSoft: 'rgba(59,130,246,0.12)' }
   },
   {
@@ -1232,6 +1235,10 @@ async function loadProject(project){
     ]);
     project.rawRef = normalizeRefRows(refRows, project.conversionCol, project.installsCol, project.adgroupCol, project.creativeCol);
     project.rawCost = normalizeCostRows(costRows, project.impressionsCol, project.clicksCol);
+    if(project.excludeCampaign){
+      project.rawRef = project.rawRef.filter(r=>!project.excludeCampaign(r.campaign));
+      project.rawCost = project.rawCost.filter(r=>!project.excludeCampaign(r.campaign));
+    }
     project.error = null;
     const allDates = [...project.rawRef.map(r=>r.date), ...project.rawCost.map(r=>r.date)].sort();
     project.minDate = allDates[0] || null;
