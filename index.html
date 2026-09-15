@@ -535,6 +535,14 @@ const PROJECTS = [
     // This export has no Adgroup/Creative columns, so there is nothing to
     // break a campaign down by.
     hideSegmentAnalysis: true,
+    // Blend a second tab in: GA4's own session count for the same days, so the
+    // two sources can be compared side by side.
+    sessionsCompare: {
+      sheet: 'Data Studio - GA4',
+      sessionsCol: 'Sessions',
+      otherLabel: 'GA4',
+      ownLabel: 'Yektanet'
+    },
     theme: { accent: '#6366F1', accent2: '#F43F5E', accentSoft: 'rgba(99,102,241,0.12)' }
   }
 ];
@@ -576,6 +584,14 @@ function normalizeCostRows(rows, impressionsCol, clicksCol, diag){
     // Cell had something in it but we read 0 — an unsupported number format.
     if(diag && rawCost && !/^[0-]*$/.test(latinizeDigits(rawCost).replace(/\D/g,'')||'0') && cost===0) diag.unreadableCost++;
     return {date, campaign, cost, impressions: toNumber(r[impressionsCol]), clicks: toNumber(r[clicksCol])};
+  }).filter(Boolean);
+}
+function normalizeCompareRows(rows, sessionsCol){
+  return rows.map(r=>{
+    const date = normDate(r['Date']);
+    const campaign = normCampaign(r['Campaign']);
+    if(!date || !campaign) return null;
+    return {date, campaign, sessions: toNumber(r[sessionsCol])};
   }).filter(Boolean);
 }
 function aggregateRef(rows){
@@ -630,6 +646,28 @@ function groupByDateGeneric(joined){
   };
 }
 
+// Sessions as Yektanet reports them vs. sessions as GA4 reports them, per day.
+// The campaign multi-select is deliberately not applied here — this comparison
+// always covers the project's whole campaign set (for this project, every
+// campaign containing "-prf", since the rest is already filtered out of the
+// raw data). The section's date range still applies.
+// The gap is measured against GA4: (Yektanet − GA4) / GA4.
+function buildSessionsComparison(project){
+  const {from, to} = sectionRange(project);
+  const inRange = d => (!from || d >= from) && (!to || d <= to);
+  const byDate = {};
+  const bucket = d => (byDate[d] = byDate[d] || {own:0, other:0});
+  project.rawRef.forEach(r=>{ if(inRange(r.date)) bucket(r.date).own += r.installs; });
+  (project.rawCompare||[]).forEach(r=>{ if(inRange(r.date)) bucket(r.date).other += r.sessions; });
+  const keys = Object.keys(byDate).sort();
+  return {
+    labels: keys.map(fmtDateLabel),
+    own: keys.map(k=>byDate[k].own),
+    other: keys.map(k=>byDate[k].other),
+    diffPct: keys.map(k=> byDate[k].other>0 ? ((byDate[k].own - byDate[k].other)/byDate[k].other*100) : null)
+  };
+}
+
 // Campaign options sorted by total cost (desc); label falls back to the raw key.
 function getCampaignOptionsSortedByCost(project){
   const costByCampaign = {};
@@ -653,10 +691,13 @@ let sheetMaxDate = null;
 let currentFrom = null;
 let currentTo = null;
 
+function sectionRange(project){
+  const st = projectState[project.id];
+  return project.ownDateFilter ? {from: st.from, to: st.to} : {from: currentFrom, to: currentTo};
+}
 function computeSection(project){
   const st = projectState[project.id];
-  const from = project.ownDateFilter ? st.from : currentFrom;
-  const to = project.ownDateFilter ? st.to : currentTo;
+  const {from, to} = sectionRange(project);
   const inRange = d => (!from || d >= from) && (!to || d <= to);
   const inCampaign = c => st.campaigns === 'ALL' || st.campaigns.has(c);
   const refFiltered = project.rawRef.filter(r=>inRange(r.date) && inCampaign(r.campaign));
@@ -872,6 +913,21 @@ function renderSectionsShell(){
         </div>
         <div class="chart-box"><canvas id="trendChart-${p.id}"></canvas></div>
       </div>
+      ${p.sessionsCompare ? `
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h2>مقایسه‌ی سشن‌ها: ${escapeHtml(p.sessionsCompare.ownLabel)} و ${escapeHtml(p.sessionsCompare.otherLabel)}</h2>
+            <div class="card-sub">همه‌ی کمپین‌های این پروژه — مستقل از فیلتر کمپین. اختلاف نسبت به ${escapeHtml(p.sessionsCompare.otherLabel)} حساب می‌شه.</div>
+          </div>
+          <div class="legend-dots">
+            <span><i style="background:var(--accent)"></i>${escapeHtml(p.sessionsCompare.otherLabel)}</span>
+            <span><i style="background:#F59E0B"></i>${escapeHtml(p.sessionsCompare.ownLabel)}</span>
+            <span><i style="background:var(--accent-2)"></i>اختلاف٪</span>
+          </div>
+        </div>
+        <div class="chart-box"><canvas id="sessionsChart-${p.id}"></canvas></div>
+      </div>` : ''}
       <div class="card">
         <div class="card-head">
           <div>
@@ -1250,6 +1306,49 @@ function renderSegmentIssues(project){
 }
 
 
+function renderSessionsChart(project){
+  const canvas = document.getElementById(`sessionsChart-${project.id}`);
+  if(!canvas) return;
+  const cfg = project.sessionsCompare;
+  const {labels, own, other, diffPct} = buildSessionsComparison(project);
+  const key = project.id + ':sessions';
+  if(chartInstances[key]) chartInstances[key].destroy();
+  const accentHex = project.theme.accent, accent2Hex = project.theme.accent2, ownHex = '#F59E0B';
+  chartInstances[key] = new Chart(canvas, {
+    type:'bar',
+    data:{
+      labels,
+      datasets:[
+        {type:'bar', label:cfg.otherLabel, data:other, backgroundColor: hexToRgba(accentHex,0.55), hoverBackgroundColor: hexToRgba(accentHex,0.8), borderRadius:5, yAxisID:'y', order:3, maxBarThickness:18},
+        {type:'bar', label:cfg.ownLabel, data:own, backgroundColor: hexToRgba(ownHex,0.55), hoverBackgroundColor: hexToRgba(ownHex,0.8), borderRadius:5, yAxisID:'y', order:2, maxBarThickness:18},
+        {type:'line', label:'اختلاف٪', data:diffPct, borderColor: accent2Hex, backgroundColor: hexToRgba(accent2Hex,0.12), fill:false, tension:.35, yAxisID:'y1', pointRadius:2.5, pointBackgroundColor: accent2Hex, pointBorderColor:'#0F121A', pointBorderWidth:1.5, borderWidth:2.2, order:1}
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index', intersect:false},
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:'#171B26', borderColor:'#232838', borderWidth:1,
+          titleColor:'#E8EAF0', bodyColor:'#8A93A8', padding:12, boxPadding:5, cornerRadius:8,
+          titleFont:{family:"'IBM Plex Mono', monospace", size:11},
+          bodyFont:{family:"'IBM Plex Mono', monospace", size:11.5},
+          callbacks:{ label: ctx => ctx.parsed.y===null ? `${ctx.dataset.label}: —`
+            : ctx.dataset.yAxisID==='y1'
+              ? `${ctx.dataset.label}: ${ctx.parsed.y>=0?'+':''}${fmtNum(ctx.parsed.y,1)}٪`
+              : `${ctx.dataset.label}: ${fmtNum(ctx.parsed.y,0)} سشن` }
+        }
+      },
+      scales:{
+        y:{position:'left', grid:{color:'rgba(255,255,255,0.05)'}, border:{display:false}, ticks:{font:{size:10}, callback:v=>fmtNum(v)}},
+        y1:{position:'right', grid:{display:false}, border:{display:false}, ticks:{font:{size:10}, callback:v=>fmtNum(v,0)+'٪'}},
+        x:{grid:{display:false}, border:{display:false}, ticks:{font:{size:10}, maxRotation:45, minRotation:45, autoSkip:true, maxTicksLimit:12}}
+      }
+    }
+  });
+}
+
 function updateSection(project){
   if(project.error) return;
   const {joined, matchedCost, totalCostInSheet} = computeSection(project);
@@ -1315,6 +1414,7 @@ function updateSection(project){
     }
   });
 
+  renderSessionsChart(project);
   renderCostDrivers(project, joined);
   renderCpaDrivers(project, joined);
   if(!project.hideSegmentAnalysis) renderSegmentIssues(project);
@@ -1328,30 +1428,37 @@ function hexToRgba(hex, alpha){
 // ---------- Init ----------
 async function loadProject(project){
   try{
+    const cmp = project.sessionsCompare;
+    // Ref and cost can live in the same tab — fetch it once — and every tab
+    // this project needs is fetched in parallel.
     const sameSheet = project.refSheet === project.costSheet;
-    const [refRows, costRows] = sameSheet
-      ? await fetchSheetData(project.spreadsheetId, project.refSheet).then(rows=>[rows, rows])
-      : await Promise.all([
-          fetchSheetData(project.spreadsheetId, project.refSheet),
-          fetchSheetData(project.spreadsheetId, project.costSheet)
-        ]);
+    const [refRows, costOrNull, compareOrNull] = await Promise.all([
+      fetchSheetData(project.spreadsheetId, project.refSheet),
+      sameSheet ? null : fetchSheetData(project.spreadsheetId, project.costSheet),
+      cmp ? fetchSheetData(project.spreadsheetId, cmp.sheet) : null
+    ]);
+    const costRows = sameSheet ? refRows : costOrNull;
+    const compareRows = compareOrNull || [];
     const diag = {skippedRows:0, skippedCost:0, unreadableCost:0, excludedCost:0};
     project.rawRef = normalizeRefRows(refRows, project.conversionCol, project.installsCol, project.adgroupCol, project.creativeCol);
     project.rawCost = normalizeCostRows(costRows, project.impressionsCol, project.clicksCol, diag);
+    project.rawCompare = cmp ? normalizeCompareRows(compareRows, cmp.sessionsCol) : [];
     if(project.excludeCampaign){
       project.rawRef = project.rawRef.filter(r=>!project.excludeCampaign(r.campaign));
+      project.rawCompare = project.rawCompare.filter(r=>!project.excludeCampaign(r.campaign));
       const keptCost = project.rawCost.filter(r=>!project.excludeCampaign(r.campaign));
       diag.excludedCost = project.rawCost.reduce((s,r)=>s+r.cost,0) - keptCost.reduce((s,r)=>s+r.cost,0);
       project.rawCost = keptCost;
     }
     project.diag = diag;
     project.error = null;
-    const allDates = [...project.rawRef.map(r=>r.date), ...project.rawCost.map(r=>r.date)].sort();
+    const allDates = [...project.rawRef.map(r=>r.date), ...project.rawCost.map(r=>r.date), ...project.rawCompare.map(r=>r.date)].sort();
     project.minDate = allDates[0] || null;
     project.maxDate = allDates[allDates.length-1] || null;
   }catch(e){
     project.rawRef = [];
     project.rawCost = [];
+    project.rawCompare = [];
     project.error = 'نتونستم دیتای این پروژه رو بخونم: ' + (e.message || 'خطای نامشخص') + ' — مطمئن شو شیت با ایمیل Service Account شیر شده.';
   }
 }
