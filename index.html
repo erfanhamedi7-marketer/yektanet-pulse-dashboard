@@ -914,21 +914,6 @@ function renderSectionsShell(){
         </div>
         <div class="chart-box"><canvas id="trendChart-${p.id}"></canvas></div>
       </div>
-      ${p.sessionsCompare ? `
-      <div class="card">
-        <div class="card-head">
-          <div>
-            <h2>مقایسه‌ی سشن‌ها: ${escapeHtml(p.sessionsCompare.ownLabel)} و ${escapeHtml(p.sessionsCompare.otherLabel)}</h2>
-            <div class="card-sub">مقایسه‌ی روزبه‌روزِ جمع کل هر دو تب — بدون توجه به نام کمپین و مستقل از فیلتر کمپین. اختلاف نسبت به ${escapeHtml(p.sessionsCompare.otherLabel)} حساب می‌شه.</div>
-          </div>
-          <div class="legend-dots">
-            <span><i style="background:var(--accent)"></i>${escapeHtml(p.sessionsCompare.otherLabel)}</span>
-            <span><i style="background:#F59E0B"></i>${escapeHtml(p.sessionsCompare.ownLabel)}</span>
-            <span><i style="background:var(--accent-2)"></i>اختلاف٪</span>
-          </div>
-        </div>
-        <div class="chart-box"><canvas id="sessionsChart-${p.id}"></canvas></div>
-      </div>` : ''}
       <div class="card">
         <div class="card-head">
           <div>
@@ -946,6 +931,23 @@ function renderSectionsShell(){
         <div class="deep-subhead">بهینه‌سازی کمپین‌های گرون (Adgroup و Creative)</div>
         <div id="segmentIssues-${p.id}"></div>`}
       </div>
+      ${p.sessionsCompare ? `
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h2>مقایسه‌ی سشن‌ها: ${escapeHtml(p.sessionsCompare.ownLabel)} و ${escapeHtml(p.sessionsCompare.otherLabel)}</h2>
+            <div class="card-sub">مقایسه‌ی روزبه‌روزِ جمع کل هر دو تب — بدون توجه به نام کمپین و مستقل از فیلتر کمپین. اختلاف نسبت به ${escapeHtml(p.sessionsCompare.otherLabel)} حساب می‌شه.</div>
+          </div>
+          <div class="legend-dots">
+            <span><i style="background:var(--accent)"></i>${escapeHtml(p.sessionsCompare.otherLabel)}</span>
+            <span><i style="background:#F59E0B"></i>${escapeHtml(p.sessionsCompare.ownLabel)}</span>
+            <span><i style="background:var(--accent-2)"></i>اختلاف٪</span>
+          </div>
+        </div>
+        <div class="chart-box"><canvas id="sessionsChart-${p.id}"></canvas></div>
+        <div class="deep-subhead">بیشترین اختلاف در کدوم کمپین‌هاست؟</div>
+        <div id="sessionGaps-${p.id}"></div>
+      </div>` : ''}
     </div>
   `).join('');
 
@@ -1307,6 +1309,70 @@ function renderSegmentIssues(project){
 }
 
 
+// Which campaigns account for the session gap? This one *does* match campaign
+// names across the two tabs (normalized), because that is the only way to name
+// a culprit. Campaigns the two sources don't name identically can't be matched,
+// so they are reported separately — that mismatch is itself a common cause of
+// a day-level gap.
+const GAP_MIN_SESSIONS = 20;  // below this, a percentage says nothing
+function computeCampaignSessionGaps(project){
+  const {from, to} = sectionRange(project);
+  const inRange = d => (!from || d >= from) && (!to || d <= to);
+  const byCampaign = {};
+  const bucket = (key, label) => {
+    if(!byCampaign[key]) byCampaign[key] = {label: label || key, own:0, other:0};
+    return byCampaign[key];
+  };
+  (project.allRef||[]).forEach(r=>{ if(inRange(r.date)) bucket(r.campaign, r.campaignLabel).own += r.installs; });
+  (project.rawCompare||[]).forEach(r=>{ if(inRange(r.date)) bucket(r.campaign, r.campaign).other += r.sessions; });
+
+  const matched = [], onlyOwn = [], onlyOther = [];
+  Object.entries(byCampaign).forEach(([key, v])=>{
+    const row = {key, label:v.label, own:v.own, other:v.other, gap:v.own - v.other};
+    if(v.own > 0 && v.other > 0){
+      if(Math.max(v.own, v.other) < GAP_MIN_SESSIONS) return;
+      row.diffPct = (v.own - v.other)/v.other*100;
+      matched.push(row);
+    }
+    else if(v.own > 0) onlyOwn.push(row);
+    else if(v.other > 0) onlyOther.push(row);
+  });
+  matched.sort((a,b)=>Math.abs(b.diffPct)-Math.abs(a.diffPct));
+  onlyOwn.sort((a,b)=>b.own-a.own);
+  onlyOther.sort((a,b)=>b.other-a.other);
+  return {matched, onlyOwn, onlyOther};
+}
+
+function renderSessionGaps(project){
+  const el = document.getElementById(`sessionGaps-${project.id}`);
+  if(!el) return;
+  const cfg = project.sessionsCompare;
+  const {matched, onlyOwn, onlyOther} = computeCampaignSessionGaps(project);
+  const blocks = [];
+
+  if(matched.length){
+    blocks.push(`<div class="deep-subtext">کمپین‌هایی که اسمشون توی هر دو تب یکیه، به‌ترتیب بزرگی درصد اختلاف (کمپین‌های زیر ${fmtNum(GAP_MIN_SESSIONS)} سشن کنار گذاشته شدن).</div>`);
+    blocks.push(`<ul class="deep-list">` + matched.slice(0,5).map(m=>`
+      <li class="deep-item">
+        <span class="di-tag ${m.diffPct>=0?'bad':'good'}">${m.diffPct>=0?'▲':'▼'} ${Math.abs(m.diffPct).toFixed(0)}٪</span>
+        <b>${escapeHtml(m.label)}</b>
+        <span class="di-date">${escapeHtml(cfg.otherLabel)}: ${fmtNum(m.other)} ← ${escapeHtml(cfg.ownLabel)}: ${fmtNum(m.own)}</span>
+        — اختلاف ${m.gap>=0?'+':''}${fmtNum(m.gap)} سشن
+      </li>`).join('') + `</ul>`);
+  } else {
+    blocks.push(`<div class="deep-empty">هیچ کمپینی با نام یکسان در هر دو تب پیدا نشد که بشه درصد اختلافش رو حساب کرد — یعنی اختلاف روزانه بیشتر از تفاوت نام‌گذاری میاد تا از یک کمپین خاص.</div>`);
+  }
+
+  const orphan = (rows, side, field) => rows.length ? `
+    <div class="deep-subtext" style="margin:10px 0 4px;">فقط در ${escapeHtml(side)} (توی اون یکی تب با این اسم نیست):</div>
+    <ul class="deep-list">${rows.slice(0,3).map(r=>`
+      <li class="deep-item"><b>${escapeHtml(r.label)}</b> <span class="di-date">${fmtNum(r[field])} سشن</span></li>`).join('')}</ul>` : '';
+  blocks.push(orphan(onlyOwn, cfg.ownLabel, 'own'));
+  blocks.push(orphan(onlyOther, cfg.otherLabel, 'other'));
+
+  el.innerHTML = blocks.join('');
+}
+
 function renderSessionsChart(project){
   const canvas = document.getElementById(`sessionsChart-${project.id}`);
   if(!canvas) return;
@@ -1416,6 +1482,7 @@ function updateSection(project){
   });
 
   renderSessionsChart(project);
+  renderSessionGaps(project);
   renderCostDrivers(project, joined);
   renderCpaDrivers(project, joined);
   if(!project.hideSegmentAnalysis) renderSegmentIssues(project);
