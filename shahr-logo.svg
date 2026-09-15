@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" role="img" aria-label="شهر لوازم خانگی">
+  <rect width="120" height="120" fill="#FFFFFF"/>
+  <!-- chimney at the roof's peak -->
+  <rect x="63" y="14" width="11" height="26" rx="5.5" fill="#123C8E"/>
+  <!-- roof -->
+  <path d="M21 71 L60 31 L99 71" fill="none" stroke="#123C8E" stroke-width="15" stroke-linejoin="miter"/>
+  <!-- bowl -->
+  <path d="M37 79 Q60 110 83 79" fill="none" stroke="#E02B27" stroke-width="15" stroke-linecap="butt"/>
+</svg>
