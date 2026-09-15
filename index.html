@@ -532,6 +532,9 @@ const PROJECTS = [
     // Only performance campaigns: anything whose name doesn't contain "-prf"
     // is dropped from the raw data (KPIs, chart and deep analysis alike).
     excludeCampaign: (key) => !key.includes('-prf'),
+    // This export has no Adgroup/Creative columns, so there is nothing to
+    // break a campaign down by.
+    hideSegmentAnalysis: true,
     theme: { accent: '#6366F1', accent2: '#F43F5E', accentSoft: 'rgba(99,102,241,0.12)' }
   }
 ];
@@ -882,8 +885,9 @@ function renderSectionsShell(){
         <div class="deep-subhead">تغییرات قابل‌توجه CPA روزانه</div>
         <div id="cpaDrivers-${p.id}"></div>
 
+        ${p.hideSegmentAnalysis ? '' : `
         <div class="deep-subhead">بهینه‌سازی کمپین‌های گرون (Adgroup و Creative)</div>
-        <div id="segmentIssues-${p.id}"></div>
+        <div id="segmentIssues-${p.id}"></div>`}
       </div>
     </div>
   `).join('');
@@ -1313,7 +1317,7 @@ function updateSection(project){
 
   renderCostDrivers(project, joined);
   renderCpaDrivers(project, joined);
-  renderSegmentIssues(project);
+  if(!project.hideSegmentAnalysis) renderSegmentIssues(project);
 }
 function hexToRgba(hex, alpha){
   const h = hex.replace('#','');
