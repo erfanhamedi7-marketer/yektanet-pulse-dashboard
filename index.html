@@ -315,14 +315,57 @@ function setStatus(kind, text){
   t.textContent = text;
 }
 
+// Google Sheets hands us whatever the cell *displays*, so numbers arrive in
+// whatever locale/format the sheet is using: Persian or Arabic-Indic digits,
+// "٬" or a space as thousands separator, "٫" as decimal separator, RTL marks,
+// a currency suffix, "(1,234)" for negatives. Anything we fail to read here
+// silently becomes 0 and a day's cost comes out short, so parse defensively.
+const DIGIT_MAP = {'۰':'0','۱':'1','۲':'2','۳':'3','۴':'4','۵':'5','۶':'6','۷':'7','۸':'8','۹':'9',
+                   '٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9'};
+function latinizeDigits(str){
+  return String(str).replace(/[۰-۹٠-٩]/g, ch => DIGIT_MAP[ch]);
+}
 function toNumber(v){
   if(v===null||v===undefined) return 0;
-  const cleaned = String(v).replace(/[^0-9.\-]/g,'');
-  const n = parseFloat(cleaned);
-  return isNaN(n) ? 0 : n;
+  if(typeof v === 'number') return isFinite(v) ? v : 0;
+  let s = latinizeDigits(String(v)).replace(/[\u200B-\u200F\u202A-\u202E\uFEFF]/g,'').trim();
+  if(!s) return 0;
+  const negative = /^\(.*\)$/.test(s) || /-/.test(s);
+  s = s.replace(/٫/g, '.');                       // Persian decimal separator
+  s = s.replace(/[\s\u00A0\u066C٬،']/g, '');      // thousands separators
+  s = s.replace(/[^0-9.,]/g, '');                 // currency text, signs, etc.
+  if(!s) return 0;
+  const lastComma = s.lastIndexOf(','), lastDot = s.lastIndexOf('.');
+  if(lastComma >= 0 && lastDot >= 0){
+    // Both present: whichever comes last is the decimal separator.
+    if(lastComma > lastDot) s = s.replace(/\./g,'').replace(',', '.');
+    else s = s.replace(/,/g,'');
+  } else if(lastComma >= 0){
+    // Only commas: repeated, or grouping exactly 3 digits => thousands.
+    const parts = s.split(',');
+    s = (parts.length > 2 || parts[1].length === 3) ? parts.join('') : parts.join('.');
+  } else if((s.match(/\./g)||[]).length > 1){
+    s = s.replace(/\./g,'');                      // 1.234.567 style thousands
+  }
+  const n = parseFloat(s);
+  if(isNaN(n)) return 0;
+  return negative ? -Math.abs(n) : n;
 }
 function normCampaign(c){ return String(c||'').trim().toLowerCase(); }
-function normDate(d){ return String(d||'').trim(); }
+// Dates must all end up in the same YYYYMMDD shape: the date-range filter and
+// the day sort compare them as plain strings, so a single row formatted as
+// "2026-09-01" would sort and filter as if it were a different era and its
+// cost would drop out of the chart.
+function normDate(d){
+  let s = latinizeDigits(String(d||'')).replace(/[\u200B-\u200F\u202A-\u202E\uFEFF]/g,'').trim();
+  if(!s) return '';
+  const ymd = s.match(/^(\d{4})\s*[-\/.]\s*(\d{1,2})\s*[-\/.]\s*(\d{1,2})/);
+  if(ymd) return ymd[1] + String(ymd[2]).padStart(2,'0') + String(ymd[3]).padStart(2,'0');
+  const digitsOnly = s.replace(/\D/g,'');
+  if(digitsOnly.length === 8) return digitsOnly;
+  if(digitsOnly.length === 14) return digitsOnly.slice(0,8); // timestamp
+  return s;
+}
 function fmtDateLabel(yyyymmdd){
   const s = String(yyyymmdd);
   if(s.length !== 8) return s;
@@ -496,14 +539,23 @@ function normalizeRefRows(rows, conversionCol, installsCol, adgroupCol, creative
     };
   }).filter(Boolean);
 }
-function normalizeCostRows(rows, impressionsCol, clicksCol){
+function normalizeCostRows(rows, impressionsCol, clicksCol, diag){
   impressionsCol = impressionsCol || 'Impressions';
   clicksCol = clicksCol || 'Clicks';
   return rows.map(r=>{
     const date = normDate(r['Date']);
     const campaign = normCampaign(r['Campaign']);
-    if(!date || !campaign) return null;
-    return {date, campaign, cost: toNumber(r['Cost']), impressions: toNumber(r[impressionsCol]), clicks: toNumber(r[clicksCol])};
+    const cost = toNumber(r['Cost']);
+    const rawCost = String(r['Cost']===undefined||r['Cost']===null ? '' : r['Cost']).trim();
+    if(!date || !campaign){
+      // A total row, a stray note, or a row whose Date/Campaign cell is empty.
+      // Its cost never reaches the chart, so count it instead of losing it.
+      if(diag && (rawCost || date || campaign)){ diag.skippedRows++; diag.skippedCost += cost; }
+      return null;
+    }
+    // Cell had something in it but we read 0 — an unsupported number format.
+    if(diag && rawCost && !/^[0-]*$/.test(latinizeDigits(rawCost).replace(/\D/g,'')||'0') && cost===0) diag.unreadableCost++;
+    return {date, campaign, cost, impressions: toNumber(r[impressionsCol]), clicks: toNumber(r[clicksCol])};
   }).filter(Boolean);
 }
 function aggregateRef(rows){
@@ -1186,8 +1238,12 @@ function updateSection(project){
   const cpa = totalConversion>0 ? totalCost/totalConversion : null;
   const matchPct = totalCostInSheet>0 ? Math.round(matchedCost/totalCostInSheet*100) : 0;
 
-  document.getElementById(`coverageNote-${project.id}`).innerHTML =
-    `پوشش join: <b>${matchPct}%</b> هزینه (${fmtMoney(matchedCost)} از ${fmtMoney(totalCostInSheet)} تطبیق یافت)`;
+  const d = project.diag || {};
+  const notes = [`پوشش join: <b>${matchPct}%</b> هزینه (${fmtMoney(matchedCost)} از ${fmtMoney(totalCostInSheet)} تطبیق یافت)`];
+  if(d.excludedCost > 0) notes.push(`${fmtMoney(d.excludedCost)} هزینه‌ی کمپین‌های خارج از فیلتر این پروژه (کل بازه‌ی شیت)`);
+  if(d.skippedRows > 0) notes.push(`<b>${fmtNum(d.skippedRows)}</b> ردیف بدون Date یا Campaign نادیده گرفته شد (${fmtMoney(d.skippedCost)})`);
+  if(d.unreadableCost > 0) notes.push(`<b>${fmtNum(d.unreadableCost)}</b> سلول Cost با فرمت غیرقابل‌خوندن`);
+  document.getElementById(`coverageNote-${project.id}`).innerHTML = notes.join(' — ');
 
   const cards = [
     {label:'هزینه کل', value: fmtMoney(totalCost)},
@@ -1258,12 +1314,16 @@ async function loadProject(project){
           fetchSheetData(project.spreadsheetId, project.refSheet),
           fetchSheetData(project.spreadsheetId, project.costSheet)
         ]);
+    const diag = {skippedRows:0, skippedCost:0, unreadableCost:0, excludedCost:0};
     project.rawRef = normalizeRefRows(refRows, project.conversionCol, project.installsCol, project.adgroupCol, project.creativeCol);
-    project.rawCost = normalizeCostRows(costRows, project.impressionsCol, project.clicksCol);
+    project.rawCost = normalizeCostRows(costRows, project.impressionsCol, project.clicksCol, diag);
     if(project.excludeCampaign){
       project.rawRef = project.rawRef.filter(r=>!project.excludeCampaign(r.campaign));
-      project.rawCost = project.rawCost.filter(r=>!project.excludeCampaign(r.campaign));
+      const keptCost = project.rawCost.filter(r=>!project.excludeCampaign(r.campaign));
+      diag.excludedCost = project.rawCost.reduce((s,r)=>s+r.cost,0) - keptCost.reduce((s,r)=>s+r.cost,0);
+      project.rawCost = keptCost;
     }
+    project.diag = diag;
     project.error = null;
     const allDates = [...project.rawRef.map(r=>r.date), ...project.rawCost.map(r=>r.date)].sort();
     project.minDate = allDates[0] || null;
