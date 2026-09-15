@@ -647,17 +647,18 @@ function groupByDateGeneric(joined){
 }
 
 // Sessions as Yektanet reports them vs. sessions as GA4 reports them, per day.
-// The campaign multi-select is deliberately not applied here — this comparison
-// always covers the project's whole campaign set (for this project, every
-// campaign containing "-prf", since the rest is already filtered out of the
-// raw data). The section's date range still applies.
+// This is a pure day-to-day comparison: campaign names are ignored on both
+// sides — no matching between the tabs, and neither the campaign multi-select
+// nor the project's own campaign filter applies, since the two sources don't
+// name campaigns the same way. Each day is simply the whole tab's total for
+// that day. The section's date range still applies.
 // The gap is measured against GA4: (Yektanet − GA4) / GA4.
 function buildSessionsComparison(project){
   const {from, to} = sectionRange(project);
   const inRange = d => (!from || d >= from) && (!to || d <= to);
   const byDate = {};
   const bucket = d => (byDate[d] = byDate[d] || {own:0, other:0});
-  project.rawRef.forEach(r=>{ if(inRange(r.date)) bucket(r.date).own += r.installs; });
+  (project.allRef||[]).forEach(r=>{ if(inRange(r.date)) bucket(r.date).own += r.installs; });
   (project.rawCompare||[]).forEach(r=>{ if(inRange(r.date)) bucket(r.date).other += r.sessions; });
   const keys = Object.keys(byDate).sort();
   return {
@@ -918,7 +919,7 @@ function renderSectionsShell(){
         <div class="card-head">
           <div>
             <h2>مقایسه‌ی سشن‌ها: ${escapeHtml(p.sessionsCompare.ownLabel)} و ${escapeHtml(p.sessionsCompare.otherLabel)}</h2>
-            <div class="card-sub">همه‌ی کمپین‌های این پروژه — مستقل از فیلتر کمپین. اختلاف نسبت به ${escapeHtml(p.sessionsCompare.otherLabel)} حساب می‌شه.</div>
+            <div class="card-sub">مقایسه‌ی روزبه‌روزِ جمع کل هر دو تب — بدون توجه به نام کمپین و مستقل از فیلتر کمپین. اختلاف نسبت به ${escapeHtml(p.sessionsCompare.otherLabel)} حساب می‌شه.</div>
           </div>
           <div class="legend-dots">
             <span><i style="background:var(--accent)"></i>${escapeHtml(p.sessionsCompare.otherLabel)}</span>
@@ -1442,10 +1443,12 @@ async function loadProject(project){
     const diag = {skippedRows:0, skippedCost:0, unreadableCost:0, excludedCost:0};
     project.rawRef = normalizeRefRows(refRows, project.conversionCol, project.installsCol, project.adgroupCol, project.creativeCol);
     project.rawCost = normalizeCostRows(costRows, project.impressionsCol, project.clicksCol, diag);
+    // The session comparison works off daily totals of each tab as-is, so it
+    // keeps the rows the project's campaign filter removes from everything else.
     project.rawCompare = cmp ? normalizeCompareRows(compareRows, cmp.sessionsCol) : [];
+    project.allRef = project.rawRef;
     if(project.excludeCampaign){
       project.rawRef = project.rawRef.filter(r=>!project.excludeCampaign(r.campaign));
-      project.rawCompare = project.rawCompare.filter(r=>!project.excludeCampaign(r.campaign));
       const keptCost = project.rawCost.filter(r=>!project.excludeCampaign(r.campaign));
       diag.excludedCost = project.rawCost.reduce((s,r)=>s+r.cost,0) - keptCost.reduce((s,r)=>s+r.cost,0);
       project.rawCost = keptCost;
@@ -1457,6 +1460,7 @@ async function loadProject(project){
     project.maxDate = allDates[allDates.length-1] || null;
   }catch(e){
     project.rawRef = [];
+    project.allRef = [];
     project.rawCost = [];
     project.rawCompare = [];
     project.error = 'نتونستم دیتای این پروژه رو بخونم: ' + (e.message || 'خطای نامشخص') + ' — مطمئن شو شیت با ایمیل Service Account شیر شده.';
