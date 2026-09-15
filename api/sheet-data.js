@@ -8,7 +8,8 @@ const ALLOWED_SPREADSHEETS = new Set([
   '1DdhvkT6gVXKoDiicgXnXHTq32yZg3aGpJx97RT4wYeU', // Blue
   '1zBI8XWTlU0huKwd-_IQYvdwxAinvJjAnD7ZPwedO5UA', // Blue Junior
   '18ohsYVwngt7UJ5BwvBBWdhpQ2IOxO4b08-D4OMm2VEQ', // Wepod
-  '1EvYoVf6HYp3Nbo02N47qYtaLesJBDVi9urQvOXVs1LQ'  // Bankino
+  '1EvYoVf6HYp3Nbo02N47qYtaLesJBDVi9urQvOXVs1LQ', // Bankino
+  '1sjDcBvUZhJKpBzBngCWmxOXURR0MzPdjs9p8v5CyUxU'  // Shahr-e Lavazem Khanegi
 ]);
 
 let cachedClient = null;

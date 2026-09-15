@@ -451,6 +451,28 @@ const PROJECTS = [
     ownDateFilter: true,
     defaultRangeDays: 30,
     theme: { accent: '#F59E0B', accent2: '#4338CA', accentSoft: 'rgba(245,158,11,0.12)' }
+  },
+  {
+    id: 'appliance-city',
+    title: 'پروژه شهر لوازم خانگی',
+    subtitle: 'Yektanet - Export — فقط کمپین‌های شامل -prf',
+    spreadsheetId: '1sjDcBvUZhJKpBzBngCWmxOXURR0MzPdjs9p8v5CyUxU',
+    // One single sheet holds both the conversion data and the cost data.
+    refSheet: 'Yektanet - Export',
+    costSheet: 'Yektanet - Export',
+    conversionCol: 'Lead',
+    conversionLabel: 'Lead',
+    showInstalls: true,
+    installsCol: 'Sessions',
+    installsLabel: 'Sessions',
+    impressionsCol: 'Impression',
+    clicksCol: 'Click',
+    ownDateFilter: true,
+    defaultRangeDays: 30,
+    // Only performance campaigns: anything whose name doesn't contain "-prf"
+    // is dropped from the raw data (KPIs, chart and deep analysis alike).
+    excludeCampaign: (key) => !key.includes('-prf'),
+    theme: { accent: '#6366F1', accent2: '#F43F5E', accentSoft: 'rgba(99,102,241,0.12)' }
   }
 ];
 
@@ -1133,7 +1155,7 @@ function renderSegmentIssues(project){
     let block = `
       <div class="deep-item" style="border-bottom:1px solid var(--border);padding-bottom:10px;">
         <b>${escapeHtml(r.campaign)}</b><br>
-        CPA این کمپین در ${windowLabel} (n=${fmtNum(r.installs)} نصب): <span class="seg-rate low">${fmtMoney(r.cpa)}</span>
+        CPA این کمپین در ${windowLabel} (n=${fmtNum(r.installs)} ${escapeHtml(project.installsLabel || 'نصب')}): <span class="seg-rate low">${fmtMoney(r.cpa)}</span>
         — میانگین پروژه (${benchWindowLabel}): <span class="seg-rate">${fmtMoney(r.benchmarkCpa)}</span> (${diffPct>=0?'+':''}${diffPct.toFixed(0)}٪)
       </div>`;
     if(r.adgroupFlags.length){
@@ -1171,7 +1193,7 @@ function updateSection(project){
     {label:'هزینه کل', value: fmtMoney(totalCost)},
     {label: project.conversionLabel + ' کل', value: fmtNum(totalConversion)}
   ];
-  if(project.showInstalls) cards.push({label:'Installs کل', value: fmtNum(totalInstalls)});
+  if(project.showInstalls) cards.push({label:(project.installsLabel || 'Installs') + ' کل', value: fmtNum(totalInstalls)});
   cards.push({label:'CPA کلی', value: cpa!==null?fmtMoney(cpa):'—', accent:true});
 
   const kpiEl = document.getElementById(`kpis-${project.id}`);
@@ -1229,10 +1251,13 @@ function hexToRgba(hex, alpha){
 // ---------- Init ----------
 async function loadProject(project){
   try{
-    const [refRows, costRows] = await Promise.all([
-      fetchSheetData(project.spreadsheetId, project.refSheet),
-      fetchSheetData(project.spreadsheetId, project.costSheet)
-    ]);
+    const sameSheet = project.refSheet === project.costSheet;
+    const [refRows, costRows] = sameSheet
+      ? await fetchSheetData(project.spreadsheetId, project.refSheet).then(rows=>[rows, rows])
+      : await Promise.all([
+          fetchSheetData(project.spreadsheetId, project.refSheet),
+          fetchSheetData(project.spreadsheetId, project.costSheet)
+        ]);
     project.rawRef = normalizeRefRows(refRows, project.conversionCol, project.installsCol, project.adgroupCol, project.creativeCol);
     project.rawCost = normalizeCostRows(costRows, project.impressionsCol, project.clicksCol);
     if(project.excludeCampaign){
