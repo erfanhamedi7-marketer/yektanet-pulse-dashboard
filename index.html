@@ -330,9 +330,20 @@ function toNumber(v){
   if(typeof v === 'number') return isFinite(v) ? v : 0;
   let s = latinizeDigits(String(v)).replace(/[\u200B-\u200F\u202A-\u202E\uFEFF]/g,'').trim();
   if(!s) return 0;
-  const negative = /^\(.*\)$/.test(s) || /-/.test(s);
+  s = s.replace(/[−–—]/g, '-');                   // unicode minus variants
+  // Only a leading/trailing sign or wrapping parens mean negative — the "-" in
+  // an exponent like 1.48E-08 must not flip the whole number.
+  const negative = /^\(.*\)$/.test(s) || /^-/.test(s) || /-$/.test(s);
   s = s.replace(/٫/g, '.');                       // Persian decimal separator
   s = s.replace(/[\s\u00A0\u066C٬،']/g, '');      // thousands separators
+  // Scientific notation: a narrow or Scientific-formatted Cost column makes
+  // Sheets display "1.48E+08", which stripped of its letters would read as 1.48.
+  const sci = s.match(/(\d+(?:[.,]\d+)?)[eE]([+-]?\d+)/);
+  if(sci){
+    const n = parseFloat(sci[1].replace(',', '.')) * Math.pow(10, parseInt(sci[2], 10));
+    if(!isFinite(n)) return 0;
+    return negative ? -Math.abs(n) : n;
+  }
   s = s.replace(/[^0-9.,]/g, '');                 // currency text, signs, etc.
   if(!s) return 0;
   const lastComma = s.lastIndexOf(','), lastDot = s.lastIndexOf('.');
@@ -364,6 +375,12 @@ function normDate(d){
   const digitsOnly = s.replace(/\D/g,'');
   if(digitsOnly.length === 8) return digitsOnly;
   if(digitsOnly.length === 14) return digitsOnly.slice(0,8); // timestamp
+  // A true date cell read unformatted comes back as a Sheets serial number
+  // (days since 1899-12-30). 8-digit YYYYMMDD values are far above this range.
+  if(/^\d{5}$/.test(s)){
+    const d = new Date(Date.UTC(1899,11,30) + Number(s)*86400000);
+    return String(d.getUTCFullYear()) + String(d.getUTCMonth()+1).padStart(2,'0') + String(d.getUTCDate()).padStart(2,'0');
+  }
   return s;
 }
 function fmtDateLabel(yyyymmdd){

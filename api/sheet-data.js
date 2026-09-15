@@ -42,7 +42,13 @@ module.exports = async (req, res) => {
 
     const client = getClient();
     const range = encodeURIComponent(`${sheet}!A:Z`);
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}`;
+    // UNFORMATTED_VALUE returns the cell's real number instead of the text the
+    // sheet happens to display: a Cost column formatted as scientific ("1.48E+08")
+    // or rounded for width would otherwise reach the dashboard already mangled.
+    // Dates still come through as their displayed string rather than a serial
+    // number, which is what the front-end parses.
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}`
+      + `?valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=FORMATTED_STRING`;
     const response = await client.request({ url });
     const values = response.data.values || [];
 
