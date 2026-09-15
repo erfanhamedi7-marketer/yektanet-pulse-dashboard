@@ -945,7 +945,7 @@ function renderSectionsShell(){
           </div>
         </div>
         <div class="chart-box"><canvas id="sessionsChart-${p.id}"></canvas></div>
-        <div class="deep-subhead">بیشترین اختلاف در کدوم کمپین‌هاست؟</div>
+        <div class="deep-subhead">کدوم کمپین‌ها بیشترین تاثیر رو روی اختلاف کلی دارن؟</div>
         <div id="sessionGaps-${p.id}"></div>
       </div>` : ''}
     </div>
@@ -1309,13 +1309,15 @@ function renderSegmentIssues(project){
 }
 
 
-// Which campaigns account for the session gap? This one *does* match campaign
-// names across the two tabs (normalized), because that is the only way to name
-// a culprit. Campaigns the two sources don't name identically can't be matched,
-// so they are reported separately — that mismatch is itself a common cause of
-// a day-level gap.
-const GAP_MIN_SESSIONS = 20;  // below this, a percentage says nothing
-function computeCampaignSessionGaps(project){
+// Which campaigns drive the overall session gap? The gap for the whole range is
+// (ΣYektanet − ΣGA4) / ΣGA4, and every campaign's own session gap is one
+// addend of that numerator — so dividing it by ΣGA4 gives that campaign's
+// contribution in percentage points, and those contributions sum exactly to
+// the overall percentage. Ranked by size of contribution, so a campaign only
+// matters here if it actually moves the total.
+// Names are matched across the two tabs (normalized); a campaign only one tab
+// knows still contributes its whole count, and is marked as such.
+function computeSessionGapDrivers(project){
   const {from, to} = sectionRange(project);
   const inRange = d => (!from || d >= from) && (!to || d <= to);
   const byCampaign = {};
@@ -1326,51 +1328,73 @@ function computeCampaignSessionGaps(project){
   (project.allRef||[]).forEach(r=>{ if(inRange(r.date)) bucket(r.campaign, r.campaignLabel).own += r.installs; });
   (project.rawCompare||[]).forEach(r=>{ if(inRange(r.date)) bucket(r.campaign, r.campaign).other += r.sessions; });
 
-  const matched = [], onlyOwn = [], onlyOther = [];
-  Object.entries(byCampaign).forEach(([key, v])=>{
-    const row = {key, label:v.label, own:v.own, other:v.other, gap:v.own - v.other};
-    if(v.own > 0 && v.other > 0){
-      if(Math.max(v.own, v.other) < GAP_MIN_SESSIONS) return;
-      row.diffPct = (v.own - v.other)/v.other*100;
-      matched.push(row);
-    }
-    else if(v.own > 0) onlyOwn.push(row);
-    else if(v.other > 0) onlyOther.push(row);
-  });
-  matched.sort((a,b)=>Math.abs(b.diffPct)-Math.abs(a.diffPct));
-  onlyOwn.sort((a,b)=>b.own-a.own);
-  onlyOther.sort((a,b)=>b.other-a.other);
-  return {matched, onlyOwn, onlyOther};
+  const entries = Object.entries(byCampaign);
+  if(!entries.length) return null;
+  const totalOwn = entries.reduce((s,[,v])=>s+v.own,0);
+  const totalOther = entries.reduce((s,[,v])=>s+v.other,0);
+  const totalGap = totalOwn - totalOther;
+  const overallPct = totalOther>0 ? (totalGap/totalOther*100) : null;
+
+  const drivers = entries.map(([key,v])=>({
+    key, label:v.label, own:v.own, other:v.other,
+    gap: v.own - v.other,
+    // Percentage points of the overall gap that this campaign is responsible for.
+    contributionPct: totalOther>0 ? ((v.own - v.other)/totalOther*100) : null,
+    // Share of the net gap, so "this one campaign is most of it" reads clearly.
+    share: totalGap!==0 ? ((v.own - v.other)/totalGap*100) : 0,
+    missingFrom: v.other===0 && v.own>0 ? 'other' : (v.own===0 && v.other>0 ? 'own' : null)
+  })).filter(d=>d.gap !== 0);
+  drivers.sort((a,b)=>Math.abs(b.gap)-Math.abs(a.gap));
+
+  // Keep the campaigns that make up the bulk (~90%) of the total movement.
+  const totalAbs = drivers.reduce((s,d)=>s+Math.abs(d.gap),0);
+  const main = [];
+  let cum = 0;
+  for(const d of drivers){
+    main.push(d);
+    cum += Math.abs(d.gap);
+    if(totalAbs>0 && cum/totalAbs >= 0.9) break;
+    if(main.length >= 6) break;
+  }
+  return {totalOwn, totalOther, totalGap, overallPct, drivers: main, driverCount: drivers.length};
 }
 
 function renderSessionGaps(project){
   const el = document.getElementById(`sessionGaps-${project.id}`);
   if(!el) return;
   const cfg = project.sessionsCompare;
-  const {matched, onlyOwn, onlyOther} = computeCampaignSessionGaps(project);
-  const blocks = [];
+  const r = computeSessionGapDrivers(project);
+  if(!r){ el.innerHTML = `<div class="deep-empty">توی این بازه دیتایی برای مقایسه نیست.</div>`; return; }
+  if(r.overallPct===null){ el.innerHTML = `<div class="deep-empty">توی این بازه ${escapeHtml(cfg.otherLabel)} سشنی ثبت نکرده، پس درصد اختلاف قابل محاسبه نیست.</div>`; return; }
 
-  if(matched.length){
-    blocks.push(`<div class="deep-subtext">کمپین‌هایی که اسمشون توی هر دو تب یکیه، به‌ترتیب بزرگی درصد اختلاف (کمپین‌های زیر ${fmtNum(GAP_MIN_SESSIONS)} سشن کنار گذاشته شدن).</div>`);
-    blocks.push(`<ul class="deep-list">` + matched.slice(0,5).map(m=>`
-      <li class="deep-item">
-        <span class="di-tag ${m.diffPct>=0?'bad':'good'}">${m.diffPct>=0?'▲':'▼'} ${Math.abs(m.diffPct).toFixed(0)}٪</span>
-        <b>${escapeHtml(m.label)}</b>
-        <span class="di-date">${escapeHtml(cfg.otherLabel)}: ${fmtNum(m.other)} ← ${escapeHtml(cfg.ownLabel)}: ${fmtNum(m.own)}</span>
-        — اختلاف ${m.gap>=0?'+':''}${fmtNum(m.gap)} سشن
-      </li>`).join('') + `</ul>`);
-  } else {
-    blocks.push(`<div class="deep-empty">هیچ کمپینی با نام یکسان در هر دو تب پیدا نشد که بشه درصد اختلافش رو حساب کرد — یعنی اختلاف روزانه بیشتر از تفاوت نام‌گذاری میاد تا از یک کمپین خاص.</div>`);
+  const headline = `
+    <div class="deep-item" style="border-bottom:1px solid var(--border);padding-bottom:12px;">
+      <span class="di-tag ${r.overallPct>=0?'bad':'good'}">${r.overallPct>=0?'▲':'▼'} ${Math.abs(r.overallPct).toFixed(1)}٪</span>
+      <span class="di-date">${escapeHtml(cfg.otherLabel)}: ${fmtNum(r.totalOther)} ← ${escapeHtml(cfg.ownLabel)}: ${fmtNum(r.totalOwn)}</span><br>
+      اختلاف کل بازه: <b>${r.totalGap>=0?'+':''}${fmtNum(r.totalGap)}</b> سشن
+    </div>`;
+
+  if(!r.drivers.length){
+    el.innerHTML = headline + `<div class="deep-empty">هیچ کمپینی اختلاف قابل‌ثبتی نداره.</div>`;
+    return;
   }
 
-  const orphan = (rows, side, field) => rows.length ? `
-    <div class="deep-subtext" style="margin:10px 0 4px;">فقط در ${escapeHtml(side)} (توی اون یکی تب با این اسم نیست):</div>
-    <ul class="deep-list">${rows.slice(0,3).map(r=>`
-      <li class="deep-item"><b>${escapeHtml(r.label)}</b> <span class="di-date">${fmtNum(r[field])} سشن</span></li>`).join('')}</ul>` : '';
-  blocks.push(orphan(onlyOwn, cfg.ownLabel, 'own'));
-  blocks.push(orphan(onlyOther, cfg.otherLabel, 'other'));
+  const rows = r.drivers.map(d=>{
+    const note = d.missingFrom === 'other' ? ` <span class="di-date">(توی ${escapeHtml(cfg.otherLabel)} با این اسم نیست)</span>`
+               : d.missingFrom === 'own' ? ` <span class="di-date">(توی ${escapeHtml(cfg.ownLabel)} با این اسم نیست)</span>` : '';
+    return `
+    <li class="deep-item">
+      <span class="di-tag ${d.contributionPct>=0?'bad':'good'}">${d.contributionPct>=0?'+':''}${d.contributionPct.toFixed(1)} واحد</span>
+      <b>${escapeHtml(d.label)}</b>${note}
+      <span class="di-date">${escapeHtml(cfg.otherLabel)}: ${fmtNum(d.other)} ← ${escapeHtml(cfg.ownLabel)}: ${fmtNum(d.own)}</span>
+      — ${d.gap>=0?'+':''}${fmtNum(d.gap)} سشن${r.totalGap!==0?`، ${Math.abs(d.share).toFixed(0)}٪ از کل اختلاف`:''}
+    </li>`;
+  }).join('');
 
-  el.innerHTML = blocks.join('');
+  el.innerHTML = headline
+    + `<div class="deep-subtext">سهم هر کمپین از اون ${Math.abs(r.overallPct).toFixed(1)}٪، برحسب واحد درصد. مجموع سهم همه‌ی کمپین‌ها دقیقاً همون اختلاف کلیه.</div>`
+    + `<ul class="deep-list">${rows}</ul>`
+    + (r.driverCount > r.drivers.length ? `<div class="deep-subtext" style="margin-top:8px;">${fmtNum(r.driverCount - r.drivers.length)} کمپین دیگه هم اختلاف کوچیک‌تری دارن.</div>` : '');
 }
 
 function renderSessionsChart(project){
