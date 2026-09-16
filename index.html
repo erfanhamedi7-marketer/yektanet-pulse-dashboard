@@ -463,7 +463,7 @@ function addDaysToDateStr(yyyymmdd, days){
 // in the lowercased campaign name).
 const TALAEEN_EXCLUDED = ['wheel', 'seo', '_aghsat', '_pishraft', 'branding'];
 
-const PROJECTS = [
+const ALL_PROJECTS = [
   {
     id: 'appliance-city',
     title: 'پروژه شهر لوازم خانگی',
@@ -637,6 +637,8 @@ const PROJECTS = [
   },
   {
     id: 'blue-junior',
+    // Hidden for now — flip this back to false (or delete the line) to bring it back.
+    hidden: true,
     title: 'پروژه بلو جونیور',
     logo: '/blu-junior-logo.png',
     tabTitle: 'بلوجونیور',
@@ -678,6 +680,10 @@ const PROJECTS = [
     theme: { accent: '#EC4899', accent2: '#06B6D4', accentSoft: 'rgba(236,72,153,0.12)' }
   }
 ];
+
+// A hidden project is dropped here, before anything else sees it: no tab, no
+// section, and none of its sheets are fetched, so it costs nothing at load.
+const PROJECTS = ALL_PROJECTS.filter(p => !p.hidden);
 
 const projectState = {}; // { [id]: { campaigns: 'ALL' | Set(keys), from, to } }
 const chartInstances = {};
