@@ -507,6 +507,7 @@ const PROJECTS = [
     groupTitle: 'طلاین',
     partTitle: 'نمای کلی',
     title: 'طلاین — نمای کلی',
+    logo: '/taline-logo.jpg',
     subtitle: 'KYC از Adtrace + Verified از Web - Campaign × هزینه از Cost - Yektanet — بدون wheel / seo / _aghsat / _pishraft / branding',
     spreadsheetId: '1r9f3Vdl6ldgQeL50tHX4TxjVP0H_UxYeYFKhGFp0yeQ',
     // Both conversion sheets, summed per Date + Campaign — each names the
@@ -596,6 +597,7 @@ const PROJECTS = [
   {
     id: 'wepod',
     title: 'پروژه ویپاد',
+    logo: '/wepod-logo.jpg',
     tabTitle: 'ویپاد',
     subtitle: 'Wepod - Metrix (مرجع) × Wepod - Yektanet',
     spreadsheetId: '18ohsYVwngt7UJ5BwvBBWdhpQ2IOxO4b08-D4OMm2VEQ',
@@ -636,6 +638,7 @@ const PROJECTS = [
   {
     id: 'blue-junior',
     title: 'پروژه بلو جونیور',
+    logo: '/blu-junior-logo.png',
     tabTitle: 'بلوجونیور',
     subtitle: 'Adtrace (مرجع) × Yektanet',
     spreadsheetId: '1zBI8XWTlU0huKwd-_IQYvdwxAinvJjAnD7ZPwedO5UA',
@@ -656,6 +659,7 @@ const PROJECTS = [
   {
     id: 'bankino',
     title: 'پروژه بانکینو',
+    logo: '/bankino-logo.jpg',
     tabTitle: 'بانکینو',
     subtitle: 'Bankino - Metrix (مرجع) × Bankino - Yektanet',
     spreadsheetId: '1EvYoVf6HYp3Nbo02N47qYtaLesJBDVi9urQvOXVs1LQ',
@@ -914,6 +918,8 @@ function applyOwnDateFilter(project){
 }
 function setOwnPreset(project, days, btn){
   const wrap = document.getElementById(`section-${project.id}`);
+  if(!wrap) return;
+  if(!project.minDate || !project.maxDate){ updateSection(project); return; }
   wrap.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active');
   const fromInput = document.getElementById(`ownFrom-${project.id}`);
@@ -1108,8 +1114,12 @@ function renderSectionsShell(){
     if(p.ownDateFilter){
       const fromInput = document.getElementById(`ownFrom-${p.id}`);
       const toInput = document.getElementById(`ownTo-${p.id}`);
-      fromInput.min = toInputDate(p.minDate); fromInput.max = toInputDate(p.maxDate);
-      toInput.min = toInputDate(p.minDate); toInput.max = toInputDate(p.maxDate);
+      if(p.minDate && p.maxDate){
+        fromInput.min = toInputDate(p.minDate); fromInput.max = toInputDate(p.maxDate);
+        toInput.min = toInputDate(p.minDate); toInput.max = toInputDate(p.maxDate);
+      } else {
+        fromInput.disabled = toInput.disabled = true;
+      }
       fromInput.addEventListener('change', ()=>{
         document.querySelectorAll(`#section-${p.id} .preset-btn`).forEach(b=>b.classList.remove('active'));
         applyOwnDateFilter(p);
@@ -1695,6 +1705,10 @@ function updateSection(project){
   const cpa = totalConversion>0 ? totalCost/totalConversion : null;
   const matchPct = totalCostInSheet>0 ? Math.round(matchedCost/totalCostInSheet*100) : 0;
 
+  if(!project.minDate || !project.maxDate){
+    document.getElementById(`coverageNote-${project.id}`).innerHTML =
+      'توی شیت‌های این بخش ردیفی پیدا نشد که با فیلتر کمپین‌هاش بخونه — اسم شیت و فیلتر کمپین رو چک کن.';
+  }
   const d = project.diag || {};
   // With includeUnmatchedCost the whole sheet's cost is already in the numbers,
   // so "coverage" would read as if something were missing — say what it means.
@@ -1928,7 +1942,14 @@ async function init(){
   }
 
   renderSectionsShell();
-  PROJECTS.filter(p=>!p.error).forEach(p=>updateSection(p));
+  PROJECTS.filter(p=>!p.error).forEach(p=>{
+    try{ updateSection(p); }
+    catch(e){
+      console.error('section failed:', p.id, e);
+      const el = document.getElementById(`coverageNote-${p.id}`);
+      if(el) el.innerHTML = 'نمایش این بخش با خطا مواجه شد: ' + escapeHtml(e.message || 'خطای نامشخص');
+    }
+  });
   renderTabBar();
   switchTab(TABS[0].id);
   syncStickyOffset();
