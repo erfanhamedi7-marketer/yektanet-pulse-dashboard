@@ -154,6 +154,7 @@
     display:flex;align-items:center;gap:12px;flex-wrap:wrap;
     background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
     padding:14px 18px;margin-bottom:16px;box-shadow:var(--shadow-card);
+    position:sticky;top:var(--sticky-top, 60px);z-index:30;
   }
   .filter-group{display:flex;align-items:center;gap:8px;}
   .filter-group label{font-size:12px;color:var(--text-muted);font-weight:500;}
@@ -205,7 +206,7 @@
   }
   .ms-toggle:hover{border-color:var(--accent);}
   .ms-panel{
-    position:absolute;top:calc(100% + 6px);left:0;z-index:20;min-width:260px;max-width:340px;
+    position:absolute;top:calc(100% + 6px);left:0;z-index:60;min-width:260px;max-width:340px;
     max-height:320px;overflow-y:auto;background:var(--surface-2);border:1px solid var(--border);
     border-radius:10px;padding:8px;box-shadow:0 12px 32px -12px rgba(0,0,0,.6);
   }
@@ -222,7 +223,15 @@
 
   .section-filter-bar{margin-bottom:14px;}
 
-  .tab-bar{display:flex;gap:8px;margin-bottom:20px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+  .tab-bar{
+    display:flex;gap:8px;margin-bottom:20px;border-bottom:1px solid var(--border);flex-wrap:wrap;
+    /* Pinned to the top while scrolling; the side bleed keeps content from
+       showing through the wrap's own gutters as it scrolls underneath. */
+    position:sticky;top:0;z-index:70;
+    background:var(--bg);background:rgba(10,12,18,.97);
+    -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+    padding-top:12px;padding-bottom:0;margin-inline:-24px;padding-inline:24px;
+  }
   .tab-btn{
     display:flex;align-items:center;gap:8px;background:none;border:none;
     padding:10px 4px;margin-inline-end:18px;font-family:var(--font-ui);font-size:14px;font-weight:600;
@@ -1695,6 +1704,14 @@ function renderTabBar(){
   });
 }
 
+// The filter bar sticks below the tab bar, so it needs the bar's real height —
+// which changes when the tabs wrap onto a second row.
+function syncStickyOffset(){
+  const bar = document.getElementById('tabBar');
+  if(!bar) return;
+  document.documentElement.style.setProperty('--sticky-top', bar.offsetHeight + 'px');
+}
+
 function switchTab(id){
   PROJECTS.forEach(p=>{
     const sectionEl = document.getElementById(`section-${p.id}`);
@@ -1732,6 +1749,9 @@ async function init(){
   PROJECTS.filter(p=>!p.error).forEach(p=>updateSection(p));
   renderTabBar();
   switchTab(PROJECTS[0].id);
+  syncStickyOffset();
+  window.addEventListener('resize', syncStickyOffset);
+  if(window.ResizeObserver) new ResizeObserver(syncStickyOffset).observe(document.getElementById('tabBar'));
 
   const anyError = PROJECTS.some(p=>p.error);
   setStatus(anyError?'err':'live', anyError ? 'بعضی پروژه‌ها خطا دادن — جزئیات توی همون سکشن' : 'همگام‌سازی شد — ' + new Date().toLocaleTimeString('fa-IR',{hour:'2-digit',minute:'2-digit'}));
