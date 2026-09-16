@@ -242,6 +242,24 @@
   .tab-btn:hover{color:var(--text);}
   .tab-btn.active{color:var(--tab-accent, var(--text));border-bottom-color:var(--tab-accent, var(--text));}
 
+  .sub-tab-bar{
+    display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;
+    position:sticky;top:var(--tabbar-h, 54px);z-index:65;
+    background:var(--bg);background:rgba(10,12,18,.97);
+    -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+    padding:10px 24px;margin-inline:-24px;
+  }
+  .sub-tab-btn{
+    background:var(--surface-2);border:1px solid var(--border);border-radius:999px;
+    padding:7px 16px;font-family:var(--font-ui);font-size:12.5px;font-weight:600;
+    color:var(--text-muted);cursor:pointer;transition:color .15s, border-color .15s, background .15s;
+  }
+  .sub-tab-btn:hover{color:var(--text);}
+  .sub-tab-btn.active{
+    color:var(--tab-accent, var(--text));border-color:var(--tab-accent, var(--border));
+    background:var(--surface);
+  }
+
   .insight-text{font-size:13.5px;line-height:1.9;color:var(--text);margin:0 0 16px;}
   .insight-chips{display:flex;flex-wrap:wrap;gap:10px;}
   .insight-chip{
@@ -314,6 +332,7 @@
   </div>
 
   <div id="tabBar" class="tab-bar"></div>
+  <div id="subTabBar" class="sub-tab-bar" hidden></div>
 
   <div id="mainContent">
     <div class="loading-state"><div class="spinner"></div>در حال خوندن شیت‌های همه‌ی پروژه‌ها...</div>
@@ -440,6 +459,10 @@ function addDaysToDateStr(yyyymmdd, days){
 // Add a new object here for each new project/section. spreadsheetId must also
 // be added to ALLOWED_SPREADSHEETS in api/sheet-data.js and the sheet must be
 // shared with the service account email.
+// Talaeen: campaign kinds kept out of the web-funnel numbers (matched anywhere
+// in the lowercased campaign name).
+const TALAEEN_EXCLUDED = ['wheel', 'seo', '_aghsat', '_pishraft', 'branding'];
+
 const PROJECTS = [
   {
     id: 'appliance-city',
@@ -476,10 +499,40 @@ const PROJECTS = [
     },
     theme: { accent: '#6366F1', accent2: '#F43F5E', accentSoft: 'rgba(99,102,241,0.12)' }
   },
+  // ---- Talaeen: one tab, four parts (group + partTitle put them behind one tab) ----
+  // Campaign kinds that don't belong in the web funnel's numbers.
   {
-    id: 'talaeen',
-    title: 'پروژه طلاین',
-    tabTitle: 'طلاین',
+    id: 'talaeen-overview',
+    group: 'talaeen',
+    groupTitle: 'طلاین',
+    partTitle: 'نمای کلی',
+    title: 'طلاین — نمای کلی',
+    subtitle: 'KYC از Adtrace + Web - Campaign × هزینه از Cost - Yektanet — بدون wheel / seo / _aghsat / _pishraft / branding',
+    spreadsheetId: '1r9f3Vdl6ldgQeL50tHX4TxjVP0H_UxYeYFKhGFp0yeQ',
+    // Both conversion sheets, summed per Date + Campaign.
+    refSheet: ['Adtrace', 'Web - Campaign'],
+    costSheet: 'Cost - Yektanet',
+    conversionCol: 'KYC',
+    conversionLabel: 'KYC',
+    showInstalls: false,
+    installsCol: 'Installs',
+    adgroupCol: 'Adgroup',
+    creativeCol: 'Creative',
+    impressionsCol: 'Impression',
+    clicksCol: 'Click',
+    ownDateFilter: true,
+    defaultRangeDays: 30,
+    excludeCampaign: (key) => TALAEEN_EXCLUDED.some(term => key.includes(term)),
+    // An overview reports the whole spend, including campaigns with no KYC row.
+    includeUnmatchedCost: true,
+    hideDeepAnalysis: true,
+    theme: { accent: '#F59E0B', accent2: '#4338CA', accentSoft: 'rgba(245,158,11,0.12)' }
+  },
+  {
+    id: 'talaeen-app',
+    group: 'talaeen',
+    partTitle: 'نصب اپلیکیشن',
+    title: 'طلاین — نصب اپلیکیشن',
     subtitle: 'Adtrace (مرجع) × Cost - Yektanet',
     spreadsheetId: '1r9f3Vdl6ldgQeL50tHX4TxjVP0H_UxYeYFKhGFp0yeQ',
     refSheet: 'Adtrace',
@@ -494,6 +547,52 @@ const PROJECTS = [
     clicksCol: 'Click',
     ownDateFilter: true,
     defaultRangeDays: 30,
+    theme: { accent: '#F59E0B', accent2: '#4338CA', accentSoft: 'rgba(245,158,11,0.12)' }
+  },
+  {
+    id: 'talaeen-web',
+    group: 'talaeen',
+    partTitle: 'وب',
+    title: 'طلاین — وب',
+    subtitle: 'Web - Campaign (مرجع) × Cost - Yektanet — بدون wheel / seo / _aghsat / _pishraft / branding',
+    spreadsheetId: '1r9f3Vdl6ldgQeL50tHX4TxjVP0H_UxYeYFKhGFp0yeQ',
+    refSheet: 'Web - Campaign',
+    costSheet: 'Cost - Yektanet',
+    conversionCol: 'KYC',
+    conversionLabel: 'KYC',
+    showInstalls: false,
+    // A web sheet has no installs; sessions are the denominator the
+    // Adgroup/Creative test needs.
+    installsCol: 'Sessions',
+    adgroupCol: 'Adgroup',
+    creativeCol: 'Creative',
+    impressionsCol: 'Impression',
+    clicksCol: 'Click',
+    ownDateFilter: true,
+    defaultRangeDays: 30,
+    excludeCampaign: (key) => TALAEEN_EXCLUDED.some(term => key.includes(term)),
+    theme: { accent: '#F59E0B', accent2: '#4338CA', accentSoft: 'rgba(245,158,11,0.12)' }
+  },
+  {
+    id: 'talaeen-wheel',
+    group: 'talaeen',
+    partTitle: 'گردونه (ثبت‌نام)',
+    title: 'طلاین — گردونه (ثبت‌نام)',
+    subtitle: 'Web - Campaign (مرجع) × Cost - Yektanet — فقط کمپین‌های شامل wheel-sp',
+    spreadsheetId: '1r9f3Vdl6ldgQeL50tHX4TxjVP0H_UxYeYFKhGFp0yeQ',
+    refSheet: 'Web - Campaign',
+    costSheet: 'Cost - Yektanet',
+    conversionCol: 'KYC',
+    conversionLabel: 'KYC',
+    showInstalls: false,
+    installsCol: 'Sessions',
+    adgroupCol: 'Adgroup',
+    creativeCol: 'Creative',
+    impressionsCol: 'Impression',
+    clicksCol: 'Click',
+    ownDateFilter: true,
+    defaultRangeDays: 30,
+    excludeCampaign: (key) => !key.includes('wheel-sp'),
     theme: { accent: '#F59E0B', accent2: '#4338CA', accentSoft: 'rgba(245,158,11,0.12)' }
   },
   {
@@ -614,7 +713,8 @@ function normalizeCostRows(rows, impressionsCol, clicksCol, diag){
     }
     // Cell had something in it but we read 0 — an unsupported number format.
     if(diag && rawCost && !/^[0-]*$/.test(latinizeDigits(rawCost).replace(/\D/g,'')||'0') && cost===0) diag.unreadableCost++;
-    return {date, campaign, cost, impressions: toNumber(r[impressionsCol]), clicks: toNumber(r[clicksCol])};
+    return {date, campaign, campaignLabel:(r['Campaign']||'').toString().trim(),
+            cost, impressions: toNumber(r[impressionsCol]), clicks: toNumber(r[clicksCol])};
   }).filter(Boolean);
 }
 function normalizeCompareRows(rows, sessionsCol){
@@ -639,25 +739,35 @@ function aggregateCost(rows){
   const map = {};
   rows.forEach(r=>{
     const key = r.date + '||' + r.campaign;
-    if(!map[key]) map[key] = {cost:0, impressions:0, clicks:0};
+    if(!map[key]) map[key] = {date:r.date, campaign:r.campaign, campaignLabel:r.campaignLabel, cost:0, impressions:0, clicks:0};
     map[key].cost += r.cost;
     map[key].impressions += r.impressions;
     map[key].clicks += r.clicks;
   });
   return map;
 }
-function buildJoinedRows(refMap, costMap){
+// With includeUnmatchedCost, a day+campaign that spent but has no row in the
+// conversion sheet still contributes its cost — an overview reports the whole
+// spend of the cost sheet, not only the part that joined.
+function buildJoinedRows(refMap, costMap, includeUnmatchedCost){
   const joined = [];
   let matchedCost = 0;
-  Object.keys(refMap).forEach(key=>{
+  const keys = includeUnmatchedCost
+    ? Array.from(new Set([...Object.keys(refMap), ...Object.keys(costMap)]))
+    : Object.keys(refMap);
+  keys.forEach(key=>{
     const base = refMap[key];
     const costRow = costMap[key];
     const cost = costRow ? costRow.cost : 0;
-    if(costRow) matchedCost += costRow.cost;
+    if(costRow && base) matchedCost += costRow.cost;
+    const conversion = base ? base.conversion : 0;
     joined.push({
-      date: base.date, campaign: base.campaign, campaignLabel: base.campaignLabel,
-      installs: base.installs, conversion: base.conversion,
-      cost, cpa: base.conversion>0 ? (cost/base.conversion) : null
+      date: base ? base.date : costRow.date,
+      campaign: base ? base.campaign : costRow.campaign,
+      campaignLabel: base ? base.campaignLabel : (costRow.campaignLabel || costRow.campaign),
+      installs: base ? base.installs : 0,
+      conversion,
+      cost, cpa: conversion>0 ? (cost/conversion) : null
     });
   });
   const totalCostInSheet = Object.values(costMap).reduce((s,r)=>s+r.cost,0);
@@ -736,7 +846,7 @@ function computeSection(project){
   const costFiltered = project.rawCost.filter(r=>inRange(r.date) && inCampaign(r.campaign));
   const refMap = aggregateRef(refFiltered);
   const costMap = aggregateCost(costFiltered);
-  return buildJoinedRows(refMap, costMap);
+  return buildJoinedRows(refMap, costMap, project.includeUnmatchedCost);
 }
 
 // ---------- Global filter bar (for projects without their own date filter) ----------
@@ -945,6 +1055,7 @@ function renderSectionsShell(){
         </div>
         <div class="chart-box"><canvas id="trendChart-${p.id}"></canvas></div>
       </div>
+      ${p.hideDeepAnalysis ? '' : `
       <div class="card">
         <div class="card-head">
           <div>
@@ -964,7 +1075,7 @@ function renderSectionsShell(){
         ${p.hideSegmentAnalysis ? '' : `
         <div class="deep-subhead">بهینه‌سازی کمپین‌های گرون (Adgroup و Creative)</div>
         <div id="segmentIssues-${p.id}"></div>`}
-      </div>
+      </div>`}
       ${p.sessionsCompare ? `
       <div class="card">
         <div class="card-head">
@@ -1350,6 +1461,7 @@ function renderCampaignCpaTable(project, joined){
 function renderCostDrivers(project, joined){
   const b = computeLatestCostBreakdown(joined);
   const el = document.getElementById(`costDrivers-${project.id}`);
+  if(!el) return;
   if(!b){ el.innerHTML = `<div class="deep-empty">برای مقایسه‌ی آخرین روز با روز قبلش، حداقل ۲ روز داده لازمه.</div>`; return; }
   const headline = `
     <div class="deep-item" style="border-bottom:1px solid var(--border);padding-bottom:12px;">
@@ -1384,6 +1496,7 @@ function renderCostDrivers(project, joined){
 function renderCpaDrivers(project, joined){
   const r = computeLatestCpaChange(joined);
   const el = document.getElementById(`cpaDrivers-${project.id}`);
+  if(!el) return;
   if(!r){ el.innerHTML = `<div class="deep-empty">برای مقایسه‌ی CPA آخرین روز با روز قبلش، حداقل ۲ روز داده لازمه.</div>`; return; }
   if(r.pctChange===null){ el.innerHTML = `<div class="deep-empty">دیروز یا پریروز کانورژنی ثبت نشده، پس CPA قابل مقایسه نیست.</div>`; return; }
   if(!r.significant){
@@ -1410,6 +1523,7 @@ function renderCpaDrivers(project, joined){
 function renderSegmentIssues(project){
   const results = analyzeCampaignSegments(project);
   const el = document.getElementById(`segmentIssues-${project.id}`);
+  if(!el) return;
   if(!results.length){
     el.innerHTML = `<div class="deep-empty">کمپینی که هم CPA‌ش به‌طور معنادار از میانگین کلی بالاتر باشه، هم توش Adgroup/Creative مشکل‌دار آماری پیدا بشه، شناسایی نشد.</div>`;
     return;
@@ -1584,7 +1698,11 @@ function updateSection(project){
   const matchPct = totalCostInSheet>0 ? Math.round(matchedCost/totalCostInSheet*100) : 0;
 
   const d = project.diag || {};
-  const notes = [`پوشش join: <b>${matchPct}%</b> هزینه (${fmtMoney(matchedCost)} از ${fmtMoney(totalCostInSheet)} تطبیق یافت)`];
+  // With includeUnmatchedCost the whole sheet's cost is already in the numbers,
+  // so "coverage" would read as if something were missing — say what it means.
+  const notes = [project.includeUnmatchedCost
+    ? `کل هزینه‌ی شیت لحاظ شده: <b>${fmtMoney(totalCost)}</b> — ${matchPct}٪ از این هزینه به ردیف‌های ${escapeHtml(project.conversionLabel)} مچ شد`
+    : `پوشش join: <b>${matchPct}%</b> هزینه (${fmtMoney(matchedCost)} از ${fmtMoney(totalCostInSheet)} تطبیق یافت)`];
   if(d.excludedCost > 0) notes.push(`${fmtMoney(d.excludedCost)} هزینه‌ی کمپین‌های خارج از فیلتر این پروژه (کل بازه‌ی شیت)`);
   if(d.skippedRows > 0) notes.push(`<b>${fmtNum(d.skippedRows)}</b> ردیف بدون Date یا Campaign نادیده گرفته شد (${fmtMoney(d.skippedCost)})`);
   if(d.unreadableCost > 0) notes.push(`<b>${fmtNum(d.unreadableCost)}</b> سلول Cost با فرمت غیرقابل‌خوندن`);
@@ -1653,21 +1771,31 @@ function hexToRgba(hex, alpha){
 }
 
 // ---------- Init ----------
+// Sections can share tabs (several parts of one project read the same sheets),
+// so each tab is fetched once per load and reused.
+const sheetCache = {};
+function fetchSheetCached(spreadsheetId, sheet){
+  const key = spreadsheetId + '||' + sheet;
+  if(!sheetCache[key]) sheetCache[key] = fetchSheetData(spreadsheetId, sheet);
+  return sheetCache[key];
+}
+
 async function loadProject(project){
   try{
     const cmp = project.sessionsCompare;
-    // Ref and cost can live in the same tab — fetch it once — and every tab
-    // this project needs is fetched in parallel.
-    const sameSheet = project.refSheet === project.costSheet;
-    const [refRows, costOrNull, compareOrNull] = await Promise.all([
-      fetchSheetData(project.spreadsheetId, project.refSheet),
-      sameSheet ? null : fetchSheetData(project.spreadsheetId, project.costSheet),
-      cmp ? fetchSheetData(project.spreadsheetId, cmp.sheet) : null
+    // refSheet may name several sheets; their rows are concatenated and then
+    // aggregated on Date + Campaign, which sums a campaign's conversions across
+    // the sheets for each day.
+    const refSheets = Array.isArray(project.refSheet) ? project.refSheet : [project.refSheet];
+    const [refSheetRows, costRows, compareOrNull] = await Promise.all([
+      Promise.all(refSheets.map(sheet => fetchSheetCached(project.spreadsheetId, sheet))),
+      fetchSheetCached(project.spreadsheetId, project.costSheet),
+      cmp ? fetchSheetCached(project.spreadsheetId, cmp.sheet) : null
     ]);
-    const costRows = sameSheet ? refRows : costOrNull;
     const compareRows = compareOrNull || [];
     const diag = {skippedRows:0, skippedCost:0, unreadableCost:0, excludedCost:0};
-    project.rawRef = normalizeRefRows(refRows, project.conversionCol, project.installsCol, project.adgroupCol, project.creativeCol);
+    project.rawRef = refSheetRows.flatMap(rows =>
+      normalizeRefRows(rows, project.conversionCol, project.installsCol, project.adgroupCol, project.creativeCol));
     project.rawCost = normalizeCostRows(costRows, project.impressionsCol, project.clicksCol, diag);
     // The session comparison works off daily totals of each tab as-is, so it
     // keeps the rows the project's campaign filter removes from everything else.
@@ -1693,35 +1821,86 @@ async function loadProject(project){
   }
 }
 
-function renderTabBar(){
-  const el = document.getElementById('tabBar');
-  el.innerHTML = PROJECTS.map(p=>`
-    <button type="button" class="tab-btn" id="tab-${p.id}" style="--tab-accent:${p.theme.accent}">
-      ${p.logo?`<img src="${p.logo}" alt="">`:''}${escapeHtml(p.tabTitle || p.title)}
-    </button>`).join('');
+// A tab is either one project, or the group of parts sharing a `group` key —
+// several sections of the same project, each with its own sheets and filters,
+// behind one tab with a second row of buttons.
+function buildTabs(){
+  const tabs = [];
+  const byId = {};
   PROJECTS.forEach(p=>{
-    document.getElementById(`tab-${p.id}`).addEventListener('click', ()=>switchTab(p.id));
+    const tabId = p.group || p.id;
+    if(!byId[tabId]){
+      byId[tabId] = {id:tabId, title: p.groupTitle || p.tabTitle || p.title, logo:p.logo, theme:p.theme, parts:[]};
+      tabs.push(byId[tabId]);
+    }
+    byId[tabId].parts.push(p);
+  });
+  return tabs;
+}
+let TABS = [];
+const activePart = {};   // { [tabId]: projectId }
+let activeTabId = null;
+
+function renderTabBar(){
+  TABS = buildTabs();
+  const el = document.getElementById('tabBar');
+  el.innerHTML = TABS.map(t=>`
+    <button type="button" class="tab-btn" id="tab-${t.id}" style="--tab-accent:${t.theme.accent}">
+      ${t.logo?`<img src="${t.logo}" alt="">`:''}${escapeHtml(t.title)}
+    </button>`).join('');
+  TABS.forEach(t=>{
+    document.getElementById(`tab-${t.id}`).addEventListener('click', ()=>switchTab(t.id));
   });
 }
 
-// The filter bar sticks below the tab bar, so it needs the bar's real height —
-// which changes when the tabs wrap onto a second row.
+function renderSubTabBar(tab){
+  const el = document.getElementById('subTabBar');
+  if(tab.parts.length < 2){ el.innerHTML = ''; el.hidden = true; return; }
+  el.hidden = false;
+  el.innerHTML = tab.parts.map(p=>`
+    <button type="button" class="sub-tab-btn${p.id===activePart[tab.id]?' active':''}"
+            id="subtab-${p.id}" style="--tab-accent:${p.theme.accent}">${escapeHtml(p.partTitle || p.title)}</button>`).join('');
+  tab.parts.forEach(p=>{
+    document.getElementById(`subtab-${p.id}`).addEventListener('click', ()=>{
+      activePart[tab.id] = p.id;
+      switchTab(tab.id);
+    });
+  });
+}
+
+// The filter bar sticks below the pinned header, whose height changes when the
+// tabs wrap onto a second row or a sub-tab row appears.
 function syncStickyOffset(){
   const bar = document.getElementById('tabBar');
+  const sub = document.getElementById('subTabBar');
   if(!bar) return;
-  document.documentElement.style.setProperty('--sticky-top', bar.offsetHeight + 'px');
+  const barH = bar.offsetHeight;
+  const subH = (sub && !sub.hidden) ? sub.offsetHeight : 0;
+  document.documentElement.style.setProperty('--tabbar-h', barH + 'px');
+  document.documentElement.style.setProperty('--sticky-top', (barH + subH) + 'px');
 }
 
-function switchTab(id){
+function switchTab(tabId){
+  const tab = TABS.find(t=>t.id===tabId);
+  if(!tab) return;
+  activeTabId = tabId;
+  if(!activePart[tabId] || !tab.parts.some(p=>p.id===activePart[tabId])) activePart[tabId] = tab.parts[0].id;
+  const shownId = activePart[tabId];
+
   PROJECTS.forEach(p=>{
     const sectionEl = document.getElementById(`section-${p.id}`);
-    if(sectionEl) sectionEl.style.display = (p.id===id) ? '' : 'none';
-    const tabEl = document.getElementById(`tab-${p.id}`);
-    if(tabEl) tabEl.classList.toggle('active', p.id===id);
+    if(sectionEl) sectionEl.style.display = (p.id===shownId) ? '' : 'none';
   });
-  const activeProject = PROJECTS.find(p=>p.id===id);
+  TABS.forEach(t=>{
+    const tabEl = document.getElementById(`tab-${t.id}`);
+    if(tabEl) tabEl.classList.toggle('active', t.id===tabId);
+  });
+  renderSubTabBar(tab);
+
+  const shownProject = PROJECTS.find(p=>p.id===shownId);
   const mainContentEl = document.getElementById('mainContent');
-  mainContentEl.style.display = (activeProject && !activeProject.ownDateFilter) ? '' : 'none';
+  mainContentEl.style.display = (shownProject && !shownProject.ownDateFilter) ? '' : 'none';
+  syncStickyOffset();
 }
 
 async function init(){
@@ -1748,10 +1927,14 @@ async function init(){
   renderSectionsShell();
   PROJECTS.filter(p=>!p.error).forEach(p=>updateSection(p));
   renderTabBar();
-  switchTab(PROJECTS[0].id);
+  switchTab(TABS[0].id);
   syncStickyOffset();
   window.addEventListener('resize', syncStickyOffset);
-  if(window.ResizeObserver) new ResizeObserver(syncStickyOffset).observe(document.getElementById('tabBar'));
+  if(window.ResizeObserver){
+    const ro = new ResizeObserver(syncStickyOffset);
+    ro.observe(document.getElementById('tabBar'));
+    ro.observe(document.getElementById('subTabBar'));
+  }
 
   const anyError = PROJECTS.some(p=>p.error);
   setStatus(anyError?'err':'live', anyError ? 'بعضی پروژه‌ها خطا دادن — جزئیات توی همون سکشن' : 'همگام‌سازی شد — ' + new Date().toLocaleTimeString('fa-IR',{hour:'2-digit',minute:'2-digit'}));
