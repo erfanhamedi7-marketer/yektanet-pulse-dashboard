@@ -263,6 +263,21 @@
   .deep-empty{font-size:12.5px;color:var(--text-faint);padding:8px 0;}
   .seg-rate{font-family:var(--font-mono);}
   .seg-rate.low{color:var(--negative);}
+  .cpa-table-wrap{overflow-x:auto;}
+  .cpa-table{width:100%;border-collapse:collapse;font-size:12px;}
+  .cpa-table th{
+    text-align:right;font-weight:600;font-size:11px;color:var(--text-muted);
+    padding:6px 8px;border-bottom:1px solid var(--border);white-space:nowrap;
+  }
+  .cpa-table td{
+    padding:8px;border-bottom:1px solid var(--border-soft);color:var(--text);
+    white-space:nowrap;font-family:var(--font-mono);
+  }
+  .cpa-table td.campaign{font-family:var(--font-ui);font-weight:700;white-space:normal;min-width:150px;}
+  .cpa-table tr:last-child td{border-bottom:none;}
+  .cpa-table td.muted{color:var(--text-faint);}
+  .cpa-table td.pos{color:var(--positive);}
+  .cpa-table td.neg{color:var(--negative);}
 
   @media (max-width:900px){
     .kpis{grid-template-columns:repeat(2,1fr);}
@@ -928,6 +943,9 @@ function renderSectionsShell(){
           </div>
         </div>
 
+        <div class="deep-subhead">CPA کمپین‌ها در روزهای گذشته</div>
+        <div id="cpaTable-${p.id}"></div>
+
         <div class="deep-subhead">عامل تغییر هزینه (آخرین روز نسبت به روز قبلش)</div>
         <div id="costDrivers-${p.id}"></div>
 
@@ -1218,6 +1236,106 @@ function analyzeCampaignSegments(project){
   });
 
   return results.sort((a,b)=>b.cpa-a.cpa);
+}
+
+// Where each campaign's CPA actually stands over the selected range — the level,
+// not the day-over-day move. Every campaign that spent anything is listed, with
+// its share of spend, its CPA against the project's own average for the same
+// range, and its CPA over the most recent days so a campaign that has drifted
+// is visible next to its range-wide number.
+function computeCampaignCpaTable(project, joined){
+  if(!joined.length) return null;
+  const dates = Array.from(new Set(joined.map(r=>r.date))).sort();
+  const recentWindow = Math.min(7, dates.length);
+  const recentFrom = dates[dates.length - recentWindow];
+
+  const byCampaign = {};
+  joined.forEach(r=>{
+    const c = byCampaign[r.campaign] = byCampaign[r.campaign] ||
+      {label: r.campaignLabel || r.campaign, cost:0, conversion:0, days:new Set(), recentCost:0, recentConversion:0};
+    c.cost += r.cost;
+    c.conversion += r.conversion;
+    if(r.cost > 0) c.days.add(r.date);
+    if(r.date >= recentFrom){ c.recentCost += r.cost; c.recentConversion += r.conversion; }
+  });
+
+  const totalCost = joined.reduce((s,r)=>s+r.cost,0);
+  const totalConversion = joined.reduce((s,r)=>s+r.conversion,0);
+  const benchmark = totalConversion>0 ? totalCost/totalConversion : null;
+
+  const rows = Object.entries(byCampaign).map(([key,c])=>{
+    const cpa = c.conversion>0 ? c.cost/c.conversion : null;
+    return {
+      key, label:c.label, cost:c.cost, conversion:c.conversion, activeDays:c.days.size,
+      share: totalCost>0 ? c.cost/totalCost*100 : 0,
+      cpa,
+      recentCpa: c.recentConversion>0 ? c.recentCost/c.recentConversion : null,
+      recentCost: c.recentCost,
+      vsBenchmark: (benchmark && cpa!==null) ? (cpa-benchmark)/benchmark*100 : null
+    };
+  }).filter(r=>r.cost>0 || r.conversion>0);
+  rows.sort((a,b)=>b.cost-a.cost);
+
+  return {rows, totalCost, totalConversion, benchmark, recentWindow,
+          dayCount:dates.length, from:dates[0], to:dates[dates.length-1]};
+}
+
+const CPA_TABLE_MAX_ROWS = 12;
+function renderCampaignCpaTable(project, joined){
+  const el = document.getElementById(`cpaTable-${project.id}`);
+  if(!el) return;
+  const t = computeCampaignCpaTable(project, joined);
+  if(!t){ el.innerHTML = `<div class="deep-empty">توی این بازه دیتایی نیست.</div>`; return; }
+  const label = project.conversionLabel;
+
+  const head = `
+    <div class="deep-subtext">
+      ${fmtDateLabel(t.from)} تا ${fmtDateLabel(t.to)} (${fmtNum(t.dayCount)} روز) —
+      میانگین CPA پروژه در همین بازه: <b>${t.benchmark!==null?fmtMoney(t.benchmark):'—'}</b>.
+      ستون «نسبت به میانگین» اختلاف هر کمپین با همین عدده.
+    </div>`;
+
+  const shown = t.rows.slice(0, CPA_TABLE_MAX_ROWS);
+  const body = shown.map(r=>{
+    const cpaCell = r.cpa!==null
+      ? `<td>${fmtNum(r.cpa)}</td>`
+      : `<td class="neg">بدون ${escapeHtml(label)}</td>`;
+    const recentCell = r.recentCost<=0
+      ? `<td class="muted">بدون هزینه</td>`
+      : r.recentCpa!==null ? `<td>${fmtNum(r.recentCpa)}</td>`
+      : `<td class="neg">بدون ${escapeHtml(label)}</td>`;
+    const vsCell = r.vsBenchmark===null
+      ? `<td class="muted">—</td>`
+      : `<td class="${r.vsBenchmark>0?'neg':'pos'}">${r.vsBenchmark>0?'▲':'▼'} ${Math.abs(r.vsBenchmark).toFixed(0)}٪</td>`;
+    return `
+      <tr>
+        <td class="campaign">${escapeHtml(r.label)}</td>
+        <td>${fmtNum(r.cost)}</td>
+        <td class="muted">${r.share.toFixed(0)}٪</td>
+        <td>${fmtNum(r.conversion)}</td>
+        ${cpaCell}
+        ${recentCell}
+        ${vsCell}
+        <td class="muted">${fmtNum(r.activeDays)}</td>
+      </tr>`;
+  }).join('');
+
+  const more = t.rows.length > shown.length
+    ? `<div class="deep-subtext" style="margin-top:8px;">${fmtNum(t.rows.length - shown.length)} کمپین دیگه با هزینه‌ی کمتر نمایش داده نشدن.</div>` : '';
+
+  el.innerHTML = head + `
+    <div class="cpa-table-wrap">
+      <table class="cpa-table">
+        <thead>
+          <tr>
+            <th>کمپین</th><th>هزینه (تومان)</th><th>سهم هزینه</th><th>${escapeHtml(label)}</th>
+            <th>CPA کل بازه (تومان)</th><th>CPA ${fmtNum(t.recentWindow)} روز اخیر</th>
+            <th>نسبت به میانگین</th><th>روز فعال</th>
+          </tr>
+        </thead>
+        <tbody>${body}</tbody>
+      </table>
+    </div>` + more;
 }
 
 function renderCostDrivers(project, joined){
@@ -1512,6 +1630,7 @@ function updateSection(project){
     }
   });
 
+  renderCampaignCpaTable(project, joined);
   renderSessionsChart(project);
   renderSessionGaps(project);
   renderCostDrivers(project, joined);
