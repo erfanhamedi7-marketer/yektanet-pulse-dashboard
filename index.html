@@ -288,6 +288,13 @@
   .di-tag.good{background:var(--positive-soft);color:var(--positive);}
   .di-tag.bad{background:var(--negative-soft);color:var(--negative);}
   .deep-empty{font-size:12.5px;color:var(--text-faint);padding:8px 0;}
+  .budget-bar{padding:12px 0;border-bottom:1px solid var(--border-soft);}
+  .budget-bar:last-child{border-bottom:none;}
+  .budget-bar-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;font-size:12.5px;margin-bottom:7px;}
+  .budget-bar-foot{font-size:11.5px;color:var(--text-muted);margin-top:6px;font-family:var(--font-mono);}
+  .pos-text{color:var(--positive);}
+  .neg-text{color:var(--negative);}
+  .cpa-table tfoot td{border-top:1px solid var(--border);font-weight:700;}
   .cpa-table-wrap{overflow-x:auto;overflow-y:auto;max-height:380px;}
   .cpa-table thead th{position:sticky;top:0;background:var(--surface);z-index:1;}
   .cpa-table{width:100%;border-collapse:collapse;font-size:12px;}
@@ -496,6 +503,20 @@ const ALL_PROJECTS = [
       ownLabel: 'Yektanet'
     },
     theme: { accent: '#6366F1', accent2: '#F43F5E', accentSoft: 'rgba(99,102,241,0.12)' }
+  },
+  {
+    id: 'snapppay',
+    tabTitle: 'اسنپ‌پی',
+    title: 'پروژه اسنپ‌پی',
+    subtitle: 'Blend Data (روزانه) × Budgeting (بودجه هر کمپین)',
+    kind: 'budget',
+    spreadsheetId: '1dgyCKN89-SF-3IANYg2F9F3tySvjnr4oyn9pbkukAFI',
+    blendSheet: 'Blend Data',
+    budgetSheet: 'Budgeting',
+    hideDeepAnalysis: true,
+    ownDateFilter: true,
+    defaultRangeDays: 30,
+    theme: { accent: '#22C55E', accent2: '#F43F5E', accentSoft: 'rgba(34,197,94,0.12)' }
   },
   // ---- Talaeen: one tab, four parts (group + partTitle put them behind one tab) ----
   // Campaign kinds that don't belong in the web funnel's numbers.
@@ -723,6 +744,110 @@ function normalizeCostRows(rows, impressionsCol, clicksCol, diag){
             cost, impressions: toNumber(r[impressionsCol]), clicks: toNumber(r[clicksCol])};
   }).filter(Boolean);
 }
+// ---------- Budget/profit sections ----------
+// Blend Data: one row per day + campaign, carrying what the panel really cost
+// (Cost R) and what was declared to the client (Cost).
+function normalizeBlendRows(rows){
+  return rows.map(r=>{
+    const date = normDate(r['Date']);
+    const campaign = normCampaign(r['Campaign']);
+    if(!date || !campaign) return null;
+    return {
+      date, campaign,
+      campaignLabel: (r['Campaign']||'').toString().trim(),
+      campaignName: (r['Campaign Name']||'').toString().trim() || '(بدون نام)',
+      sessions: toNumber(r['Sessions']),
+      impressions: toNumber(r['Impression']),
+      clicks: toNumber(r['Click']),
+      costReal: toNumber(r['Cost R']),
+      cost: toNumber(r['Cost'])
+    };
+  }).filter(Boolean);
+}
+// Budgeting: one row per campaign. Total Budget is the only figure that isn't
+// derived from Blend Data, but the rest is read from here too so the dashboard
+// agrees with the sheet the client is shown.
+function normalizeBudgetRows(rows){
+  return rows.map(r=>{
+    const campaign = normCampaign(r['Campaign']);
+    if(!campaign) return null;
+    return {
+      campaign,
+      campaignLabel: (r['Campaign']||'').toString().trim(),
+      campaignName: (r['Campaign Name']||'').toString().trim() || '(بدون نام)',
+      totalBudget: toNumber(r['Total Budget']),
+      spent: toNumber(r['Spent']),
+      remaining: toNumber(r['Remaining Budget']),
+      spentPanel: toNumber(r['Spent (Panel)']),
+      profit: toNumber(r['Profit'])
+    };
+  }).filter(Boolean);
+}
+
+// Profit only accrues on declared cost that is still inside the campaign's
+// budget: profit = min(declared so far, budget) - real cost. Walking each
+// campaign's days in order turns that into a daily number whose total matches
+// the Budgeting sheet's Profit column.
+function buildBudgetDaily(project){
+  const {from, to} = sectionRange(project);
+  const inRange = d => (!from || d >= from) && (!to || d <= to);
+  const byCampaign = {};
+  (project.rawBlend||[]).forEach(r=>{ (byCampaign[r.campaign] = byCampaign[r.campaign] || []).push(r); });
+
+  const byDate = {};
+  Object.entries(byCampaign).forEach(([key, rows])=>{
+    rows.sort((a,b)=>a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+    const budgetRow = project.budgetByCampaign[key];
+    const budget = budgetRow ? budgetRow.totalBudget : Infinity;
+    let declared = 0;
+    rows.forEach(r=>{
+      const before = Math.min(declared, budget);
+      declared += r.cost;
+      const billable = Math.min(declared, budget) - before;  // today's part still inside the budget
+      if(!inRange(r.date)) return;
+      const d = byDate[r.date] = byDate[r.date] || {cost:0, costReal:0, profit:0};
+      d.cost += r.cost;
+      d.costReal += r.costReal;
+      d.profit += billable - r.costReal;
+    });
+  });
+
+  const keys = Object.keys(byDate).sort();
+  return {
+    labels: keys.map(fmtDateLabel),
+    cost: keys.map(k=>byDate[k].cost),
+    costReal: keys.map(k=>byDate[k].costReal),
+    profit: keys.map(k=>byDate[k].profit),
+    totals: keys.reduce((t,k)=>({cost:t.cost+byDate[k].cost, costReal:t.costReal+byDate[k].costReal, profit:t.profit+byDate[k].profit}),
+                        {cost:0, costReal:0, profit:0}),
+    dayCount: keys.length
+  };
+}
+
+// Budget figures are lifetime by nature, so they ignore the date filter.
+function buildBudgetTable(project){
+  const rows = (project.rawBudget||[]).slice().sort((a,b)=>b.totalBudget - a.totalBudget);
+  const totals = rows.reduce((t,r)=>({
+    totalBudget: t.totalBudget + r.totalBudget, spent: t.spent + r.spent,
+    remaining: t.remaining + r.remaining, spentPanel: t.spentPanel + r.spentPanel, profit: t.profit + r.profit
+  }), {totalBudget:0, spent:0, remaining:0, spentPanel:0, profit:0});
+
+  const byName = {};
+  rows.forEach(r=>{
+    const g = byName[r.campaignName] = byName[r.campaignName] ||
+      {name:r.campaignName, totalBudget:0, spent:0, remaining:0, profit:0, campaigns:0};
+    g.totalBudget += r.totalBudget; g.spent += r.spent; g.remaining += r.remaining;
+    g.profit += r.profit; g.campaigns++;
+  });
+  const groups = Object.values(byName).map(g=>({
+    ...g,
+    remainingPct: g.totalBudget>0 ? Math.max(0, Math.min(100, g.remaining/g.totalBudget*100)) : 0,
+    spentPct: g.totalBudget>0 ? Math.max(0, Math.min(100, g.spent/g.totalBudget*100)) : 0
+  })).sort((a,b)=>b.totalBudget - a.totalBudget);
+
+  return {rows, totals, groups};
+}
+
 function normalizeCompareRows(rows, sessionsCol){
   return rows.map(r=>{
     const date = normDate(r['Date']);
@@ -1027,10 +1152,11 @@ function renderSectionsShell(){
           </div>
         </div>
         <div class="section-controls">
+          ${p.kind === 'budget' ? '' : `
           <div class="ms-dropdown" id="msWrap-${p.id}">
             <button type="button" class="ms-toggle" id="msToggle-${p.id}">همه کمپین‌ها ▾</button>
             <div class="ms-panel" id="msPanel-${p.id}" hidden></div>
-          </div>
+          </div>`}
         </div>
       </div>
       ${p.ownDateFilter ? `
@@ -1051,6 +1177,38 @@ function renderSectionsShell(){
       </div>` : ''}
       <div class="coverage-note" id="coverageNote-${p.id}"></div>
       <div class="kpis" id="kpis-${p.id}"></div>
+      ${p.kind === 'budget' ? `
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h2>هزینه‌ی اعلامی و سود بر حسب روز</h2>
+            <div class="card-sub">سود هر روز = بخشی از هزینه‌ی اعلامی که هنوز داخل بودجه‌ی کمپین بوده، منهای هزینه‌ی واقعی همان روز.</div>
+          </div>
+          <div class="legend-dots">
+            <span><i style="background:var(--accent)"></i>Cost اعلامی</span>
+            <span><i style="background:#F59E0B"></i>Cost R واقعی</span>
+            <span><i style="background:var(--accent-2)"></i>سود</span>
+          </div>
+        </div>
+        <div class="chart-box"><canvas id="budgetChart-${p.id}"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h2>بودجه و سود هر کمپین</h2>
+            <div class="card-sub">این اعداد از شیت Budgeting میان و مربوط به کل عمر کمپین‌ان — فیلتر تاریخ روشون اثر نداره.</div>
+          </div>
+        </div>
+        <div id="budgetTable-${p.id}"></div>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h2>باقی‌مانده‌ی بودجه به تفکیک Campaign Name</h2>
+          </div>
+        </div>
+        <div id="budgetBars-${p.id}"></div>
+      </div>` : `
       <div class="card">
         <div class="card-head">
           <div>
@@ -1062,7 +1220,7 @@ function renderSectionsShell(){
           </div>
         </div>
         <div class="chart-box"><canvas id="trendChart-${p.id}"></canvas></div>
-      </div>
+      </div>`}
       ${p.hideDeepAnalysis ? '' : `
       <div class="card">
         <div class="card-head">
@@ -1114,10 +1272,13 @@ function renderSectionsShell(){
       return;
     }
 
-    p.campaignOptions = getCampaignOptionsSortedByCost(p);
     projectState[p.id] = { campaigns: 'ALL', from: null, to: null };
-    renderCampaignDropdown(p);
-    wireCampaignToggle(p);
+    // A budget section has no campaign multi-select to build.
+    if(p.kind !== 'budget'){
+      p.campaignOptions = getCampaignOptionsSortedByCost(p);
+      renderCampaignDropdown(p);
+      wireCampaignToggle(p);
+    }
 
     if(p.ownDateFilter){
       const fromInput = document.getElementById(`ownFrom-${p.id}`);
@@ -1681,7 +1842,117 @@ function renderSessionsChart(project){
   });
 }
 
+function updateBudgetSection(project){
+  const daily = buildBudgetDaily(project);
+  const {rows, totals, groups} = buildBudgetTable(project);
+
+  const note = [];
+  note.push(`${fmtNum(rows.length)} کمپین توی شیت Budgeting — بودجه‌ی کل: <b>${fmtMoney(totals.totalBudget)}</b>`);
+  if(project.noBudgetCampaigns && project.noBudgetCampaigns.length)
+    note.push(`${fmtNum(project.noBudgetCampaigns.length)} کمپین هزینه دارن ولی ردیف بودجه ندارن (سودشون بدون سقف حساب شده): ${escapeHtml(project.noBudgetCampaigns.slice(0,4).join('، '))}`);
+  document.getElementById(`coverageNote-${project.id}`).innerHTML = note.join(' — ');
+
+  const margin = daily.totals.cost>0 ? daily.totals.profit/daily.totals.cost*100 : null;
+  const cards = [
+    {label:'Cost اعلامی (بازه)', value: fmtMoney(daily.totals.cost)},
+    {label:'Cost R واقعی (بازه)', value: fmtMoney(daily.totals.costReal)},
+    {label:'سود بازه', value: fmtMoney(daily.totals.profit), accent:true},
+    {label:'حاشیه سود', value: margin!==null ? `${margin.toFixed(1)}٪` : '—'},
+    {label:'باقی‌مانده‌ی بودجه (کل)', value: fmtMoney(totals.remaining)}
+  ];
+  const kpiEl = document.getElementById(`kpis-${project.id}`);
+  kpiEl.style.gridTemplateColumns = `repeat(${cards.length}, 1fr)`;
+  kpiEl.innerHTML = cards.map(c=>`
+    <div class="kpi">
+      <div class="kpi-top"><span class="label">${c.label}</span></div>
+      <div class="value ${c.accent?'accent':''}">${c.value}</div>
+    </div>`).join('');
+
+  // Declared cost, real cost and profit share one axis — all three are Toman,
+  // and profit dips below zero once a campaign is past its budget.
+  const key = project.id + ':budget';
+  if(chartInstances[key]) chartInstances[key].destroy();
+  const accentHex = project.theme.accent, accent2Hex = project.theme.accent2, realHex = '#F59E0B';
+  chartInstances[key] = new Chart(document.getElementById(`budgetChart-${project.id}`), {
+    type:'bar',
+    data:{
+      labels: daily.labels,
+      datasets:[
+        {label:'Cost اعلامی', data:daily.cost, backgroundColor: hexToRgba(accentHex,0.55), hoverBackgroundColor: hexToRgba(accentHex,0.8), borderRadius:5, maxBarThickness:18},
+        {label:'Cost R واقعی', data:daily.costReal, backgroundColor: hexToRgba(realHex,0.5), hoverBackgroundColor: hexToRgba(realHex,0.75), borderRadius:5, maxBarThickness:18},
+        {label:'سود', data:daily.profit, backgroundColor: hexToRgba(accent2Hex,0.65), hoverBackgroundColor: hexToRgba(accent2Hex,0.9), borderRadius:5, maxBarThickness:18}
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index', intersect:false},
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:'#171B26', borderColor:'#232838', borderWidth:1,
+          titleColor:'#E8EAF0', bodyColor:'#8A93A8', padding:12, boxPadding:5, cornerRadius:8,
+          titleFont:{family:"'IBM Plex Mono', monospace", size:11},
+          bodyFont:{family:"'IBM Plex Mono', monospace", size:11.5},
+          callbacks:{ label: ctx => `${ctx.dataset.label}: ${fmtNum(ctx.parsed.y,0)} تومان` }
+        }
+      },
+      scales:{
+        y:{grid:{color:'rgba(255,255,255,0.05)'}, border:{display:false}, ticks:{font:{size:10}, callback:v=>fmtNum(v)}},
+        x:{grid:{display:false}, border:{display:false}, ticks:{font:{size:10}, maxRotation:45, minRotation:45, autoSkip:true, maxTicksLimit:12}}
+      }
+    }
+  });
+
+  // Per-campaign table
+  const money = (v, cls) => `<td class="${cls||''}">${fmtNum(v)}</td>`;
+  const body = rows.map(r=>{
+    const over = r.totalBudget>0 && r.spent > r.totalBudget;
+    return `
+      <tr>
+        <td class="campaign">${escapeHtml(r.campaignLabel)}</td>
+        <td class="muted">${escapeHtml(r.campaignName)}</td>
+        ${money(r.totalBudget)}
+        ${money(r.spent, over?'neg':'')}
+        ${money(r.remaining, r.remaining<=0?'muted':'')}
+        ${money(r.spentPanel)}
+        ${money(r.profit, r.profit>=0?'pos':'neg')}
+        <td class="muted">${over ? 'از بودجه رد شده' : '—'}</td>
+      </tr>`;
+  }).join('');
+  document.getElementById(`budgetTable-${project.id}`).innerHTML = rows.length ? `
+    <div class="cpa-table-wrap">
+      <table class="cpa-table">
+        <thead>
+          <tr>
+            <th>کمپین</th><th>Campaign Name</th><th>بودجه کل</th><th>خرج‌شده (اعلامی)</th>
+            <th>باقی‌مانده</th><th>خرج واقعی (پنل)</th><th>سود</th><th>وضعیت</th>
+          </tr>
+        </thead>
+        <tbody>${body}</tbody>
+        <tfoot>
+          <tr>
+            <td class="campaign">مجموع</td><td class="muted">${fmtNum(rows.length)} کمپین</td>
+            ${money(totals.totalBudget)}${money(totals.spent)}${money(totals.remaining)}${money(totals.spentPanel)}
+            ${money(totals.profit, totals.profit>=0?'pos':'neg')}<td class="muted">—</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>` : `<div class="deep-empty">شیت Budgeting ردیفی نداشت.</div>`;
+
+  // Remaining budget per Campaign Name
+  document.getElementById(`budgetBars-${project.id}`).innerHTML = groups.length ? groups.map(g=>`
+    <div class="budget-bar">
+      <div class="budget-bar-head">
+        <span><b>${escapeHtml(g.name)}</b> <span class="di-date">${fmtNum(g.campaigns)} کمپین</span></span>
+        <span class="di-date">${fmtMoney(g.remaining)} از ${fmtMoney(g.totalBudget)} مونده — ${g.remainingPct.toFixed(0)}٪</span>
+      </div>
+      <div class="meter-track"><div class="meter-fill" style="width:${g.spentPct.toFixed(1)}%;background:${g.spent > g.totalBudget ? 'var(--negative)' : 'var(--accent)'}"></div></div>
+      <div class="budget-bar-foot">خرج‌شده: ${fmtMoney(g.spent)} (${g.spentPct.toFixed(0)}٪) — سود: <b class="${g.profit>=0?'pos-text':'neg-text'}">${fmtMoney(g.profit)}</b></div>
+    </div>`).join('') : `<div class="deep-empty">دیتایی برای گروه‌بندی نبود.</div>`;
+}
+
 function updateSection(project){
+  if(project.kind === 'budget') return updateBudgetSection(project);
   if(project.error) return;
   const {joined, matchedCost, totalCostInSheet} = computeSection(project);
   const totalCost = joined.reduce((s,r)=>s+r.cost,0);
@@ -1780,6 +2051,26 @@ function fetchSheetCached(spreadsheetId, sheet){
 
 async function loadProject(project){
   try{
+    if(project.kind === 'budget'){
+      const [blendRows, budgetRows] = await Promise.all([
+        fetchSheetCached(project.spreadsheetId, project.blendSheet),
+        fetchSheetCached(project.spreadsheetId, project.budgetSheet)
+      ]);
+      const today = todayStr();
+      project.rawBlend = normalizeBlendRows(blendRows).filter(r=>!(/^\d{8}$/.test(r.date) && r.date > today));
+      project.rawBudget = normalizeBudgetRows(budgetRows);
+      project.budgetByCampaign = {};
+      project.rawBudget.forEach(r=>{ project.budgetByCampaign[r.campaign] = r; });
+      project.diag = {};
+      project.error = null;
+      const dates = project.rawBlend.map(r=>r.date).sort();
+      project.minDate = dates[0] || null;
+      project.maxDate = dates[dates.length-1] || null;
+      // Campaigns that spend without a budget row can't be capped, so say so.
+      project.noBudgetCampaigns = Array.from(new Set(
+        project.rawBlend.filter(r=>!project.budgetByCampaign[r.campaign] && r.cost > 0).map(r=>r.campaignLabel || r.campaign)));
+      return;
+    }
     const cmp = project.sessionsCompare;
     // refSheet may name several sheets; their rows are concatenated and then
     // aggregated on Date + Campaign, which sums a campaign's conversions across
@@ -1839,6 +2130,9 @@ async function loadProject(project){
     project.allRef = [];
     project.rawCost = [];
     project.rawCompare = [];
+    project.rawBlend = [];
+    project.rawBudget = [];
+    project.budgetByCampaign = {};
     project.error = 'نتونستم دیتای این پروژه رو بخونم: ' + (e.message || 'خطای نامشخص') + ' — مطمئن شو شیت با ایمیل Service Account شیر شده.';
   }
 }

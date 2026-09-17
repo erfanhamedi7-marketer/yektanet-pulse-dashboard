@@ -9,7 +9,8 @@ const ALLOWED_SPREADSHEETS = new Set([
   '1zBI8XWTlU0huKwd-_IQYvdwxAinvJjAnD7ZPwedO5UA', // Blue Junior
   '18ohsYVwngt7UJ5BwvBBWdhpQ2IOxO4b08-D4OMm2VEQ', // Wepod
   '1EvYoVf6HYp3Nbo02N47qYtaLesJBDVi9urQvOXVs1LQ', // Bankino
-  '1sjDcBvUZhJKpBzBngCWmxOXURR0MzPdjs9p8v5CyUxU'  // Shahr-e Lavazem Khanegi
+  '1sjDcBvUZhJKpBzBngCWmxOXURR0MzPdjs9p8v5CyUxU', // Shahr-e Lavazem Khanegi
+  '1dgyCKN89-SF-3IANYg2F9F3tySvjnr4oyn9pbkukAFI'  // Snapp Pay
 ]);
 
 let cachedClient = null;
