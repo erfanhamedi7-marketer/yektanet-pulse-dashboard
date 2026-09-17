@@ -1260,17 +1260,22 @@ function computeLatestCpaChange(joined){
 
 // CPA per Adgroup and per Creative.
 //
-// Cost is only known per Date + Campaign, so a campaign's cost for a day is
-// split across its Adgroups in proportion to the traffic each one carried that
-// day (installs/sessions; conversions as a fallback, otherwise an even split),
-// and the same split is done again, independently, across its Creatives. Each
-// split adds back up to the campaign's own cost for that day, so both tables
-// account for exactly the section's total spend.
+// Cost is only known per Date + Campaign, and installs are what the money
+// actually buys, so the campaign is priced per install over the selected range:
 //
-// Conversions are the sheet's real numbers — only the cost is apportioned —
-// so CPA here says "what this segment's traffic cost per conversion".
-const SEG_MIN_COST_SHARE = 0.03;   // below 3% of spend a segment can't move the total
-const SEG_MIN_CONVERSIONS = 3;     // below this a CPA is noise — unless it is zero
+//   cost per install = campaign cost / campaign installs
+//   segment cost     = segment installs x cost per install
+//   segment CPA      = segment cost / segment conversions
+//
+// Installs and conversions are the sheet's real numbers; only the cost is
+// apportioned, and since a campaign's segment installs add back up to its own
+// installs, each table accounts for exactly that campaign's spend. Adgroups and
+// Creatives are priced independently of each other.
+//
+// A campaign with no installs in the range can't be priced this way at all, so
+// its rows are left out rather than guessed at.
+const SEG_MIN_INSTALLS = 30;         // an absolute floor for a meaningful CPA
+const SEG_MIN_INSTALL_SHARE = 0.01;  // and at least 1% of the section's installs
 const SEG_MAX_ROWS = 6;
 function computeSegmentCpa(project, joined, keyFn){
   const st = projectState[project.id];
@@ -1280,61 +1285,58 @@ function computeSegmentCpa(project, joined, keyFn){
   const refRows = project.rawRef.filter(r=>inRange(r.date) && inCampaign(r.campaign));
   if(!refRows.length) return null;
 
-  // The campaign's cost for each day, as the joined rows already computed it.
-  const costByDayCampaign = {};
-  joined.forEach(r=>{ costByDayCampaign[r.date + '||' + r.campaign] = (costByDayCampaign[r.date + '||' + r.campaign] || 0) + r.cost; });
-
-  // Group the day's rows per campaign so cost can be split within each group.
-  const groups = {};
+  // Per campaign over the whole range: what the sheet spent, and what it bought.
+  const byCampaign = {};
+  joined.forEach(r=>{
+    const c = byCampaign[r.campaign] = byCampaign[r.campaign] || {cost:0, installs:0, label:r.campaignLabel || r.campaign};
+    c.cost += r.cost;
+  });
   refRows.forEach(r=>{
-    const k = r.date + '||' + r.campaign;
-    (groups[k] = groups[k] || []).push(r);
+    const c = byCampaign[r.campaign] = byCampaign[r.campaign] || {cost:0, installs:0, label:r.campaignLabel || r.campaign};
+    c.installs += r.installs;
   });
 
   const segments = {};
-  Object.entries(groups).forEach(([k, rows])=>{
-    const dayCost = costByDayCampaign[k] || 0;
-    let weights = rows.map(r=>r.installs);
-    let total = weights.reduce((a,b)=>a+b,0);
-    if(total <= 0){ weights = rows.map(r=>r.conversion); total = weights.reduce((a,b)=>a+b,0); }
-    if(total <= 0){ weights = rows.map(()=>1); total = rows.length; }
-    rows.forEach((r, i)=>{
-      const segKey = r.campaign + '||' + keyFn(r);
+  let pricedInstalls = 0, unpricedCampaigns = 0;
+  Object.entries(byCampaign).forEach(([key, c])=>{
+    if(c.installs <= 0){ if(c.cost > 0) unpricedCampaigns++; return; }
+    const costPerInstall = c.cost / c.installs;
+    refRows.filter(r=>r.campaign===key).forEach(r=>{
+      const segKey = key + '||' + keyFn(r);
       const seg = segments[segKey] = segments[segKey] ||
-        {label: keyFn(r), campaign: r.campaignLabel || r.campaign, cost:0, conversion:0, installs:0};
-      seg.cost += dayCost * (weights[i] / total);
-      seg.conversion += r.conversion;
+        {label: keyFn(r), campaign: c.label, cost:0, conversion:0, installs:0, costPerInstall};
       seg.installs += r.installs;
+      seg.conversion += r.conversion;
+      seg.cost += r.installs * costPerInstall;
     });
+    pricedInstalls += c.installs;
   });
 
   const totalCost = joined.reduce((s,r)=>s+r.cost,0);
   const totalConversion = joined.reduce((s,r)=>s+r.conversion,0);
   const benchmark = totalConversion>0 ? totalCost/totalConversion : null;
-  if(benchmark===null || totalCost<=0) return null;
 
-  const rows = Object.values(segments).map(seg=>{
-    const cpa = seg.conversion>0 ? seg.cost/seg.conversion : null;
-    return {
-      ...seg,
-      cpa,
-      share: seg.cost/totalCost*100,
-      vsBenchmark: cpa!==null ? (cpa-benchmark)/benchmark*100 : null,
-      // What this segment costs above what the same conversions would have cost
-      // at the section's own average CPA — its drag on the overall number.
-      excess: seg.cost - seg.conversion*benchmark
-    };
-  });
+  const minInstalls = Math.max(SEG_MIN_INSTALLS, pricedInstalls*SEG_MIN_INSTALL_SHARE);
+  const rows = Object.values(segments).map(seg=>({
+    ...seg,
+    cpa: seg.conversion>0 ? seg.cost/seg.conversion : null,
+    installShare: pricedInstalls>0 ? seg.installs/pricedInstalls*100 : 0,
+    vsBenchmark: (benchmark && seg.conversion>0) ? ((seg.cost/seg.conversion)-benchmark)/benchmark*100 : null
+  }));
 
-  // Meaningful: carries enough spend to matter, and either converts enough for
-  // a CPA to mean something or doesn't convert at all (which is the point).
-  const significant = rows.filter(r =>
-    r.share >= SEG_MIN_COST_SHARE*100 &&
-    (r.conversion === 0 || r.conversion >= SEG_MIN_CONVERSIONS) &&
-    (r.cpa === null || r.cpa > benchmark)
-  ).sort((a,b)=>b.excess - a.excess);
+  // Only segments whose install volume is big enough for a CPA to mean
+  // something, most expensive first — a segment that spent without converting
+  // has no CPA to compare and belongs at the top.
+  const significant = rows.filter(r => r.installs >= minInstalls)
+    .sort((a,b)=>{
+      if(a.cpa===null && b.cpa===null) return b.cost - a.cost;
+      if(a.cpa===null) return -1;
+      if(b.cpa===null) return 1;
+      return b.cpa - a.cpa;
+    });
 
   return {rows: significant.slice(0, SEG_MAX_ROWS), benchmark, totalCost,
+          minInstalls, unpricedCampaigns,
           candidateCount: rows.length, significantCount: significant.length};
 }
 
@@ -1344,54 +1346,54 @@ function renderSegmentCpaTable(project, joined, keyFn, elId, segLabel){
   const t = computeSegmentCpa(project, joined, keyFn);
   if(!t){ el.innerHTML = `<div class="deep-empty">برای این بازه دیتای کافی برای محاسبه‌ی CPA ${escapeHtml(segLabel)} نیست.</div>`; return; }
   if(!t.rows.length){
-    el.innerHTML = `<div class="deep-empty">هیچ ${escapeHtml(segLabel)} ای پیدا نشد که هم سهم قابل‌توجهی از هزینه داشته باشه و هم CPA‌ش از میانگین پروژه (${fmtMoney(t.benchmark)}) بدتر باشه.</div>`;
+    el.innerHTML = `<div class="deep-empty">هیچ ${escapeHtml(segLabel)} ای حجم نصب کافی (حداقل ${fmtNum(t.minInstalls)}) برای محاسبه‌ی CPA معنادار نداشت.</div>`;
     return;
   }
   const label = project.conversionLabel;
+  const installLabel = project.installsLabel || 'نصب';
   const body = t.rows.map(r=>`
     <tr>
       <td class="campaign">${escapeHtml(r.label)}</td>
       <td class="muted">${escapeHtml(r.campaign)}</td>
+      <td>${fmtNum(r.installs)}</td>
+      <td class="muted">${r.installShare.toFixed(0)}٪</td>
       <td>${fmtNum(r.cost)}</td>
-      <td class="muted">${r.share.toFixed(0)}٪</td>
       <td>${fmtNum(r.conversion)}</td>
-      ${r.cpa!==null ? `<td class="neg">${fmtNum(r.cpa)}</td>` : `<td class="neg">بدون ${escapeHtml(label)}</td>`}
-      ${r.vsBenchmark!==null ? `<td class="neg">▲ ${r.vsBenchmark.toFixed(0)}٪</td>` : `<td class="muted">—</td>`}
-      <td class="neg">${fmtNum(r.excess)}</td>
+      ${r.cpa!==null ? `<td>${fmtNum(r.cpa)}</td>` : `<td class="neg">بدون ${escapeHtml(label)}</td>`}
+      ${r.vsBenchmark!==null
+        ? `<td class="${r.vsBenchmark>0?'neg':'pos'}">${r.vsBenchmark>0?'▲':'▼'} ${Math.abs(r.vsBenchmark).toFixed(0)}٪</td>`
+        : `<td class="muted">—</td>`}
     </tr>`).join('');
   el.innerHTML = `
     <div class="cpa-table-wrap">
       <table class="cpa-table">
         <thead>
           <tr>
-            <th>${escapeHtml(segLabel)}</th><th>کمپین</th><th>هزینه‌ی تخصیصی (تومان)</th><th>سهم هزینه</th>
-            <th>${escapeHtml(label)}</th><th>CPA (تومان)</th><th>نسبت به میانگین</th><th>هزینه‌ی اضافه (تومان)</th>
+            <th>${escapeHtml(segLabel)}</th><th>کمپین</th><th>${escapeHtml(installLabel)}</th><th>سهم ${escapeHtml(installLabel)}</th>
+            <th>هزینه‌ی تخصیصی (تومان)</th><th>${escapeHtml(label)}</th><th>CPA (تومان)</th><th>نسبت به میانگین</th>
           </tr>
         </thead>
         <tbody>${body}</tbody>
       </table>
     </div>
-    ${t.significantCount > t.rows.length ? `<div class="deep-subtext" style="margin-top:8px;">${fmtNum(t.significantCount - t.rows.length)} مورد دیگه هم گرون‌تر از میانگینن ولی تاثیر کمتری دارن.</div>` : ''}`;
+    ${t.significantCount > t.rows.length ? `<div class="deep-subtext" style="margin-top:8px;">${fmtNum(t.significantCount - t.rows.length)} مورد دیگه هم حجم کافی دارن ولی CPA پایین‌تری دارن.</div>` : ''}`;
 }
 
 function renderSegmentIssues(project, joined){
   const head = document.getElementById(`segmentIntro-${project.id}`);
   if(head){
     const t = computeSegmentCpa(project, joined, r=>r.adgroup);
+    const installLabel = project.installsLabel || 'نصب';
     head.innerHTML = `<div class="deep-subtext">
-      هزینه فقط در سطح کمپین و روز موجوده، پس هزینه‌ی هر روزِ کمپین به نسبت ترافیک، بین Adgroup‌ها (و جدا از اون، بین Creative‌ها) تقسیم شده؛ کانورژن‌ها عدد واقعی شیتن.
-      فقط مواردی میان که حداقل ${fmtNum(SEG_MIN_COST_SHARE*100)}٪ از هزینه رو گرفتن، حداقل ${fmtNum(SEG_MIN_CONVERSIONS)} کانورژن دارن (یا اصلاً کانورژن ندارن)، و CPA‌شون از میانگین پروژه${t ? ` (${fmtMoney(t.benchmark)})` : ''} بدتره — به‌ترتیب «هزینه‌ی اضافه»، یعنی چقدر بیشتر از حالت میانگین خرج شده.
+      هزینه فقط در سطح کمپین موجوده، پس برای هر کمپین «هزینه به ازای ${escapeHtml(installLabel)}» حساب شده (هزینه‌ی کمپین ÷ ${escapeHtml(installLabel)} کمپین) و هزینه‌ی هر Adgroup / Creative = ${escapeHtml(installLabel)} خودش × همون عدد؛ بعد CPA = این هزینه ÷ ${escapeHtml(project.conversionLabel)} خودش.
+      فقط مواردی میان که حجم ${escapeHtml(installLabel)}شون معنادار باشه${t ? ` (حداقل ${fmtNum(t.minInstalls)})` : ''}، و به‌ترتیب گرون‌ترین CPA مرتب شدن${t && t.benchmark ? ` — میانگین CPA پروژه در همین بازه: ${fmtMoney(t.benchmark)}` : ''}.
+      ${t && t.unpricedCampaigns ? `<br>${fmtNum(t.unpricedCampaigns)} کمپین چون توی این بازه ${escapeHtml(installLabel)} نداشته قابل قیمت‌گذاری نبوده و کنار گذاشته شده.` : ''}
     </div>`;
   }
   renderSegmentCpaTable(project, joined, r=>r.adgroup, `segmentAdgroup-${project.id}`, 'Adgroup');
   renderSegmentCpaTable(project, joined, r=>r.creative, `segmentCreative-${project.id}`, 'Creative');
 }
 
-// Where each campaign's CPA actually stands over the selected range — the level,
-// not the day-over-day move. Every campaign that spent anything is listed, with
-// its share of spend, its CPA against the project's own average for the same
-// range, and its CPA over the most recent days so a campaign that has drifted
-// is visible next to its range-wide number.
 function computeCampaignCpaTable(project, joined){
   if(!joined.length) return null;
   const dates = Array.from(new Set(joined.map(r=>r.date))).sort();
