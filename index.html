@@ -1274,9 +1274,9 @@ function computeLatestCpaChange(joined){
 //
 // A campaign with no installs in the range can't be priced this way at all, so
 // its rows are left out rather than guessed at.
-const SEG_MIN_INSTALLS = 30;         // an absolute floor for a meaningful CPA
-const SEG_MIN_INSTALL_SHARE = 0.01;  // and at least 1% of the section's installs
-const SEG_MAX_ROWS = 6;
+const SEG_MIN_INSTALLS = 10;          // an absolute floor for a meaningful CPA
+const SEG_MIN_INSTALL_SHARE = 0.003; // and at least 0.3% of the section's installs
+const SEG_MAX_ROWS = 8;
 function computeSegmentCpa(project, joined, keyFn){
   const st = projectState[project.id];
   const {from, to} = sectionRange(project);
@@ -1327,7 +1327,9 @@ function computeSegmentCpa(project, joined, keyFn){
   // Only segments whose install volume is big enough for a CPA to mean
   // something, most expensive first — a segment that spent without converting
   // has no CPA to compare and belongs at the top.
-  const significant = rows.filter(r => r.installs >= minInstalls)
+  // "Spent and never converted" sits at the top of the table, so it needs more
+  // volume behind it than a segment whose CPA can simply be measured.
+  const significant = rows.filter(r => r.installs >= (r.conversion>0 ? minInstalls : minInstalls*2))
     .sort((a,b)=>{
       if(a.cpa===null && b.cpa===null) return b.cost - a.cost;
       if(a.cpa===null) return -1;
@@ -1386,7 +1388,7 @@ function renderSegmentIssues(project, joined){
     const installLabel = project.installsLabel || 'نصب';
     head.innerHTML = `<div class="deep-subtext">
       هزینه فقط در سطح کمپین موجوده، پس برای هر کمپین «هزینه به ازای ${escapeHtml(installLabel)}» حساب شده (هزینه‌ی کمپین ÷ ${escapeHtml(installLabel)} کمپین) و هزینه‌ی هر Adgroup / Creative = ${escapeHtml(installLabel)} خودش × همون عدد؛ بعد CPA = این هزینه ÷ ${escapeHtml(project.conversionLabel)} خودش.
-      فقط مواردی میان که حجم ${escapeHtml(installLabel)}شون معنادار باشه${t ? ` (حداقل ${fmtNum(t.minInstalls)})` : ''}، و به‌ترتیب گرون‌ترین CPA مرتب شدن${t && t.benchmark ? ` — میانگین CPA پروژه در همین بازه: ${fmtMoney(t.benchmark)}` : ''}.
+      فقط مواردی میان که حجم ${escapeHtml(installLabel)}شون معنادار باشه${t ? ` (حداقل ${fmtNum(t.minInstalls)}؛ برای موارد بدون کانورژن حداقل ${fmtNum(t.minInstalls*2)})` : ''}، و به‌ترتیب گرون‌ترین CPA مرتب شدن${t && t.benchmark ? ` — میانگین CPA پروژه در همین بازه: ${fmtMoney(t.benchmark)}` : ''}.
       ${t && t.unpricedCampaigns ? `<br>${fmtNum(t.unpricedCampaigns)} کمپین چون توی این بازه ${escapeHtml(installLabel)} نداشته قابل قیمت‌گذاری نبوده و کنار گذاشته شده.` : ''}
     </div>`;
   }
