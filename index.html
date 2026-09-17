@@ -514,6 +514,10 @@ const ALL_PROJECTS = [
     blendSheet: 'Blend Data',
     budgetSheet: 'Budgeting',
     hideDeepAnalysis: true,
+    filterUnit: 'Campaign Name',
+    filterAllLabel: 'همه‌ی Campaign Name‌ها',
+    // Opens on this one; the dropdown can widen it.
+    defaultCampaigns: ['Shahrivar 405'],
     ownDateFilter: true,
     defaultRangeDays: 30,
     theme: { accent: '#22C55E', accent2: '#F43F5E', accentSoft: 'rgba(34,197,94,0.12)' }
@@ -788,11 +792,20 @@ function normalizeBudgetRows(rows){
 // budget: profit = min(declared so far, budget) - real cost. Walking each
 // campaign's days in order turns that into a daily number whose total matches
 // the Budgeting sheet's Profit column.
+function budgetNameFilter(project){
+  const st = projectState[project.id];
+  if(!st || st.campaigns === 'ALL') return () => true;
+  return name => st.campaigns.has(normCampaign(name));
+}
 function buildBudgetDaily(project){
   const {from, to} = sectionRange(project);
   const inRange = d => (!from || d >= from) && (!to || d <= to);
+  const inName = budgetNameFilter(project);
   const byCampaign = {};
-  (project.rawBlend||[]).forEach(r=>{ (byCampaign[r.campaign] = byCampaign[r.campaign] || []).push(r); });
+  // The cumulative walk needs every day of a campaign, but only the selected
+  // Campaign Names take part at all.
+  (project.rawBlend||[]).filter(r=>inName(r.campaignName))
+    .forEach(r=>{ (byCampaign[r.campaign] = byCampaign[r.campaign] || []).push(r); });
 
   const byDate = {};
   Object.entries(byCampaign).forEach(([key, rows])=>{
@@ -826,7 +839,9 @@ function buildBudgetDaily(project){
 
 // Budget figures are lifetime by nature, so they ignore the date filter.
 function buildBudgetTable(project){
-  const rows = (project.rawBudget||[]).slice().sort((a,b)=>b.totalBudget - a.totalBudget);
+  const inName = budgetNameFilter(project);
+  const rows = (project.rawBudget||[]).filter(r=>inName(r.campaignName))
+    .sort((a,b)=>b.totalBudget - a.totalBudget);
   const totals = rows.reduce((t,r)=>({
     totalBudget: t.totalBudget + r.totalBudget, spent: t.spent + r.spent,
     remaining: t.remaining + r.remaining, spentPanel: t.spentPanel + r.spentPanel, profit: t.profit + r.profit
@@ -939,6 +954,21 @@ function buildSessionsComparison(project){
     other: keys.map(k=>byDate[k].other),
     diffPct: keys.map(k=> byDate[k].other>0 ? ((byDate[k].own - byDate[k].other)/byDate[k].other*100) : null)
   };
+}
+
+// A budget section filters by Campaign Name, listing each group's total budget.
+function getBudgetNameOptions(project){
+  const byKey = {};
+  (project.rawBudget||[]).forEach(r=>{
+    const key = normCampaign(r.campaignName);
+    const o = byKey[key] = byKey[key] || {key, label:r.campaignName, cost:0};
+    o.cost += r.totalBudget;
+  });
+  (project.rawBlend||[]).forEach(r=>{
+    const key = normCampaign(r.campaignName);
+    if(!byKey[key]) byKey[key] = {key, label:r.campaignName, cost:0};
+  });
+  return Object.values(byKey).sort((a,b)=> b.cost - a.cost || a.label.localeCompare(b.label));
 }
 
 // Campaign options sorted by total cost (desc); label falls back to the raw key.
@@ -1072,13 +1102,14 @@ function setOwnPreset(project, days, btn){
 function campaignButtonLabel(project){
   const st = projectState[project.id];
   const opts = project.campaignOptions;
-  if(st.campaigns === 'ALL' || st.campaigns.size === opts.length) return 'همه کمپین‌ها';
+  const unit = project.filterUnit || 'کمپین';
+  if(st.campaigns === 'ALL' || st.campaigns.size === opts.length) return project.filterAllLabel || 'همه کمپین‌ها';
   if(st.campaigns.size === 0) return 'هیچ‌کدوم';
   if(st.campaigns.size === 1){
     const only = opts.find(o=>st.campaigns.has(o.key));
-    return only ? only.label : '۱ کمپین';
+    return only ? only.label : `۱ ${unit}`;
   }
-  return `${st.campaigns.size} کمپین انتخاب شده`;
+  return `${st.campaigns.size} ${unit} انتخاب شده`;
 }
 function renderCampaignDropdown(project){
   const opts = project.campaignOptions;
@@ -1088,7 +1119,7 @@ function renderCampaignDropdown(project){
   panel.innerHTML = `
     <label class="ms-option ms-option-all">
       <input type="checkbox" id="msAll-${project.id}" ${allSelected?'checked':''}>
-      <span>همه کمپین‌ها</span>
+      <span>${escapeHtml(project.filterAllLabel || 'همه کمپین‌ها')}</span>
     </label>
     <div class="ms-divider"></div>
     ${opts.map(o=>`
@@ -1152,11 +1183,10 @@ function renderSectionsShell(){
           </div>
         </div>
         <div class="section-controls">
-          ${p.kind === 'budget' ? '' : `
           <div class="ms-dropdown" id="msWrap-${p.id}">
-            <button type="button" class="ms-toggle" id="msToggle-${p.id}">همه کمپین‌ها ▾</button>
+            <button type="button" class="ms-toggle" id="msToggle-${p.id}">${escapeHtml(p.filterAllLabel || 'همه کمپین‌ها')} ▾</button>
             <div class="ms-panel" id="msPanel-${p.id}" hidden></div>
-          </div>`}
+          </div>
         </div>
       </div>
       ${p.ownDateFilter ? `
@@ -1272,13 +1302,17 @@ function renderSectionsShell(){
       return;
     }
 
-    projectState[p.id] = { campaigns: 'ALL', from: null, to: null };
-    // A budget section has no campaign multi-select to build.
-    if(p.kind !== 'budget'){
-      p.campaignOptions = getCampaignOptionsSortedByCost(p);
-      renderCampaignDropdown(p);
-      wireCampaignToggle(p);
+    p.campaignOptions = p.kind === 'budget' ? getBudgetNameOptions(p) : getCampaignOptionsSortedByCost(p);
+    // A project may open on a subset rather than everything.
+    let initial = 'ALL';
+    if(p.defaultCampaigns && p.defaultCampaigns.length){
+      const wanted = new Set(p.defaultCampaigns.map(normCampaign));
+      const matched = p.campaignOptions.filter(o=>wanted.has(o.key)).map(o=>o.key);
+      if(matched.length && matched.length < p.campaignOptions.length) initial = new Set(matched);
     }
+    projectState[p.id] = { campaigns: initial, from: null, to: null };
+    renderCampaignDropdown(p);
+    wireCampaignToggle(p);
 
     if(p.ownDateFilter){
       const fromInput = document.getElementById(`ownFrom-${p.id}`);
