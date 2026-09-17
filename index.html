@@ -440,6 +440,10 @@ function fmtMoney(n){
 function escapeHtml(str){
   return String(str).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
+function todayStr(){
+  const d = new Date();
+  return String(d.getFullYear()) + String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0');
+}
 function toInputDate(yyyymmdd){
   const s = String(yyyymmdd);
   return s.slice(0,4)+'-'+s.slice(4,6)+'-'+s.slice(6,8);
@@ -1698,6 +1702,7 @@ function updateSection(project){
   if(d.excludedCost > 0) notes.push(`${fmtMoney(d.excludedCost)} هزینه‌ی کمپین‌های خارج از فیلتر این پروژه (کل بازه‌ی شیت)`);
   if(d.skippedRows > 0) notes.push(`<b>${fmtNum(d.skippedRows)}</b> ردیف بدون Date یا Campaign نادیده گرفته شد (${fmtMoney(d.skippedCost)})`);
   if(d.unreadableCost > 0) notes.push(`<b>${fmtNum(d.unreadableCost)}</b> سلول Cost با فرمت غیرقابل‌خوندن`);
+  if(d.futureRows > 0) notes.push(`<b>${fmtNum(d.futureRows)}</b> ردیف با تاریخ آینده نادیده گرفته شد`);
   document.getElementById(`coverageNote-${project.id}`).innerHTML = notes.join(' — ');
 
   const cards = [
@@ -1789,7 +1794,7 @@ async function loadProject(project){
       cmp ? fetchSheetCached(project.spreadsheetId, cmp.sheet) : null
     ]);
     const compareRows = compareOrNull || [];
-    const diag = {skippedRows:0, skippedCost:0, unreadableCost:0, excludedCost:0};
+    const diag = {skippedRows:0, skippedCost:0, unreadableCost:0, excludedCost:0, futureRows:0};
     project.rawRef = refSheetRows.flatMap((rows, i) =>
       normalizeRefRows(rows, refSheets[i].conversionCol || project.conversionCol,
                        project.installsCol, project.adgroupCol, project.creativeCol));
@@ -1804,6 +1809,25 @@ async function loadProject(project){
       diag.excludedCost = project.rawCost.reduce((s,r)=>s+r.cost,0) - keptCost.reduce((s,r)=>s+r.cost,0);
       project.rawCost = keptCost;
     }
+    // Sheets often carry pre-created rows for days that haven't happened yet.
+    // Left in, they push maxDate into the future — so "last 7 days" lands on
+    // empty days and the chart draws columns for days with nothing in them.
+    // Only well-formed YYYYMMDD dates are compared, so other date shapes stay.
+    const today = todayStr();
+    const isFuture = d => /^\d{8}$/.test(d) && d > today;
+    const dropFuture = (rows, count) => {
+      const kept = rows.filter(r=>!isFuture(r.date));
+      if(count) diag.futureRows += rows.length - kept.length;
+      return kept;
+    };
+    diag.futureRows = 0;
+    project.rawRef = dropFuture(project.rawRef, true);
+    project.rawCost = dropFuture(project.rawCost, true);
+    project.rawCompare = dropFuture(project.rawCompare, true);
+    // allRef holds the same conversion rows before the campaign filter, so its
+    // dropped rows are the ones already counted above.
+    project.allRef = dropFuture(project.allRef, false);
+
     project.diag = diag;
     project.error = null;
     const allDates = [...project.rawRef.map(r=>r.date), ...project.rawCost.map(r=>r.date), ...project.rawCompare.map(r=>r.date)].sort();
