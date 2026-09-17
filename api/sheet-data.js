@@ -10,7 +10,9 @@ const ALLOWED_SPREADSHEETS = new Set([
   '18ohsYVwngt7UJ5BwvBBWdhpQ2IOxO4b08-D4OMm2VEQ', // Wepod
   '1EvYoVf6HYp3Nbo02N47qYtaLesJBDVi9urQvOXVs1LQ', // Bankino
   '1sjDcBvUZhJKpBzBngCWmxOXURR0MzPdjs9p8v5CyUxU', // Shahr-e Lavazem Khanegi
-  '1dgyCKN89-SF-3IANYg2F9F3tySvjnr4oyn9pbkukAFI'  // Snapp Pay
+  '1dgyCKN89-SF-3IANYg2F9F3tySvjnr4oyn9pbkukAFI', // Snapp Pay
+  '1u3kf4CxRJNghQDk-0A7hbYEVktVbprlLfByF2X9gR_c', // Snapp Cab
+  '1SUcOo8o0lwtSQH-HCtm8HipVqN52abbI-Ds77ZeotFg'  // Snapp Bimeh
 ]);
 
 let cachedClient = null;

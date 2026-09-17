@@ -464,6 +464,36 @@ function fromInputDate(isoDate){
 // Add a new object here for each new project/section. spreadsheetId must also
 // be added to ALLOWED_SPREADSHEETS in api/sheet-data.js and the sheet must be
 // shared with the service account email.
+// The Snapp dashboards all read the same two tabs with the same columns, and
+// differ only in which spreadsheet they read and what the part is called.
+function snappSections(){
+  const parts = [
+    {id:'snapppay',   partTitle:'اسنپ‌پی',   title:'اسنپ‌پی',   spreadsheetId:'1dgyCKN89-SF-3IANYg2F9F3tySvjnr4oyn9pbkukAFI',
+     defaultCampaigns:['Shahrivar 405']},
+    {id:'snappcab',   partTitle:'اسنپ‌کب',   title:'اسنپ‌کب',   spreadsheetId:'1u3kf4CxRJNghQDk-0A7hbYEVktVbprlLfByF2X9gR_c'},
+    {id:'snappbimeh', partTitle:'اسنپ‌بیمه', title:'اسنپ‌بیمه', spreadsheetId:'1SUcOo8o0lwtSQH-HCtm8HipVqN52abbI-Ds77ZeotFg'}
+  ];
+  return parts.map((part, i) => ({
+    id: part.id,
+    group: 'snapp',
+    ...(i === 0 ? {groupTitle: 'اسنپ'} : {}),
+    partTitle: part.partTitle,
+    title: 'پروژه ' + part.title,
+    subtitle: 'Blend Data (روزانه) × Budgeting (بودجه هر کمپین)',
+    kind: 'budget',
+    spreadsheetId: part.spreadsheetId,
+    blendSheet: 'Blend Data',
+    budgetSheet: 'Budgeting',
+    hideDeepAnalysis: true,
+    filterUnit: 'Campaign Name',
+    filterAllLabel: 'همه‌ی Campaign Name‌ها',
+    ...(part.defaultCampaigns ? {defaultCampaigns: part.defaultCampaigns} : {}),
+    ownDateFilter: true,
+    defaultRangeDays: 30,
+    theme: { accent: '#22C55E', accent2: '#F43F5E', accentSoft: 'rgba(34,197,94,0.12)' }
+  }));
+}
+
 // Talaeen: campaign kinds kept out of the web-funnel numbers (matched anywhere
 // in the lowercased campaign name).
 const TALAEEN_EXCLUDED = ['wheel', 'seo', '_aghsat', '_pishraft', 'branding'];
@@ -504,24 +534,8 @@ const ALL_PROJECTS = [
     },
     theme: { accent: '#6366F1', accent2: '#F43F5E', accentSoft: 'rgba(99,102,241,0.12)' }
   },
-  {
-    id: 'snapppay',
-    tabTitle: 'اسنپ‌پی',
-    title: 'پروژه اسنپ‌پی',
-    subtitle: 'Blend Data (روزانه) × Budgeting (بودجه هر کمپین)',
-    kind: 'budget',
-    spreadsheetId: '1dgyCKN89-SF-3IANYg2F9F3tySvjnr4oyn9pbkukAFI',
-    blendSheet: 'Blend Data',
-    budgetSheet: 'Budgeting',
-    hideDeepAnalysis: true,
-    filterUnit: 'Campaign Name',
-    filterAllLabel: 'همه‌ی Campaign Name‌ها',
-    // Opens on this one; the dropdown can widen it.
-    defaultCampaigns: ['Shahrivar 405'],
-    ownDateFilter: true,
-    defaultRangeDays: 30,
-    theme: { accent: '#22C55E', accent2: '#F43F5E', accentSoft: 'rgba(34,197,94,0.12)' }
-  },
+  // ---- Snapp: three budget sections behind one tab ----
+  ...snappSections(),
   // ---- Talaeen: one tab, four parts (group + partTitle put them behind one tab) ----
   // Campaign kinds that don't belong in the web funnel's numbers.
   {
@@ -1882,6 +1896,8 @@ function updateBudgetSection(project){
 
   const note = [];
   note.push(`${fmtNum(rows.length)} کمپین توی شیت Budgeting — بودجه‌ی کل: <b>${fmtMoney(totals.totalBudget)}</b>`);
+  if(!daily.dayCount)
+    note.push('توی این بازه ردیفی در Blend Data نبود، پس نمودار روزانه خالیه');
   if(project.noBudgetCampaigns && project.noBudgetCampaigns.length)
     note.push(`${fmtNum(project.noBudgetCampaigns.length)} کمپین هزینه دارن ولی ردیف بودجه ندارن (سودشون بدون سقف حساب شده): ${escapeHtml(project.noBudgetCampaigns.slice(0,4).join('، '))}`);
   document.getElementById(`coverageNote-${project.id}`).innerHTML = note.join(' — ');
