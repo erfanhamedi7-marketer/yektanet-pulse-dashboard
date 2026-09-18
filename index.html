@@ -308,6 +308,20 @@
     white-space:nowrap;font-family:var(--font-mono);
   }
   .cpa-table td.campaign{font-family:var(--font-ui);font-weight:700;white-space:normal;min-width:150px;}
+  .copy-name{
+    background:none;border:none;padding:0;margin:0;cursor:pointer;position:relative;
+    font-family:inherit;font-size:inherit;font-weight:inherit;color:inherit;text-align:right;
+    border-bottom:1px dashed var(--border);transition:color .15s, border-color .15s;
+  }
+  .copy-name:hover{color:var(--accent);border-bottom-color:var(--accent);}
+  .copy-name::after{
+    content:'کپی شد ✓';position:absolute;inset-inline-end:0;top:-22px;white-space:nowrap;
+    background:var(--positive-soft);color:var(--positive);border-radius:6px;padding:2px 8px;
+    font-size:10.5px;font-family:var(--font-ui);font-weight:600;
+    opacity:0;transform:translateY(4px);transition:opacity .15s, transform .15s;pointer-events:none;
+  }
+  .copy-name.copied::after{opacity:1;transform:translateY(0);}
+  .copy-name.copy-failed::after{content:'کپی نشد';background:var(--negative-soft);color:var(--negative);opacity:1;transform:translateY(0);}
   .cpa-table tr:last-child td{border-bottom:none;}
   .cpa-table td.muted{color:var(--text-faint);}
   .cpa-table td.pos{color:var(--positive);}
@@ -1640,6 +1654,41 @@ function computeSegmentCpa(project, joined, keyFn){
           candidateCount: rows.length, belowAverageCount: withVolume.length - aboveAverage.length};
 }
 
+// Ad group and creative names are long ids people paste into the panel, and
+// selecting one by hand inside a scrolling table is fiddly — so clicking the
+// name copies it whole.
+function copyableName(name){
+  return `<button type="button" class="copy-name" data-copy="${escapeHtml(name)}" title="کلیک کن تا کپی بشه">${escapeHtml(name)}</button>`;
+}
+function flashCopied(btn){
+  btn.classList.add('copied');
+  setTimeout(()=>btn.classList.remove('copied'), 1200);
+}
+document.addEventListener('click', async (e)=>{
+  const btn = e.target.closest('.copy-name');
+  if(!btn) return;
+  const text = btn.getAttribute('data-copy') || '';
+  try{
+    if(navigator.clipboard && window.isSecureContext){
+      await navigator.clipboard.writeText(text);
+    } else {
+      // http://localhost and older browsers don't get the async clipboard
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;top:-1000px;opacity:0;';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+    }
+    flashCopied(btn);
+  }catch(err){
+    console.error('copy failed', err);
+    btn.classList.add('copy-failed');
+    setTimeout(()=>btn.classList.remove('copy-failed'), 1200);
+  }
+});
+
 function renderSegmentCpaTable(project, joined, keyFn, elId, segLabel){
   const el = document.getElementById(elId);
   if(!el) return;
@@ -1653,7 +1702,7 @@ function renderSegmentCpaTable(project, joined, keyFn, elId, segLabel){
   const installLabel = project.installsLabel || 'نصب';
   const body = t.rows.map(r=>`
     <tr>
-      <td class="campaign">${escapeHtml(r.label)}</td>
+      <td class="campaign">${copyableName(r.label)}</td>
       <td class="muted">${escapeHtml(r.campaign)}</td>
       <td>${fmtNum(r.installs)}</td>
       <td class="muted">${r.installShare.toFixed(0)}٪</td>
