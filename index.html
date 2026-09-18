@@ -421,6 +421,13 @@ function normDate(d){
   if(!s) return '';
   const ymd = s.match(/^(\d{4})\s*[-\/.]\s*(\d{1,2})\s*[-\/.]\s*(\d{1,2})/);
   if(ymd) return ymd[1] + String(ymd[2]).padStart(2,'0') + String(ymd[3]).padStart(2,'0');
+  // Month-first dates, the shape Sheets exports in an en-US locale
+  // ("7/5/2026", "7/15/26"). Two-digit years are this century.
+  const mdy = s.match(/^(\d{1,2})\s*[-\/.]\s*(\d{1,2})\s*[-\/.]\s*(\d{2,4})$/);
+  if(mdy){
+    const year = mdy[3].length === 2 ? '20' + mdy[3] : mdy[3];
+    return year + String(mdy[1]).padStart(2,'0') + String(mdy[2]).padStart(2,'0');
+  }
   const digitsOnly = s.replace(/\D/g,'');
   if(digitsOnly.length === 8) return digitsOnly;
   if(digitsOnly.length === 14) return digitsOnly.slice(0,8); // timestamp
@@ -715,6 +722,30 @@ const ALL_PROJECTS = [
     ownDateFilter: true,
     defaultRangeDays: 30,
     theme: { accent: '#EC4899', accent2: '#06B6D4', accentSoft: 'rgba(236,72,153,0.12)' }
+  },
+  {
+    id: 'tochal',
+    tabTitle: 'توچال',
+    title: 'پروژه توچال',
+    subtitle: 'Tocal - App Metrica (مرجع) × Tocal - Yektanet',
+    spreadsheetId: '1VTHX_I9LBBYc0fpVBAUZm2Nn7ihtPqbpxLay_yDlUBE',
+    refSheet: 'Tocal - App Metrica',
+    costSheet: 'Tocal - Yektanet',
+    // App Metrica reports every network, but the cost sheet is Yektanet only —
+    // other networks would add conversions with no cost behind them.
+    refRowFilter: (r) => normCampaign(r['Network']) === 'yektanet',
+    conversionCol: 'KYC',
+    conversionLabel: 'KYC',
+    showInstalls: true,
+    installsCol: 'Total Installs',
+    installsLabel: 'Install',
+    adgroupCol: 'Ad Group',
+    creativeCol: 'Creative',
+    impressionsCol: 'Impression',
+    clicksCol: 'Click',
+    ownDateFilter: true,
+    defaultRangeDays: 30,
+    theme: { accent: '#14B8A6', accent2: '#FB923C', accentSoft: 'rgba(20,184,166,0.12)' }
   }
 ];
 
@@ -725,10 +756,10 @@ const PROJECTS = ALL_PROJECTS.filter(p => !p.hidden);
 const projectState = {}; // { [id]: { campaigns: 'ALL' | Set(keys), from, to } }
 const chartInstances = {};
 
-function normalizeRefRows(rows, conversionCol, installsCol, adgroupCol, creativeCol){
+function normalizeRefRows(rows, conversionCol, installsCol, adgroupCol, creativeCol, rowFilter){
   adgroupCol = adgroupCol || 'Adgroup';
   creativeCol = creativeCol || 'Creative';
-  return rows.map(r=>{
+  return rows.filter(r => !rowFilter || rowFilter(r)).map(r=>{
     const date = normDate(r['Date']);
     const campaignRaw = r['Campaign'];
     const campaign = normCampaign(campaignRaw);
@@ -2139,7 +2170,7 @@ async function loadProject(project){
     const diag = {skippedRows:0, skippedCost:0, unreadableCost:0, excludedCost:0, futureRows:0};
     project.rawRef = refSheetRows.flatMap((rows, i) =>
       normalizeRefRows(rows, refSheets[i].conversionCol || project.conversionCol,
-                       project.installsCol, project.adgroupCol, project.creativeCol));
+                       project.installsCol, project.adgroupCol, project.creativeCol, project.refRowFilter));
     project.rawCost = normalizeCostRows(costRows, project.impressionsCol, project.clicksCol, diag);
     // The session comparison works off daily totals of each tab as-is, so it
     // keeps the rows the project's campaign filter removes from everything else.
