@@ -13,7 +13,8 @@ const ALLOWED_SPREADSHEETS = new Set([
   '1dgyCKN89-SF-3IANYg2F9F3tySvjnr4oyn9pbkukAFI', // Snapp Pay
   '1u3kf4CxRJNghQDk-0A7hbYEVktVbprlLfByF2X9gR_c', // Snapp Cab
   '1SUcOo8o0lwtSQH-HCtm8HipVqN52abbI-Ds77ZeotFg', // Snapp Bimeh
-  '1VTHX_I9LBBYc0fpVBAUZm2Nn7ihtPqbpxLay_yDlUBE'  // Tochal
+  '1VTHX_I9LBBYc0fpVBAUZm2Nn7ihtPqbpxLay_yDlUBE', // Tochal
+  '18dU5hlkIxoqF000GjgkPlJ6EbBXU0b_TzP0DAMpiJzw'  // Arzplus
 ]);
 
 let cachedClient = null;

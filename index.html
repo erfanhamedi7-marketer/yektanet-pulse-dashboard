@@ -749,6 +749,29 @@ const ALL_PROJECTS = [
     ownDateFilter: true,
     defaultRangeDays: 30,
     theme: { accent: '#14B8A6', accent2: '#FB923C', accentSoft: 'rgba(20,184,166,0.12)' }
+  },
+  {
+    id: 'arzplus',
+    tabTitle: 'ارزپلاس',
+    title: 'پروژه ارزپلاس',
+    subtitle: 'Arzplus - App Metrica (مرجع) × Arzplus- Yektanet',
+    spreadsheetId: '18dU5hlkIxoqF000GjgkPlJ6EbBXU0b_TzP0DAMpiJzw',
+    refSheet: 'Arzplus - App Metrica',
+    // The tab really is named without a space before the hyphen.
+    costSheet: 'Arzplus- Yektanet',
+    refRowFilter: (r) => normCampaign(r['Network']) === 'yektanet',
+    conversionCol: 'KYC',
+    conversionLabel: 'KYC',
+    showInstalls: true,
+    installsCol: 'Total Installs',
+    installsLabel: 'Install',
+    adgroupCol: 'Ad Group',
+    creativeCol: 'Creative',
+    impressionsCol: 'Impression',
+    clicksCol: 'Click',
+    ownDateFilter: true,
+    defaultRangeDays: 30,
+    theme: { accent: '#8B5CF6', accent2: '#22D3EE', accentSoft: 'rgba(139,92,246,0.12)' }
   }
 ];
 
