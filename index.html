@@ -412,6 +412,9 @@ function toNumber(v){
   return negative ? -Math.abs(n) : n;
 }
 function normCampaign(c){ return String(c||'').trim().toLowerCase(); }
+// Sheet cells come back as numbers when they hold one, so never call string
+// methods on a raw cell — go through here.
+function cellText(v){ return (v===null || v===undefined) ? '' : String(v).trim(); }
 // Dates must all end up in the same YYYYMMDD shape: the date-range filter and
 // the day sort compare them as plain strings, so a single row formatted as
 // "2026-09-01" would sort and filter as if it were a different era and its
@@ -765,9 +768,9 @@ function normalizeRefRows(rows, conversionCol, installsCol, adgroupCol, creative
     const campaign = normCampaign(campaignRaw);
     if(!date || !campaign) return null;
     return {
-      date, campaign, campaignLabel:(campaignRaw||'').trim(),
-      adgroup: (r[adgroupCol]||'').trim() || '(بدون Adgroup)',
-      creative: (r[creativeCol]||'').trim() || '(بدون Creative)',
+      date, campaign, campaignLabel: cellText(campaignRaw),
+      adgroup: cellText(r[adgroupCol]) || '(بدون Adgroup)',
+      creative: cellText(r[creativeCol]) || '(بدون Creative)',
       installs: installsCol ? toNumber(r[installsCol]) : 0,
       conversion: toNumber(r[conversionCol])
     };
@@ -789,7 +792,7 @@ function normalizeCostRows(rows, impressionsCol, clicksCol, diag){
     }
     // Cell had something in it but we read 0 — an unsupported number format.
     if(diag && rawCost && !/^[0-]*$/.test(latinizeDigits(rawCost).replace(/\D/g,'')||'0') && cost===0) diag.unreadableCost++;
-    return {date, campaign, campaignLabel:(r['Campaign']||'').toString().trim(),
+    return {date, campaign, campaignLabel: cellText(r['Campaign']),
             cost, impressions: toNumber(r[impressionsCol]), clicks: toNumber(r[clicksCol])};
   }).filter(Boolean);
 }
@@ -803,8 +806,8 @@ function normalizeBlendRows(rows){
     if(!date || !campaign) return null;
     return {
       date, campaign,
-      campaignLabel: (r['Campaign']||'').toString().trim(),
-      campaignName: (r['Campaign Name']||'').toString().trim() || '(بدون نام)',
+      campaignLabel: cellText(r['Campaign']),
+      campaignName: cellText(r['Campaign Name']) || '(بدون نام)',
       sessions: toNumber(r['Sessions']),
       impressions: toNumber(r['Impression']),
       clicks: toNumber(r['Click']),
@@ -822,8 +825,8 @@ function normalizeBudgetRows(rows){
     if(!campaign) return null;
     return {
       campaign,
-      campaignLabel: (r['Campaign']||'').toString().trim(),
-      campaignName: (r['Campaign Name']||'').toString().trim() || '(بدون نام)',
+      campaignLabel: cellText(r['Campaign']),
+      campaignName: cellText(r['Campaign Name']) || '(بدون نام)',
       totalBudget: toNumber(r['Total Budget']),
       spent: toNumber(r['Spent']),
       remaining: toNumber(r['Remaining Budget']),
