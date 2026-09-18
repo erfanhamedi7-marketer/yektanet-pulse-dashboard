@@ -2082,6 +2082,13 @@ function updateSection(project){
   if(d.skippedRows > 0) notes.push(`<b>${fmtNum(d.skippedRows)}</b> ردیف بدون Date یا Campaign نادیده گرفته شد (${fmtMoney(d.skippedCost)})`);
   if(d.unreadableCost > 0) notes.push(`<b>${fmtNum(d.unreadableCost)}</b> سلول Cost با فرمت غیرقابل‌خوندن`);
   if(d.futureRows > 0) notes.push(`<b>${fmtNum(d.futureRows)}</b> ردیف با تاریخ آینده نادیده گرفته شد`);
+  // Cost in the range with nothing to join it to reads as an empty section;
+  // say which side ran out and when, instead of showing zeroes.
+  if(!joined.length && totalCostInSheet > 0){
+    const lastRef = (project.rawRef||[]).reduce((m,r)=> r.date > m ? r.date : m, '');
+    notes.push(`<b>توی این بازه هیچ ردیف ${escapeHtml(project.conversionLabel)} وجود نداره</b>` +
+      (lastRef ? ` — آخرین روزی که شیت مرجع دیتا داره: ${fmtDateLabel(lastRef)}` : ''));
+  }
   document.getElementById(`coverageNote-${project.id}`).innerHTML = notes.join(' — ');
 
   const cards = [
