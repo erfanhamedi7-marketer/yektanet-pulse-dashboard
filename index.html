@@ -100,6 +100,7 @@
   }
   .kpi .kpi-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
   .kpi .label{font-size:12px;color:var(--text-muted);font-weight:500;}
+  .kpi-sub{font-size:11px;color:var(--text-faint);font-family:var(--font-mono);margin-top:4px;}
   .kpi .icon{width:28px;height:28px;border-radius:8px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;color:var(--accent-2);flex-shrink:0;}
   .kpi .icon svg{width:15px;height:15px;}
   .kpi .value{font-family:var(--font-mono);font-size:24px;font-weight:700;letter-spacing:-0.02em;color:var(--text);}
@@ -484,12 +485,15 @@ function arzplusSections(){
       spreadsheetId: '18dU5hlkIxoqF000GjgkPlJ6EbBXU0b_TzP0DAMpiJzw',
       refSheet: 'Arzplus - App Metrica',
       costSheet: 'Arzplus- Yektanet',   // the tab really has no space before the hyphen
+      costPer: [{col:'Deposit'}, {col:'Purchase'}],
       theme: { accent: '#8B5CF6', accent2: '#22D3EE', accentSoft: 'rgba(139,92,246,0.12)' }
     },
     tochal: {
       spreadsheetId: '1VTHX_I9LBBYc0fpVBAUZm2Nn7ihtPqbpxLay_yDlUBE',
       refSheet: 'Tocal - App Metrica',
       costSheet: 'Tocal - Yektanet',
+      // That tab has no Deposit column, so there is no cost-per-deposit to show.
+      costPer: [{col:'Purchase'}],
       theme: { accent: '#14B8A6', accent2: '#FB923C', accentSoft: 'rgba(20,184,166,0.12)' }
     }
   };
@@ -522,6 +526,7 @@ function arzplusSections(){
     showInstalls: true,
     installsCol: 'Total Installs',
     installsLabel: 'Install',
+    costPerMetrics: apps[part.app].costPer,
     adgroupCol: 'Ad Group',
     creativeCol: 'Creative',
     impressionsCol: 'Impression',
@@ -794,7 +799,10 @@ const PROJECTS = ALL_PROJECTS.filter(p => !p.hidden);
 const projectState = {}; // { [id]: { campaigns: 'ALL' | Set(keys), from, to } }
 const chartInstances = {};
 
-function normalizeRefRows(rows, conversionCol, installsCol, adgroupCol, creativeCol){
+// extraCols are further conversion columns the section reports a cost-per for
+// (Deposit, Purchase…). They ride along as `extras` so the join and the range
+// filter treat them exactly like the main conversion.
+function normalizeRefRows(rows, conversionCol, installsCol, adgroupCol, creativeCol, extraCols){
   adgroupCol = adgroupCol || 'Adgroup';
   creativeCol = creativeCol || 'Creative';
   return rows.map(r=>{
@@ -807,9 +815,14 @@ function normalizeRefRows(rows, conversionCol, installsCol, adgroupCol, creative
       adgroup: cellText(r[adgroupCol]) || '(بدون Adgroup)',
       creative: cellText(r[creativeCol]) || '(بدون Creative)',
       installs: installsCol ? toNumber(r[installsCol]) : 0,
-      conversion: toNumber(r[conversionCol])
+      conversion: toNumber(r[conversionCol]),
+      extras: (extraCols||[]).reduce((acc,col)=>{ acc[col] = toNumber(r[col]); return acc; }, {})
     };
   }).filter(Boolean);
+}
+function addExtras(target, extras){
+  Object.entries(extras||{}).forEach(([k,v])=>{ target[k] = (target[k]||0) + v; });
+  return target;
 }
 function normalizeCostRows(rows, impressionsCol, clicksCol, diag){
   impressionsCol = impressionsCol || 'Impressions';
@@ -958,9 +971,10 @@ function aggregateRef(rows){
   const map = {};
   rows.forEach(r=>{
     const key = r.date + '||' + r.campaign;
-    if(!map[key]) map[key] = {date:r.date, campaign:r.campaign, campaignLabel:r.campaignLabel, installs:0, conversion:0};
+    if(!map[key]) map[key] = {date:r.date, campaign:r.campaign, campaignLabel:r.campaignLabel, installs:0, conversion:0, extras:{}};
     map[key].installs += r.installs;
     map[key].conversion += r.conversion;
+    addExtras(map[key].extras, r.extras);
   });
   return map;
 }
@@ -996,6 +1010,7 @@ function buildJoinedRows(refMap, costMap, includeUnmatchedCost){
       campaignLabel: base ? base.campaignLabel : (costRow.campaignLabel || costRow.campaign),
       installs: base ? base.installs : 0,
       conversion,
+      extras: base ? base.extras : {},
       cost, cpa: conversion>0 ? (cost/conversion) : null
     });
   });
@@ -2110,6 +2125,11 @@ function updateSection(project){
   ];
   if(project.showInstalls) cards.push({label:(project.installsLabel || 'Installs') + ' کل', value: fmtNum(totalInstalls)});
   cards.push({label:'CPA کلی', value: cpa!==null?fmtMoney(cpa):'—', accent:true});
+  (project.costPerMetrics||[]).forEach(m=>{
+    const total = joined.reduce((s,r)=>s + ((r.extras && r.extras[m.col]) || 0), 0);
+    cards.push({label:`هزینه به ازای ${m.label || m.col}`, value: total>0 ? fmtMoney(totalCost/total) : '—',
+                sub: `${fmtNum(total)} ${m.label || m.col}`});
+  });
 
   const kpiEl = document.getElementById(`kpis-${project.id}`);
   kpiEl.style.gridTemplateColumns = `repeat(${cards.length}, 1fr)`;
@@ -2117,6 +2137,7 @@ function updateSection(project){
     <div class="kpi">
       <div class="kpi-top"><span class="label">${c.label}</span></div>
       <div class="value ${c.accent?'accent':''}">${c.value}</div>
+      ${c.sub ? `<div class="kpi-sub">${c.sub}</div>` : ''}
     </div>`).join('');
 
   const {labels, cost, cpaSeries} = groupByDateGeneric(joined);
@@ -2216,7 +2237,8 @@ async function loadProject(project){
     const diag = {skippedRows:0, skippedCost:0, unreadableCost:0, excludedCost:0, futureRows:0};
     project.rawRef = refSheetRows.flatMap((rows, i) =>
       normalizeRefRows(rows, refSheets[i].conversionCol || project.conversionCol,
-                       project.installsCol, project.adgroupCol, project.creativeCol));
+                       project.installsCol, project.adgroupCol, project.creativeCol,
+                       (project.costPerMetrics||[]).map(m=>m.col)));
     project.rawCost = normalizeCostRows(costRows, project.impressionsCol, project.clicksCol, diag);
     // The session comparison works off daily totals of each tab as-is, so it
     // keeps the rows the project's campaign filter removes from everything else.
