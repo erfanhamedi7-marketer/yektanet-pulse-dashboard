@@ -474,6 +474,64 @@ function fromInputDate(isoDate){
 // Add a new object here for each new project/section. spreadsheetId must also
 // be added to ALLOWED_SPREADSHEETS in api/sheet-data.js and the sheet must be
 // shared with the service account email.
+// Arzplus and Tochal each split into an in-app section and a Cafe Bazar one,
+// by campaign-name prefix, all behind one tab. Both read App Metrica against
+// their Yektanet cost sheet and match on Campaign alone.
+function arzplusSections(){
+  const APP_PREFIX = 'inap';       // covers inapp- and the inap- spelling
+  const apps = {
+    arzplus: {
+      spreadsheetId: '18dU5hlkIxoqF000GjgkPlJ6EbBXU0b_TzP0DAMpiJzw',
+      refSheet: 'Arzplus - App Metrica',
+      costSheet: 'Arzplus- Yektanet',   // the tab really has no space before the hyphen
+      theme: { accent: '#8B5CF6', accent2: '#22D3EE', accentSoft: 'rgba(139,92,246,0.12)' }
+    },
+    tochal: {
+      spreadsheetId: '1VTHX_I9LBBYc0fpVBAUZm2Nn7ihtPqbpxLay_yDlUBE',
+      refSheet: 'Tocal - App Metrica',
+      costSheet: 'Tocal - Yektanet',
+      theme: { accent: '#14B8A6', accent2: '#FB923C', accentSoft: 'rgba(20,184,166,0.12)' }
+    }
+  };
+  const parts = [
+    {id:'arzplus-app',  partTitle:'ارزپلاس - اپلیکیشن',  title:'ارزپلاس — اپلیکیشن',
+     app:'arzplus', prefix:APP_PREFIX, prefixLabel:'inapp / inap'},
+    {id:'arzplus-cafe', partTitle:'ارزپلاس - کافه بازار', title:'ارزپلاس — کافه بازار',
+     app:'arzplus', prefix:'yn-cb',    prefixLabel:'yn-cb'},
+    {id:'tochal-app',   partTitle:'توچال - اپلیکیشن',    title:'توچال — اپلیکیشن',
+     app:'tochal',  prefix:APP_PREFIX, prefixLabel:'inapp / inap'},
+    {id:'tochal-cafe',  partTitle:'توچال - کافه بازار',   title:'توچال — کافه بازار',
+     app:'tochal',  prefix:'cafe-',    prefixLabel:'cafe-'}
+  ];
+  return parts.map((part, i) => ({
+    id: part.id,
+    group: 'arzplus',
+    ...(i === 0 ? {groupTitle: 'ارزپلاس'} : {}),
+    partTitle: part.partTitle,
+    title: part.title,
+    subtitle: `${apps[part.app].refSheet} (مرجع) × ${apps[part.app].costSheet} — فقط کمپین‌های ${part.prefixLabel}`,
+    spreadsheetId: apps[part.app].spreadsheetId,
+    refSheet: apps[part.app].refSheet,
+    costSheet: apps[part.app].costSheet,
+    // Network is ignored: the same campaigns keep being reported under the
+    // supply partner's name once Yektanet's own label stops.
+    refCampaignsFromCost: true,
+    excludeCampaign: (key) => !key.startsWith(part.prefix),
+    conversionCol: 'KYC',
+    conversionLabel: 'KYC',
+    showInstalls: true,
+    installsCol: 'Total Installs',
+    installsLabel: 'Install',
+    adgroupCol: 'Ad Group',
+    creativeCol: 'Creative',
+    impressionsCol: 'Impression',
+    clicksCol: 'Click',
+    ownDateFilter: true,
+    defaultRangeDays: 30,
+    theme: apps[part.app].theme
+  }));
+}
+
 // The Snapp dashboards all read the same two tabs with the same columns, and
 // differ only in which spreadsheet they read and what the part is called.
 function snappSections(){
@@ -726,55 +784,7 @@ const ALL_PROJECTS = [
     defaultRangeDays: 30,
     theme: { accent: '#EC4899', accent2: '#06B6D4', accentSoft: 'rgba(236,72,153,0.12)' }
   },
-  {
-    id: 'tochal',
-    tabTitle: 'توچال',
-    title: 'پروژه توچال',
-    subtitle: 'Tocal - App Metrica (مرجع) × Tocal - Yektanet',
-    spreadsheetId: '1VTHX_I9LBBYc0fpVBAUZm2Nn7ihtPqbpxLay_yDlUBE',
-    refSheet: 'Tocal - App Metrica',
-    costSheet: 'Tocal - Yektanet',
-    // Network is ignored: the same campaigns keep being reported under the
-    // supply partner's name (adivery, cafe bazar) once Yektanet's own label
-    // stops. Campaign is the join key, so only campaigns the cost sheet knows
-    // are counted.
-    refCampaignsFromCost: true,
-    conversionCol: 'KYC',
-    conversionLabel: 'KYC',
-    showInstalls: true,
-    installsCol: 'Total Installs',
-    installsLabel: 'Install',
-    adgroupCol: 'Ad Group',
-    creativeCol: 'Creative',
-    impressionsCol: 'Impression',
-    clicksCol: 'Click',
-    ownDateFilter: true,
-    defaultRangeDays: 30,
-    theme: { accent: '#14B8A6', accent2: '#FB923C', accentSoft: 'rgba(20,184,166,0.12)' }
-  },
-  {
-    id: 'arzplus',
-    tabTitle: 'ارزپلاس',
-    title: 'پروژه ارزپلاس',
-    subtitle: 'Arzplus - App Metrica (مرجع) × Arzplus- Yektanet',
-    spreadsheetId: '18dU5hlkIxoqF000GjgkPlJ6EbBXU0b_TzP0DAMpiJzw',
-    refSheet: 'Arzplus - App Metrica',
-    // The tab really is named without a space before the hyphen.
-    costSheet: 'Arzplus- Yektanet',
-    refCampaignsFromCost: true,
-    conversionCol: 'KYC',
-    conversionLabel: 'KYC',
-    showInstalls: true,
-    installsCol: 'Total Installs',
-    installsLabel: 'Install',
-    adgroupCol: 'Ad Group',
-    creativeCol: 'Creative',
-    impressionsCol: 'Impression',
-    clicksCol: 'Click',
-    ownDateFilter: true,
-    defaultRangeDays: 30,
-    theme: { accent: '#8B5CF6', accent2: '#22D3EE', accentSoft: 'rgba(139,92,246,0.12)' }
-  }
+  ...arzplusSections()
 ];
 
 // A hidden project is dropped here, before anything else sees it: no tab, no
