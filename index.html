@@ -521,7 +521,7 @@ function arzplusSections(){
     {id:'tochal-cafe',  partTitle:'توچال - کافه بازار',   title:'توچال — کافه بازار',
      app:'tochal',  prefix:'cafe-',    prefixLabel:'cafe-'}
   ];
-  return parts.map((part, i) => ({
+  const sections = parts.map((part, i) => ({
     id: part.id,
     group: 'arzplus',
     ...(i === 0 ? {groupTitle: 'ارزپلاس'} : {}),
@@ -549,6 +549,47 @@ function arzplusSections(){
     defaultRangeDays: 30,
     theme: apps[part.app].theme
   }));
+  sections.push(ramzarzSection());
+  return sections;
+}
+
+// Ramzarz News shares the Arzplus tab but reports only cost and cost per
+// install. It doesn't get parts of its own: the in-app (inapp-) and Cafe
+// Bazaar (cb-) campaigns are two groups drawn on the same page, next to the
+// overall picture.
+function ramzarzSection(){
+  return {
+    id: 'ramzarz',
+    group: 'arzplus',
+    partTitle: 'رمزارز نیوز',
+    title: 'رمزارز نیوز',
+    subtitle: 'Ramzarz - App Metrica (مرجع) × Ramzarz- Yektanet — فقط هزینه و هزینه به ازای نصب',
+    kind: 'cpi',
+    spreadsheetId: '1fOn7G0qGS98KL-hU2oNZBqoacTkuasmkDZEQGXLKzD0',
+    refSheet: 'Ramzarz - App Metrica',
+    costSheet: 'Ramzarz- Yektanet',   // that tab really has no space before the hyphen
+    // Campaign is the only join key; rows the cost sheet never names (Organic
+    // and the other trackers' rows) drop out.
+    refCampaignsFromCost: true,
+    // Installs are the conversion here, so the CPA the section computes is CPI.
+    conversionCol: 'Total Installs',
+    conversionLabel: 'نصب',
+    cpaLabel: 'CPI',
+    installsCol: 'Total Installs',
+    adgroupCol: 'Ad Group',
+    creativeCol: 'Creative',
+    impressionsCol: 'Impression',
+    clicksCol: 'Click',
+    hideDeepAnalysis: true,
+    cpiGroups: [
+      {id:'all',  title:'کلی',             sub:'همه‌ی کمپین‌های رمزارز نیوز'},
+      {id:'app',  title:'درون اپلیکیشن',   sub:'کمپین‌های inapp-', prefix:'inap', campaignTable:true},
+      {id:'cafe', title:'کافه بازار',      sub:'کمپین‌های cb-',    prefix:'cb-',  campaignTable:true, creativeTable:true}
+    ],
+    ownDateFilter: true,
+    defaultRangeDays: 30,
+    theme: { accent: '#F59E0B', accent2: '#38BDF8', accentSoft: 'rgba(245,158,11,0.12)' }
+  };
 }
 
 // The Snapp dashboards all read the same two tabs with the same columns, and
@@ -1282,6 +1323,32 @@ function sectionThemeStyle(project){
   return `--accent:${t.accent}; --accent-2:${t.accent2}; --accent-soft:${t.accentSoft};`;
 }
 
+// The CPI page is a chart per campaign group (everything, in-app, Cafe
+// Bazaar) followed by the tables each group asked for.
+function cpiCards(p){
+  const cpaLabel = p.cpaLabel || 'CPA';
+  return (p.cpiGroups||[]).map(g=>`
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h2>هزینه و ${escapeHtml(cpaLabel)} بر حسب روز — ${escapeHtml(g.title)}</h2>
+            <div class="card-sub">${escapeHtml(g.sub || '')}</div>
+          </div>
+          <div class="legend-dots">
+            <span><i style="background:var(--accent)"></i>هزینه</span>
+            <span><i style="background:var(--accent-2)"></i>${escapeHtml(cpaLabel)}</span>
+          </div>
+        </div>
+        <div class="chart-box"><canvas id="cpiChart-${p.id}-${g.id}"></canvas></div>
+        ${g.campaignTable ? `
+        <div class="deep-subhead">${escapeHtml(cpaLabel)} کمپین‌ها — ${escapeHtml(g.title)}</div>
+        <div id="cpiCampaigns-${p.id}-${g.id}"></div>` : ''}
+        ${g.creativeTable ? `
+        <div class="deep-subhead">${escapeHtml(cpaLabel)} کریتیوها — ${escapeHtml(g.title)}</div>
+        <div id="cpiCreatives-${p.id}-${g.id}"></div>` : ''}
+      </div>`).join('');
+}
+
 function renderSectionsShell(){
   const container = document.getElementById('resultsContent');
   container.innerHTML = PROJECTS.map(p => `
@@ -1319,7 +1386,7 @@ function renderSectionsShell(){
       </div>` : ''}
       <div class="coverage-note" id="coverageNote-${p.id}"></div>
       <div class="kpis" id="kpis-${p.id}"></div>
-      ${p.kind === 'budget' ? `
+      ${p.kind === 'cpi' ? cpiCards(p) : (p.kind === 'budget' ? `
       <div class="card">
         <div class="card-head">
           <div>
@@ -1362,7 +1429,7 @@ function renderSectionsShell(){
           </div>
         </div>
         <div class="chart-box"><canvas id="trendChart-${p.id}"></canvas></div>
-      </div>`}
+      </div>`)}
       ${p.hideDeepAnalysis ? '' : `
       <div class="card">
         <div class="card-head">
@@ -1781,17 +1848,18 @@ function computeCampaignCpaTable(project, joined){
 }
 
 const CPA_TABLE_MAX_ROWS = 12;
-function renderCampaignCpaTable(project, joined){
-  const el = document.getElementById(`cpaTable-${project.id}`);
+function renderCampaignCpaTable(project, joined, elId){
+  const el = document.getElementById(elId || `cpaTable-${project.id}`);
   if(!el) return;
   const t = computeCampaignCpaTable(project, joined);
   if(!t){ el.innerHTML = `<div class="deep-empty">توی این بازه دیتایی نیست.</div>`; return; }
   const label = project.conversionLabel;
+  const cpaLabel = project.cpaLabel || 'CPA';
 
   const head = `
     <div class="deep-subtext">
       ${fmtDateLabel(t.from)} تا ${fmtDateLabel(t.to)} (${fmtNum(t.dayCount)} روز) —
-      میانگین CPA پروژه در همین بازه: <b>${t.benchmark!==null?fmtMoney(t.benchmark):'—'}</b>.
+      میانگین ${escapeHtml(cpaLabel)} در همین بازه: <b>${t.benchmark!==null?fmtMoney(t.benchmark):'—'}</b>.
       ستون «نسبت به میانگین» اختلاف هر کمپین با همین عدده.
     </div>`;
 
@@ -1829,7 +1897,7 @@ function renderCampaignCpaTable(project, joined){
         <thead>
           <tr>
             <th>کمپین</th><th>هزینه (تومان)</th><th>سهم هزینه</th><th>${escapeHtml(label)}</th>
-            <th>CPA کل بازه (تومان)</th><th>CPA ${fmtNum(t.recentWindow)} روز اخیر</th>
+            <th>${escapeHtml(cpaLabel)} کل بازه (تومان)</th><th>${escapeHtml(cpaLabel)} ${fmtNum(t.recentWindow)} روز اخیر</th>
             <th>نسبت به میانگین</th><th>روز فعال</th>
           </tr>
         </thead>
@@ -2134,16 +2202,10 @@ function updateBudgetSection(project){
     </div>`).join('') : `<div class="deep-empty">دیتایی برای گروه‌بندی نبود.</div>`;
 }
 
-function updateSection(project){
-  if(project.kind === 'budget') return updateBudgetSection(project);
-  if(project.error) return;
-  const {joined, matchedCost, totalCostInSheet} = computeSection(project);
-  const totalCost = joined.reduce((s,r)=>s+r.cost,0);
-  const totalConversion = joined.reduce((s,r)=>s+r.conversion,0);
-  const totalInstalls = joined.reduce((s,r)=>s+r.installs,0);
-  const cpa = totalConversion>0 ? totalCost/totalConversion : null;
+// What this section's numbers are built on: how much of the cost sheet found
+// a conversion row, and every row the normalizers had to drop.
+function renderCoverageNote(project, joined, matchedCost, totalCostInSheet, totalCost){
   const matchPct = totalCostInSheet>0 ? Math.round(matchedCost/totalCostInSheet*100) : 0;
-
   if(!project.minDate || !project.maxDate){
     document.getElementById(`coverageNote-${project.id}`).innerHTML =
       'توی شیت‌های این بخش ردیفی پیدا نشد که با فیلتر کمپین‌هاش بخونه — اسم شیت و فیلتر کمپین رو چک کن.';
@@ -2167,39 +2229,24 @@ function updateSection(project){
       (lastRef ? ` — آخرین روزی که شیت مرجع دیتا داره: ${fmtDateLabel(lastRef)}` : ''));
   }
   document.getElementById(`coverageNote-${project.id}`).innerHTML = notes.join(' — ');
+}
 
-  const cards = [
-    {label:'هزینه کل', value: fmtMoney(totalCost)},
-    {label: project.conversionLabel + ' کل', value: fmtNum(totalConversion)}
-  ];
-  if(project.showInstalls) cards.push({label:(project.installsLabel || 'Installs') + ' کل', value: fmtNum(totalInstalls)});
-  cards.push({label:'CPA کلی', value: cpa!==null?fmtMoney(cpa):'—', accent:true});
-  (project.costPerMetrics||[]).forEach(m=>{
-    const total = joined.reduce((s,r)=>s + ((r.extras && r.extras[m.col]) || 0), 0);
-    cards.push({label:`هزینه به ازای ${m.label || m.col}`, value: total>0 ? fmtMoney(totalCost/total) : '—',
-                sub: `${fmtNum(total)} ${m.label || m.col}`});
-  });
-
-  const kpiEl = document.getElementById(`kpis-${project.id}`);
-  kpiEl.style.gridTemplateColumns = `repeat(${cards.length}, 1fr)`;
-  kpiEl.innerHTML = cards.map(c=>`
-    <div class="kpi">
-      <div class="kpi-top"><span class="label">${c.label}</span></div>
-      <div class="value ${c.accent?'accent':''}">${c.value}</div>
-      ${c.sub ? `<div class="kpi-sub">${c.sub}</div>` : ''}
-    </div>`).join('');
-
+// Daily cost as columns with the cost per conversion as a line: the standard
+// section chart, and the one the CPI page draws once per campaign group.
+function renderCostCpaChart(project, key, canvasId, joined, cpaLabel){
+  const canvas = document.getElementById(canvasId);
+  if(!canvas) return;
   const {labels, cost, cpaSeries} = groupByDateGeneric(joined);
-  if(chartInstances[project.id]){ chartInstances[project.id].destroy(); }
+  if(chartInstances[key]){ chartInstances[key].destroy(); }
   const accentHex = project.theme.accent;
   const accent2Hex = project.theme.accent2;
-  chartInstances[project.id] = new Chart(document.getElementById(`trendChart-${project.id}`), {
+  chartInstances[key] = new Chart(canvas, {
     type:'bar',
     data:{
       labels,
       datasets:[
         {type:'bar', label:'هزینه', data:cost, backgroundColor: hexToRgba(accentHex,0.55), hoverBackgroundColor: hexToRgba(accentHex,0.8), borderRadius:5, yAxisID:'y', order:2, maxBarThickness:24},
-        {type:'line', label:'CPA', data:cpaSeries, borderColor: accent2Hex, backgroundColor: hexToRgba(accent2Hex,0.12), fill:true, tension:.35, yAxisID:'y1', pointRadius:2.5, pointBackgroundColor: accent2Hex, pointBorderColor:'#0F121A', pointBorderWidth:1.5, borderWidth:2.2, order:1}
+        {type:'line', label:cpaLabel, data:cpaSeries, borderColor: accent2Hex, backgroundColor: hexToRgba(accent2Hex,0.12), fill:true, tension:.35, yAxisID:'y1', pointRadius:2.5, pointBackgroundColor: accent2Hex, pointBorderColor:'#0F121A', pointBorderWidth:1.5, borderWidth:2.2, order:1}
       ]
     },
     options:{
@@ -2222,6 +2269,213 @@ function updateSection(project){
       }
     }
   });
+
+
+}
+
+// ---------- CPI sections (cost and cost per install only) ----------
+// A campaign group is either everything, or the campaigns whose name starts
+// with a prefix (inapp- for in-app, cb- for Cafe Bazaar).
+function cpiGroupFilter(group){
+  return group.prefix ? (key => key.startsWith(group.prefix)) : (() => true);
+}
+
+// Cost lives on the campaign, never on the creative, so a creative's cost is
+// its share of that day's campaign installs. Two creatives of one campaign
+// therefore differ only by the days and campaigns they ran on — a creative
+// that kept running on the expensive days ends up with the higher CPI.
+function computeCreativeCpi(project, group, keyFn){
+  const st = projectState[project.id];
+  const {from, to} = sectionRange(project);
+  const inRange = d => (!from || d >= from) && (!to || d <= to);
+  const inCampaign = c => st.campaigns === 'ALL' || st.campaigns.has(c);
+  const inGroup = cpiGroupFilter(group);
+  const keep = r => inRange(r.date) && inCampaign(r.campaign) && inGroup(r.campaign);
+
+  const refRows = project.rawRef.filter(keep);
+  if(!refRows.length) return null;
+
+  const costByDay = {};
+  project.rawCost.filter(keep).forEach(r=>{
+    const key = r.date + '||' + r.campaign;
+    costByDay[key] = (costByDay[key] || 0) + r.cost;
+  });
+  const installsByDay = {};
+  refRows.forEach(r=>{
+    const key = r.date + '||' + r.campaign;
+    installsByDay[key] = (installsByDay[key] || 0) + r.installs;
+  });
+
+  const segments = {};
+  let pricedInstalls = 0, unpricedInstalls = 0;
+  refRows.forEach(r=>{
+    const label = keyFn(r);
+    const key = r.date + '||' + r.campaign;
+    const dayInstalls = installsByDay[key];
+    const seg = segments[label] = segments[label] ||
+      {label, installs:0, cost:0, campaigns:new Set()};
+    seg.installs += r.installs;
+    seg.campaigns.add(r.campaignLabel || r.campaign);
+    if(dayInstalls > 0){
+      seg.cost += (costByDay[key] || 0) * (r.installs / dayInstalls);
+      pricedInstalls += r.installs;
+    } else {
+      unpricedInstalls += r.installs;
+    }
+  });
+
+  const totalCost = Object.values(costByDay).reduce((a,b)=>a+b, 0);
+  const totalInstalls = Object.values(installsByDay).reduce((a,b)=>a+b, 0);
+  const benchmark = totalInstalls > 0 ? totalCost/totalInstalls : null;
+
+  const all = Object.values(segments);
+  const rows = all.filter(seg=>seg.installs > 0).map(seg=>({
+    label: seg.label,
+    campaigns: Array.from(seg.campaigns),
+    installs: seg.installs,
+    cost: seg.cost,
+    cpi: seg.installs>0 ? seg.cost/seg.installs : null,
+    installShare: totalInstalls>0 ? seg.installs/totalInstalls*100 : 0,
+    vsBenchmark: benchmark ? ((seg.cost/seg.installs)-benchmark)/benchmark*100 : null
+  })).sort((a,b)=>b.cost - a.cost);
+
+  return {rows, benchmark, totalCost, totalInstalls, unpricedInstalls,
+          noInstallCount: all.length - rows.length};
+}
+
+function renderCreativeCpiTable(project, group, elId, segLabel){
+  const el = document.getElementById(elId);
+  if(!el) return;
+  const cpaLabel = project.cpaLabel || 'CPA';
+  const t = computeCreativeCpi(project, group, r=>r.creative);
+  if(!t || !t.rows.length){
+    el.innerHTML = `<div class="deep-empty">توی این بازه ${escapeHtml(segLabel)} با نصب ثبت‌شده‌ای نبود.</div>`;
+    return;
+  }
+  const head = `
+    <div class="deep-subtext">
+      هزینه فقط در سطح کمپین موجوده، پس هزینه‌ی هر روزِ هر کمپین به‌نسبت نصب بین ${escapeHtml(segLabel)}‌های همون روز پخش شده؛
+      ${escapeHtml(cpaLabel)} هر ${escapeHtml(segLabel)} = هزینه‌ی تخصیصی ÷ نصب خودش.
+      میانگین ${escapeHtml(cpaLabel)} این بخش در همین بازه: <b>${t.benchmark!==null?fmtMoney(t.benchmark):'—'}</b> —
+      به‌ترتیب بیشترین هزینه.
+      ${t.noInstallCount ? `<br>${fmtNum(t.noInstallCount)} ${escapeHtml(segLabel)} توی این بازه نصبی نداشته و چون هزینه‌ای بهش تخصیص نمی‌گیره نیومده.` : ''}
+    </div>`;
+  const body = t.rows.map(r=>{
+    const camps = r.campaigns.length > 2
+      ? r.campaigns.slice(0,2).join('، ') + ` +${fmtNum(r.campaigns.length-2)}`
+      : r.campaigns.join('، ');
+    return `
+    <tr>
+      <td class="campaign">${copyableName(r.label)}</td>
+      <td>${fmtNum(r.installs)}</td>
+      <td class="muted">${r.installShare.toFixed(1)}٪</td>
+      <td>${fmtNum(r.cost)}</td>
+      <td>${fmtNum(r.cpi)}</td>
+      ${r.vsBenchmark!==null
+        ? `<td class="${r.vsBenchmark>0?'neg':'pos'}">${r.vsBenchmark>0?'▲':'▼'} ${Math.abs(r.vsBenchmark).toFixed(0)}٪</td>`
+        : `<td class="muted">—</td>`}
+      <td class="muted" title="${escapeHtml(r.campaigns.join('، '))}">${escapeHtml(camps)}</td>
+    </tr>`;
+  }).join('');
+  el.innerHTML = head + `
+    <div class="cpa-table-wrap">
+      <table class="cpa-table">
+        <thead>
+          <tr>
+            <th>${escapeHtml(segLabel)}</th><th>نصب</th><th>سهم نصب</th>
+            <th>هزینه‌ی تخصیصی (تومان)</th><th>${escapeHtml(cpaLabel)} (تومان)</th><th>نسبت به میانگین</th><th>کمپین</th>
+          </tr>
+        </thead>
+        <tbody>${body}</tbody>
+      </table>
+    </div>`;
+}
+
+// One page, three campaign groups: everything, the in-app campaigns and the
+// Cafe Bazaar ones. Each gets the same cost/CPI chart; the tables each group
+// asks for hang under its own chart.
+function updateCpiSection(project){
+  if(project.error) return;
+  const {joined, matchedCost, totalCostInSheet} = computeSection(project);
+  const totalCost = joined.reduce((s,r)=>s+r.cost,0);
+  const totalInstalls = joined.reduce((s,r)=>s+r.conversion,0);
+  const cpaLabel = project.cpaLabel || 'CPA';
+
+  renderCoverageNote(project, joined, matchedCost, totalCostInSheet, totalCost);
+
+  const groups = (project.cpiGroups||[]).map(g=>{
+    const inGroup = cpiGroupFilter(g);
+    const rows = joined.filter(r=>inGroup(r.campaign));
+    const cost = rows.reduce((s,r)=>s+r.cost,0);
+    const installs = rows.reduce((s,r)=>s+r.conversion,0);
+    return {group:g, rows, cost, installs, cpi: installs>0 ? cost/installs : null};
+  });
+
+  const cards = [
+    {label:'هزینه کل', value: fmtMoney(totalCost)},
+    {label:'نصب کل', value: fmtNum(totalInstalls)},
+    {label:cpaLabel + ' کلی', value: totalInstalls>0 ? fmtMoney(totalCost/totalInstalls) : '—', accent:true}
+  ];
+  groups.filter(g=>g.group.id !== 'all').forEach(g=>{
+    cards.push({label:`${cpaLabel} ${g.group.title}`,
+                value: g.cpi!==null ? fmtMoney(g.cpi) : '—',
+                sub: `${fmtMoney(g.cost)} هزینه · ${fmtNum(g.installs)} نصب`});
+  });
+  const kpiEl = document.getElementById(`kpis-${project.id}`);
+  kpiEl.style.gridTemplateColumns = `repeat(${cards.length}, 1fr)`;
+  kpiEl.innerHTML = cards.map(c=>`
+    <div class="kpi">
+      <div class="kpi-top"><span class="label">${c.label}</span></div>
+      <div class="value ${c.accent?'accent':''}">${c.value}</div>
+      ${c.sub ? `<div class="kpi-sub">${c.sub}</div>` : ''}
+    </div>`).join('');
+
+  groups.forEach(g=>{
+    renderCostCpaChart(project, `${project.id}-${g.group.id}`,
+                       `cpiChart-${project.id}-${g.group.id}`, g.rows, cpaLabel);
+    if(g.group.campaignTable){
+      renderCampaignCpaTable(project, g.rows, `cpiCampaigns-${project.id}-${g.group.id}`);
+    }
+    if(g.group.creativeTable){
+      renderCreativeCpiTable(project, g.group, `cpiCreatives-${project.id}-${g.group.id}`, 'Creative');
+    }
+  });
+}
+
+function updateSection(project){
+  if(project.kind === 'budget') return updateBudgetSection(project);
+  if(project.kind === 'cpi') return updateCpiSection(project);
+  if(project.error) return;
+  const {joined, matchedCost, totalCostInSheet} = computeSection(project);
+  const totalCost = joined.reduce((s,r)=>s+r.cost,0);
+  const totalConversion = joined.reduce((s,r)=>s+r.conversion,0);
+  const totalInstalls = joined.reduce((s,r)=>s+r.installs,0);
+  const cpa = totalConversion>0 ? totalCost/totalConversion : null;
+
+  renderCoverageNote(project, joined, matchedCost, totalCostInSheet, totalCost);
+
+  const cards = [
+    {label:'هزینه کل', value: fmtMoney(totalCost)},
+    {label: project.conversionLabel + ' کل', value: fmtNum(totalConversion)}
+  ];
+  if(project.showInstalls) cards.push({label:(project.installsLabel || 'Installs') + ' کل', value: fmtNum(totalInstalls)});
+  cards.push({label:'CPA کلی', value: cpa!==null?fmtMoney(cpa):'—', accent:true});
+  (project.costPerMetrics||[]).forEach(m=>{
+    const total = joined.reduce((s,r)=>s + ((r.extras && r.extras[m.col]) || 0), 0);
+    cards.push({label:`هزینه به ازای ${m.label || m.col}`, value: total>0 ? fmtMoney(totalCost/total) : '—',
+                sub: `${fmtNum(total)} ${m.label || m.col}`});
+  });
+
+  const kpiEl = document.getElementById(`kpis-${project.id}`);
+  kpiEl.style.gridTemplateColumns = `repeat(${cards.length}, 1fr)`;
+  kpiEl.innerHTML = cards.map(c=>`
+    <div class="kpi">
+      <div class="kpi-top"><span class="label">${c.label}</span></div>
+      <div class="value ${c.accent?'accent':''}">${c.value}</div>
+      ${c.sub ? `<div class="kpi-sub">${c.sub}</div>` : ''}
+    </div>`).join('');
+
+  renderCostCpaChart(project, project.id, `trendChart-${project.id}`, joined, 'CPA');
 
   renderCampaignCpaTable(project, joined);
   renderSessionsChart(project);
