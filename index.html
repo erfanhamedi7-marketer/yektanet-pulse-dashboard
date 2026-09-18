@@ -734,9 +734,11 @@ const ALL_PROJECTS = [
     spreadsheetId: '1VTHX_I9LBBYc0fpVBAUZm2Nn7ihtPqbpxLay_yDlUBE',
     refSheet: 'Tocal - App Metrica',
     costSheet: 'Tocal - Yektanet',
-    // App Metrica reports every network, but the cost sheet is Yektanet only —
-    // other networks would add conversions with no cost behind them.
-    refRowFilter: (r) => normCampaign(r['Network']) === 'yektanet',
+    // Network is ignored: the same campaigns keep being reported under the
+    // supply partner's name (adivery, cafe bazar) once Yektanet's own label
+    // stops. Campaign is the join key, so only campaigns the cost sheet knows
+    // are counted.
+    refCampaignsFromCost: true,
     conversionCol: 'KYC',
     conversionLabel: 'KYC',
     showInstalls: true,
@@ -759,7 +761,7 @@ const ALL_PROJECTS = [
     refSheet: 'Arzplus - App Metrica',
     // The tab really is named without a space before the hyphen.
     costSheet: 'Arzplus- Yektanet',
-    refRowFilter: (r) => normCampaign(r['Network']) === 'yektanet',
+    refCampaignsFromCost: true,
     conversionCol: 'KYC',
     conversionLabel: 'KYC',
     showInstalls: true,
@@ -782,10 +784,10 @@ const PROJECTS = ALL_PROJECTS.filter(p => !p.hidden);
 const projectState = {}; // { [id]: { campaigns: 'ALL' | Set(keys), from, to } }
 const chartInstances = {};
 
-function normalizeRefRows(rows, conversionCol, installsCol, adgroupCol, creativeCol, rowFilter){
+function normalizeRefRows(rows, conversionCol, installsCol, adgroupCol, creativeCol){
   adgroupCol = adgroupCol || 'Adgroup';
   creativeCol = creativeCol || 'Creative';
-  return rows.filter(r => !rowFilter || rowFilter(r)).map(r=>{
+  return rows.map(r=>{
     const date = normDate(r['Date']);
     const campaignRaw = r['Campaign'];
     const campaign = normCampaign(campaignRaw);
@@ -2082,6 +2084,7 @@ function updateSection(project){
   if(d.skippedRows > 0) notes.push(`<b>${fmtNum(d.skippedRows)}</b> ردیف بدون Date یا Campaign نادیده گرفته شد (${fmtMoney(d.skippedCost)})`);
   if(d.unreadableCost > 0) notes.push(`<b>${fmtNum(d.unreadableCost)}</b> سلول Cost با فرمت غیرقابل‌خوندن`);
   if(d.futureRows > 0) notes.push(`<b>${fmtNum(d.futureRows)}</b> ردیف با تاریخ آینده نادیده گرفته شد`);
+  if(d.refNoCostCampaign > 0) notes.push(`<b>${fmtNum(d.refNoCostCampaign)}</b> ردیف کانورژن کنار گذاشته شد چون کمپینش توی شیت هزینه نیست`);
   // Cost in the range with nothing to join it to reads as an empty section;
   // say which side ran out and when, instead of showing zeroes.
   if(!joined.length && totalCostInSheet > 0){
@@ -2203,11 +2206,20 @@ async function loadProject(project){
     const diag = {skippedRows:0, skippedCost:0, unreadableCost:0, excludedCost:0, futureRows:0};
     project.rawRef = refSheetRows.flatMap((rows, i) =>
       normalizeRefRows(rows, refSheets[i].conversionCol || project.conversionCol,
-                       project.installsCol, project.adgroupCol, project.creativeCol, project.refRowFilter));
+                       project.installsCol, project.adgroupCol, project.creativeCol));
     project.rawCost = normalizeCostRows(costRows, project.impressionsCol, project.clicksCol, diag);
     // The session comparison works off daily totals of each tab as-is, so it
     // keeps the rows the project's campaign filter removes from everything else.
     project.rawCompare = cmp ? normalizeCompareRows(compareRows, cmp.sessionsCol) : [];
+    // With refCampaignsFromCost the conversion sheet may cover several trackers
+    // or networks; a row counts only if its campaign appears in the cost sheet,
+    // which is what makes Campaign the join key on its own.
+    if(project.refCampaignsFromCost){
+      const costCampaigns = new Set(project.rawCost.map(r=>r.campaign));
+      const kept = project.rawRef.filter(r=>costCampaigns.has(r.campaign));
+      diag.refNoCostCampaign = project.rawRef.length - kept.length;
+      project.rawRef = kept;
+    }
     project.allRef = project.rawRef;
     if(project.excludeCampaign){
       project.rawRef = project.rawRef.filter(r=>!project.excludeCampaign(r.campaign));
