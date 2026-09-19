@@ -109,7 +109,8 @@
     content:'';position:absolute;top:0;right:0;left:0;height:3px;background:var(--accent-grad);
   }
   .kpi .kpi-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
-  .kpi .label{font-size:12px;color:var(--text-muted);font-weight:600;}
+  .kpi .label{font-size:12px;color:var(--text-muted);font-weight:600;display:flex;align-items:center;}
+  .kpi-key{width:9px;height:9px;border-radius:3px;display:inline-block;margin-inline-end:7px;flex-shrink:0;}
   .kpi-sub{font-size:11px;color:var(--text-faint);font-family:var(--font-mono);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .kpi .icon{width:28px;height:28px;border-radius:8px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;color:var(--accent-ink);flex-shrink:0;}
   .kpi .icon svg{width:15px;height:15px;}
@@ -1552,6 +1553,7 @@ function renderSectionsShell(){
             <span><i style="background:var(--accent-2)"></i>اختلاف٪</span>
           </div>
         </div>
+        <div class="kpis" id="sessionKpis-${p.id}"></div>
         <div class="chart-box"><canvas id="sessionsChart-${p.id}"></canvas></div>
         <div class="deep-subhead">کدوم کمپین‌ها بیشترین تاثیر رو روی اختلاف کلی دارن؟</div>
         <div id="sessionGaps-${p.id}"></div>
@@ -2133,11 +2135,40 @@ function renderSessionGaps(project){
     + (r.driverCount > r.drivers.length ? `<div class="deep-subtext" style="margin-top:8px;">${fmtNum(r.driverCount - r.drivers.length)} کمپین دیگه هم اختلاف کوچیک‌تری دارن.</div>` : '');
 }
 
+// The same three numbers the chart is made of, totalled over the range: what
+// each source counted, and how far apart they ended up.
+function renderSessionsKpis(project, series){
+  const el = document.getElementById(`sessionKpis-${project.id}`);
+  if(!el) return;
+  const cfg = project.sessionsCompare;
+  const sum = arr => arr.reduce((a,b)=>a+b, 0);
+  const own = sum(series.own), other = sum(series.other);
+  const gap = other > 0 ? (own - other)/other*100 : null;
+  const cards = [
+    {label:`سشن ${cfg.ownLabel}`,   value: fmtNum(own),   color:'#D9730D',
+     sub:`${fmtNum(series.labels.length)} روز`},
+    {label:`سشن ${cfg.otherLabel}`, value: fmtNum(other), color: project.theme.accent,
+     sub:`${fmtNum(series.labels.length)} روز`},
+    {label:'درصد اختلاف سشن', accent:true,
+     value: gap===null ? '—' : `${gap>0?'▲':'▼'} ${Math.abs(gap).toFixed(1)}٪`,
+     sub: `${own>=other?'+':'−'}${fmtNum(Math.abs(own-other))} سشن نسبت به ${cfg.otherLabel}`}
+  ];
+  el.style.gridTemplateColumns = `repeat(${cards.length}, 1fr)`;
+  el.innerHTML = cards.map(c=>`
+    <div class="kpi">
+      <div class="kpi-top"><span class="label">${c.color?`<i class="kpi-key" style="background:${c.color}"></i>`:''}${escapeHtml(c.label)}</span></div>
+      <div class="value ${c.accent?'accent':''}">${c.value}</div>
+      <div class="kpi-sub">${escapeHtml(c.sub)}</div>
+    </div>`).join('');
+}
+
 function renderSessionsChart(project){
   const canvas = document.getElementById(`sessionsChart-${project.id}`);
   if(!canvas) return;
   const cfg = project.sessionsCompare;
-  const {labels, own, other, diffPct} = buildSessionsComparison(project);
+  const series = buildSessionsComparison(project);
+  const {labels, own, other, diffPct} = series;
+  renderSessionsKpis(project, series);
   const key = project.id + ':sessions';
   if(chartInstances[key]) chartInstances[key].destroy();
   const accentHex = project.theme.accent, accent2Hex = project.theme.accent2, ownHex = '#D9730D';
