@@ -1892,8 +1892,19 @@ function computeSegmentCpa(project, joined, keyFn){
 // Ad group and creative names are long ids people paste into the panel, and
 // selecting one by hand inside a scrolling table is fiddly — so clicking the
 // name copies it whole.
-function copyableName(name){
-  return `<button type="button" class="copy-name" data-copy="${escapeHtml(name)}" title="کلیک کن تا کپی بشه">${escapeHtml(name)}</button>`;
+function copyableName(name, copyValue){
+  const value = (copyValue === undefined || copyValue === '') ? name : copyValue;
+  const title = value === name ? 'کلیک کن تا کپی بشه' : `کلیک کن تا «${value}» کپی بشه`;
+  return `<button type="button" class="copy-name" data-copy="${escapeHtml(value)}" title="${escapeHtml(title)}">${escapeHtml(name)}</button>`;
+}
+// What people actually paste into the panel for a creative is the number
+// inside its name (yn_mob_646179 -> 646179), so that's what a creative name
+// copies. Names with no digits at all — the Cafe Bazaar creatives are plain
+// Persian words — copy whole, since there's no number to pick out.
+function creativeCopyValue(name){
+  const runs = String(name == null ? '' : name).match(/\d+/g);
+  if(!runs) return name;
+  return runs.reduce((best, r) => r.length >= best.length ? r : best, '');
 }
 function flashCopied(btn){
   btn.classList.add('copied');
@@ -1924,7 +1935,7 @@ document.addEventListener('click', async (e)=>{
   }
 });
 
-function renderSegmentCpaTable(project, joined, keyFn, elId, segLabel){
+function renderSegmentCpaTable(project, joined, keyFn, elId, segLabel, copyValueFn){
   const el = document.getElementById(elId);
   if(!el) return;
   const t = computeSegmentCpa(project, joined, keyFn);
@@ -1937,7 +1948,7 @@ function renderSegmentCpaTable(project, joined, keyFn, elId, segLabel){
   const installLabel = project.installsLabel || 'نصب';
   const body = t.rows.map(r=>`
     <tr>
-      <td class="campaign">${copyableName(r.label)}</td>
+      <td class="campaign">${copyableName(r.label, copyValueFn ? copyValueFn(r.label) : undefined)}</td>
       <td class="muted">${escapeHtml(r.campaign)}</td>
       <td>${fmtNum(r.installs)}</td>
       <td class="muted">${r.installShare.toFixed(0)}٪</td>
@@ -1975,7 +1986,7 @@ function renderSegmentIssues(project, joined){
     </div>`;
   }
   renderSegmentCpaTable(project, joined, r=>r.adgroup, `segmentAdgroup-${project.id}`, 'Adgroup');
-  renderSegmentCpaTable(project, joined, r=>r.creative, `segmentCreative-${project.id}`, 'Creative');
+  renderSegmentCpaTable(project, joined, r=>r.creative, `segmentCreative-${project.id}`, 'Creative', creativeCopyValue);
 }
 
 function computeCampaignCpaTable(project, joined){
@@ -2593,7 +2604,7 @@ function renderCreativeCpiTable(project, group, elId, segLabel){
       : r.campaigns.join('، ');
     return `
     <tr>
-      <td class="campaign">${copyableName(r.label)}</td>
+      <td class="campaign">${copyableName(r.label, creativeCopyValue(r.label))}</td>
       <td>${fmtNum(r.installs)}</td>
       <td class="muted">${r.installShare.toFixed(1)}٪</td>
       <td>${fmtNum(r.cost)}</td>
