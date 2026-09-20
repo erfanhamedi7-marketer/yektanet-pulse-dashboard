@@ -336,6 +336,14 @@
   .cpa-table tbody tr:nth-child(even){background:#FBFCFE;}
   .cpa-table tbody tr:hover{background:var(--accent-soft);}
   .cpa-table td.campaign{font-family:var(--font-ui);font-weight:700;white-space:normal;min-width:150px;}
+  .filter-name{
+    background:none;border:none;padding:0;margin:0;cursor:pointer;text-align:right;
+    font-family:inherit;font-size:inherit;font-weight:inherit;color:inherit;
+    border-bottom:1px dashed var(--text-faint);transition:color .15s, border-color .15s;
+  }
+  .filter-name:hover{color:var(--accent-ink);border-bottom-color:var(--accent-ink);}
+  .filter-name.active{color:var(--accent-ink);border-bottom-style:solid;border-bottom-color:var(--accent-ink);}
+  .filter-name.active::before{content:'✓ ';font-weight:700;}
   .copy-name{
     background:none;border:none;padding:0;margin:0;cursor:pointer;position:relative;
     font-family:inherit;font-size:inherit;font-weight:inherit;color:inherit;text-align:right;
@@ -1008,14 +1016,21 @@ function budgetNameFilter(project){
   if(!st || st.campaigns === 'ALL') return () => true;
   return name => st.campaigns.has(normCampaign(name));
 }
+// The second slot: a campaign key inside the selected Campaign Names.
+function budgetCampaignFilter(project){
+  const st = projectState[project.id];
+  if(!st || !st.subCampaigns || st.subCampaigns === 'ALL') return () => true;
+  return key => st.subCampaigns.has(key);
+}
 function buildBudgetDaily(project){
   const {from, to} = sectionRange(project);
   const inRange = d => (!from || d >= from) && (!to || d <= to);
   const inName = budgetNameFilter(project);
+  const inCampaign = budgetCampaignFilter(project);
   const byCampaign = {};
   // The cumulative walk needs every day of a campaign, but only the selected
-  // Campaign Names take part at all.
-  (project.rawBlend||[]).filter(r=>inName(r.campaignName))
+  // Campaign Names and campaigns take part at all.
+  (project.rawBlend||[]).filter(r=>inName(r.campaignName) && inCampaign(r.campaign))
     .forEach(r=>{ (byCampaign[r.campaign] = byCampaign[r.campaign] || []).push(r); });
 
   const byDate = {};
@@ -1051,7 +1066,8 @@ function buildBudgetDaily(project){
 // Budget figures are lifetime by nature, so they ignore the date filter.
 function buildBudgetTable(project){
   const inName = budgetNameFilter(project);
-  const rows = (project.rawBudget||[]).filter(r=>inName(r.campaignName))
+  const inCampaign = budgetCampaignFilter(project);
+  const rows = (project.rawBudget||[]).filter(r=>inName(r.campaignName) && inCampaign(r.campaign))
     .sort((a,b)=>b.totalBudget - a.totalBudget);
   const totals = rows.reduce((t,r)=>({
     totalBudget: t.totalBudget + r.totalBudget, spent: t.spent + r.spent,
@@ -1180,6 +1196,20 @@ function getBudgetNameOptions(project){
   (project.rawBlend||[]).forEach(r=>{
     const key = normCampaign(r.campaignName);
     if(!byKey[key]) byKey[key] = {key, label:r.campaignName, cost:0};
+  });
+  return Object.values(byKey).sort((a,b)=> b.cost - a.cost || a.label.localeCompare(b.label));
+}
+
+// The campaigns themselves (not their Campaign Name group), so a budget
+// section can be narrowed to one campaign the same way the others are.
+function getBudgetCampaignOptions(project){
+  const byKey = {};
+  (project.rawBudget||[]).forEach(r=>{
+    const o = byKey[r.campaign] = byKey[r.campaign] || {key:r.campaign, label:r.campaignLabel || r.campaign, cost:0};
+    o.cost += r.totalBudget;
+  });
+  (project.rawBlend||[]).forEach(r=>{
+    if(!byKey[r.campaign]) byKey[r.campaign] = {key:r.campaign, label:r.campaignLabel || r.campaign, cost:0};
   });
   return Object.values(byKey).sort((a,b)=> b.cost - a.cost || a.label.localeCompare(b.label));
 }
@@ -1333,59 +1363,83 @@ function setOwnPreset(project, days, btn){
 }
 
 // ---------- Multi-select campaign filter ----------
-function campaignButtonLabel(project){
-  const st = projectState[project.id];
-  const opts = project.campaignOptions;
-  const unit = project.filterUnit || 'کمپین';
-  if(st.campaigns === 'ALL' || st.campaigns.size === opts.length) return project.filterAllLabel || 'همه کمپین‌ها';
-  if(st.campaigns.size === 0) return 'هیچ‌کدوم';
-  if(st.campaigns.size === 1){
-    const only = opts.find(o=>st.campaigns.has(o.key));
-    return only ? only.label : `۱ ${unit}`;
+// A section carries one multi-select per filter slot. Most have a single one
+// (the campaign); the budget sections filter by Campaign Name and, inside it,
+// by the campaign itself, so they have two.
+function filterSlots(project){
+  const slots = [{
+    key:'main', stateKey:'campaigns', suffix:'',
+    unit: project.filterUnit || 'کمپین',
+    allLabel: project.filterAllLabel || 'همه کمپین‌ها',
+    options: () => project.campaignOptions || []
+  }];
+  if(project.kind === 'budget'){
+    slots.push({
+      key:'sub', stateKey:'subCampaigns', suffix:'2',
+      unit:'کمپین', allLabel:'همه کمپین‌ها',
+      options: () => project.subCampaignOptions || []
+    });
   }
-  return `${st.campaigns.size} ${unit} انتخاب شده`;
+  return slots;
 }
-function renderCampaignDropdown(project){
-  const opts = project.campaignOptions;
-  const st = projectState[project.id];
-  const allSelected = st.campaigns === 'ALL' || st.campaigns.size === opts.length;
-  const panel = document.getElementById(`msPanel-${project.id}`);
+function slotState(project, slot){ return projectState[project.id][slot.stateKey]; }
+
+function campaignButtonLabel(project, slot){
+  const sel = slotState(project, slot);
+  const opts = slot.options();
+  if(sel === 'ALL' || sel.size === opts.length) return slot.allLabel;
+  if(sel.size === 0) return 'هیچ‌کدوم';
+  if(sel.size === 1){
+    const only = opts.find(o=>sel.has(o.key));
+    return only ? only.label : `۱ ${slot.unit}`;
+  }
+  return `${sel.size} ${slot.unit} انتخاب شده`;
+}
+function renderCampaignDropdown(project, slot){
+  if(!slot) return filterSlots(project).forEach(sl=>renderCampaignDropdown(project, sl));
+  const opts = slot.options();
+  const sel = slotState(project, slot);
+  const allSelected = sel === 'ALL' || sel.size === opts.length;
+  const panel = document.getElementById(`msPanel${slot.suffix}-${project.id}`);
+  if(!panel) return;
   panel.innerHTML = `
     <label class="ms-option ms-option-all">
-      <input type="checkbox" id="msAll-${project.id}" ${allSelected?'checked':''}>
-      <span>${escapeHtml(project.filterAllLabel || 'همه کمپین‌ها')}</span>
+      <input type="checkbox" id="msAll${slot.suffix}-${project.id}" ${allSelected?'checked':''}>
+      <span>${escapeHtml(slot.allLabel)}</span>
     </label>
     <div class="ms-divider"></div>
     ${opts.map(o=>`
       <label class="ms-option">
-        <input type="checkbox" class="ms-item-${project.id}" value="${escapeHtml(o.key)}" ${allSelected || (st.campaigns!=='ALL' && st.campaigns.has(o.key)) ? 'checked':''}>
+        <input type="checkbox" class="ms-item${slot.suffix}-${project.id}" value="${escapeHtml(o.key)}" ${allSelected || (sel!=='ALL' && sel.has(o.key)) ? 'checked':''}>
         <span class="ms-option-label">${escapeHtml(o.label)}</span>
         <span class="ms-option-cost">${fmtMoney(o.cost)}</span>
       </label>`).join('')}
   `;
-  document.getElementById(`msToggle-${project.id}`).textContent = campaignButtonLabel(project) + ' ▾';
+  document.getElementById(`msToggle${slot.suffix}-${project.id}`).textContent = campaignButtonLabel(project, slot) + ' ▾';
 
-  const allCb = document.getElementById(`msAll-${project.id}`);
+  const allCb = document.getElementById(`msAll${slot.suffix}-${project.id}`);
   allCb.addEventListener('change', ()=>{
-    projectState[project.id].campaigns = allCb.checked ? 'ALL' : new Set();
-    renderCampaignDropdown(project);
+    projectState[project.id][slot.stateKey] = allCb.checked ? 'ALL' : new Set();
+    renderCampaignDropdown(project, slot);
     updateSection(project);
   });
-  panel.querySelectorAll(`.ms-item-${project.id}`).forEach(cb=>{
+  panel.querySelectorAll(`.ms-item${slot.suffix}-${project.id}`).forEach(cb=>{
     cb.addEventListener('change', ()=>{
-      let cur = projectState[project.id].campaigns;
+      let cur = projectState[project.id][slot.stateKey];
       if(cur === 'ALL') cur = new Set(opts.map(o=>o.key));
       if(cb.checked) cur.add(cb.value); else cur.delete(cb.value);
       if(cur.size === opts.length) cur = 'ALL';
-      projectState[project.id].campaigns = cur;
-      renderCampaignDropdown(project);
+      projectState[project.id][slot.stateKey] = cur;
+      renderCampaignDropdown(project, slot);
       updateSection(project);
     });
   });
 }
-function wireCampaignToggle(project){
-  const toggle = document.getElementById(`msToggle-${project.id}`);
-  const panel = document.getElementById(`msPanel-${project.id}`);
+function wireCampaignToggle(project, slot){
+  if(!slot) return filterSlots(project).forEach(sl=>wireCampaignToggle(project, sl));
+  const toggle = document.getElementById(`msToggle${slot.suffix}-${project.id}`);
+  const panel = document.getElementById(`msPanel${slot.suffix}-${project.id}`);
+  if(!toggle || !panel) return;
   toggle.addEventListener('click', (e)=>{
     e.stopPropagation();
     const isOpen = !panel.hidden;
@@ -1394,6 +1448,31 @@ function wireCampaignToggle(project){
   });
   panel.addEventListener('click', e=>e.stopPropagation());
 }
+
+// A campaign name printed in a table doubles as a filter: clicking it narrows
+// the section to that campaign, clicking the selected one again clears it.
+function filterableName(project, slotKey, key, label){
+  const slot = filterSlots(project).find(s=>s.key===slotKey);
+  const sel = slot ? slotState(project, slot) : 'ALL';
+  const isOnly = sel !== 'ALL' && sel.size === 1 && sel.has(key);
+  return `<button type="button" class="filter-name${isOnly?' active':''}"
+    data-project="${escapeHtml(project.id)}" data-slot="${escapeHtml(slotKey)}" data-key="${escapeHtml(key)}"
+    title="${isOnly ? 'کلیک کن تا فیلتر برداشته بشه' : 'کلیک کن تا داشبورد روی همین فیلتر بشه'}"
+    >${escapeHtml(label)}</button>`;
+}
+document.addEventListener('click', (e)=>{
+  const btn = e.target.closest('.filter-name');
+  if(!btn) return;
+  const project = PROJECTS.find(p=>p.id === btn.dataset.project);
+  if(!project) return;
+  const slot = filterSlots(project).find(s=>s.key === btn.dataset.slot);
+  if(!slot) return;
+  const sel = slotState(project, slot);
+  const isOnly = sel !== 'ALL' && sel.size === 1 && sel.has(btn.dataset.key);
+  projectState[project.id][slot.stateKey] = isOnly ? 'ALL' : new Set([btn.dataset.key]);
+  renderCampaignDropdown(project, slot);
+  updateSection(project);
+});
 document.addEventListener('click', ()=>{
   document.querySelectorAll('.ms-panel').forEach(p=>p.hidden = true);
 });
@@ -1446,10 +1525,11 @@ function renderSectionsShell(){
           </div>
         </div>
         <div class="section-controls">
-          <div class="ms-dropdown" id="msWrap-${p.id}">
-            <button type="button" class="ms-toggle" id="msToggle-${p.id}">${escapeHtml(p.filterAllLabel || 'همه کمپین‌ها')} ▾</button>
-            <div class="ms-panel" id="msPanel-${p.id}" hidden></div>
-          </div>
+          ${filterSlots(p).map(slot=>`
+          <div class="ms-dropdown" id="msWrap${slot.suffix}-${p.id}">
+            <button type="button" class="ms-toggle" id="msToggle${slot.suffix}-${p.id}">${escapeHtml(slot.allLabel)} ▾</button>
+            <div class="ms-panel" id="msPanel${slot.suffix}-${p.id}" hidden></div>
+          </div>`).join('')}
         </div>
       </div>
       ${p.ownDateFilter ? `
@@ -1568,6 +1648,7 @@ function renderSectionsShell(){
     }
 
     p.campaignOptions = p.kind === 'budget' ? getBudgetNameOptions(p) : getCampaignOptionsSortedByCost(p);
+    if(p.kind === 'budget') p.subCampaignOptions = getBudgetCampaignOptions(p);
     // A project may open on a subset rather than everything.
     let initial = 'ALL';
     if(p.defaultCampaigns && p.defaultCampaigns.length){
@@ -1575,7 +1656,7 @@ function renderSectionsShell(){
       const matched = p.campaignOptions.filter(o=>wanted.has(o.key)).map(o=>o.key);
       if(matched.length && matched.length < p.campaignOptions.length) initial = new Set(matched);
     }
-    projectState[p.id] = { campaigns: initial, from: null, to: null };
+    projectState[p.id] = { campaigns: initial, subCampaigns: 'ALL', from: null, to: null };
     renderCampaignDropdown(p);
     wireCampaignToggle(p);
 
@@ -1964,7 +2045,7 @@ function renderCampaignCpaTable(project, joined, elId){
       : `<td class="${r.vsBenchmark>0?'neg':'pos'}">${r.vsBenchmark>0?'▲':'▼'} ${Math.abs(r.vsBenchmark).toFixed(0)}٪</td>`;
     return `
       <tr>
-        <td class="campaign">${escapeHtml(r.label)}</td>
+        <td class="campaign">${filterableName(project, 'main', r.key, r.label)}</td>
         <td>${fmtNum(r.cost)}</td>
         <td class="muted">${r.share.toFixed(0)}٪</td>
         <td>${fmtNum(r.conversion)}</td>
@@ -2278,8 +2359,8 @@ function updateBudgetSection(project){
     const over = r.totalBudget>0 && r.spent > r.totalBudget;
     return `
       <tr>
-        <td class="campaign">${escapeHtml(r.campaignLabel)}</td>
-        <td class="muted">${escapeHtml(r.campaignName)}</td>
+        <td class="campaign">${filterableName(project, 'sub', r.campaign, r.campaignLabel)}</td>
+        <td class="muted">${filterableName(project, 'main', normCampaign(r.campaignName), r.campaignName)}</td>
         ${money(r.totalBudget)}
         ${money(r.spent, over?'neg':'')}
         ${money(r.remaining, r.remaining<=0?'muted':'')}
