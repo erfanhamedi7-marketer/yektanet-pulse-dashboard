@@ -230,12 +230,23 @@
     max-height:320px;overflow-y:auto;background:var(--surface);border:1px solid var(--border);
     border-radius:10px;padding:8px;box-shadow:var(--shadow-pop);
   }
+  .ms-search-wrap{position:sticky;top:-8px;background:var(--surface);padding:2px 2px 8px;z-index:2;}
+  .ms-search{
+    width:100%;box-sizing:border-box;background:var(--surface-2);border:1px solid var(--border);
+    border-radius:8px;padding:7px 10px;font-family:var(--font-ui);font-size:12.5px;color:var(--text);
+  }
+  .ms-search::placeholder{color:var(--text-faint);}
+  .ms-search:focus{outline:none;border-color:var(--accent-ink);box-shadow:0 0 0 3px var(--accent-soft);}
+  .ms-empty{padding:10px 8px;font-size:12px;color:var(--text-muted);text-align:center;}
   .ms-option{
     display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:6px;font-size:12.5px;
     cursor:pointer;color:var(--text);
   }
   .ms-option:hover{background:var(--surface-2);}
   .ms-option input{accent-color:var(--accent-ink);flex-shrink:0;}
+  /* .ms-option sets display:flex, which would otherwise beat the browser's
+     own [hidden] rule and leave filtered-out rows on screen. */
+  .ms-option[hidden]{display:none;}
   .ms-option-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .ms-option-cost{font-family:var(--font-mono);font-size:11px;color:var(--text-faint);flex-shrink:0;}
   .ms-option-all{font-weight:700;}
@@ -1395,6 +1406,38 @@ function campaignButtonLabel(project, slot){
   }
   return `${sel.size} ${slot.unit} انتخاب شده`;
 }
+// Campaign names are typed in two alphabets and two sets of digits, so a
+// search compares them flattened: Latin digits, lowercase, and the Arabic
+// letters that stand in for Persian ones folded together.
+function searchKey(str){
+  return latinizeDigits(String(str == null ? '' : str))
+    .toLowerCase()
+    .replace(/[\u064A\u0649]/g, '\u06CC')   // ي / ى -> ی
+    .replace(/\u0643/g, '\u06A9')           // ك -> ک
+    .replace(/[\u200c\u200f\u200e]/g, ' ')  // zero-width and direction marks
+    .trim();
+}
+// Typing in one panel must survive the re-render that every tick causes, so
+// the query lives next to the selection rather than in the DOM.
+function slotQuery(project, slot){
+  const st = projectState[project.id];
+  if(!st.search) st.search = {};
+  return st.search[slot.key] || '';
+}
+function applySlotSearch(project, slot){
+  const panel = document.getElementById(`msPanel${slot.suffix}-${project.id}`);
+  if(!panel) return;
+  const q = searchKey(slotQuery(project, slot));
+  let shown = 0;
+  panel.querySelectorAll('.ms-option[data-search]').forEach(row=>{
+    const hit = !q || row.dataset.search.includes(q);
+    row.hidden = !hit;
+    if(hit) shown++;
+  });
+  const empty = panel.querySelector('.ms-empty');
+  if(empty) empty.hidden = shown > 0;
+}
+
 function renderCampaignDropdown(project, slot){
   if(!slot) return filterSlots(project).forEach(sl=>renderCampaignDropdown(project, sl));
   const opts = slot.options();
@@ -1402,20 +1445,48 @@ function renderCampaignDropdown(project, slot){
   const allSelected = sel === 'ALL' || sel.size === opts.length;
   const panel = document.getElementById(`msPanel${slot.suffix}-${project.id}`);
   if(!panel) return;
+  const searchId = `msSearch${slot.suffix}-${project.id}`;
+  const hadFocus = document.activeElement && document.activeElement.id === searchId;
   panel.innerHTML = `
+    <div class="ms-search-wrap">
+      <input type="search" class="ms-search" id="${searchId}" placeholder="جست‌وجوی ${escapeHtml(slot.unit)}…"
+             value="${escapeHtml(slotQuery(project, slot))}" autocomplete="off">
+    </div>
     <label class="ms-option ms-option-all">
       <input type="checkbox" id="msAll${slot.suffix}-${project.id}" ${allSelected?'checked':''}>
       <span>${escapeHtml(slot.allLabel)}</span>
     </label>
     <div class="ms-divider"></div>
     ${opts.map(o=>`
-      <label class="ms-option">
+      <label class="ms-option" data-search="${escapeHtml(searchKey(o.label + ' ' + o.key))}">
         <input type="checkbox" class="ms-item${slot.suffix}-${project.id}" value="${escapeHtml(o.key)}" ${allSelected || (sel!=='ALL' && sel.has(o.key)) ? 'checked':''}>
         <span class="ms-option-label">${escapeHtml(o.label)}</span>
         <span class="ms-option-cost">${fmtMoney(o.cost)}</span>
       </label>`).join('')}
+    <div class="ms-empty" hidden>چیزی پیدا نشد</div>
   `;
   document.getElementById(`msToggle${slot.suffix}-${project.id}`).textContent = campaignButtonLabel(project, slot) + ' ▾';
+
+  const search = document.getElementById(searchId);
+  search.addEventListener('input', ()=>{
+    projectState[project.id].search[slot.key] = search.value;
+    applySlotSearch(project, slot);
+  });
+  // Escape clears the query rather than closing the panel mid-typing.
+  search.addEventListener('keydown', e=>{
+    if(e.key === 'Escape'){
+      e.stopPropagation();
+      search.value = '';
+      projectState[project.id].search[slot.key] = '';
+      applySlotSearch(project, slot);
+    }
+  });
+  applySlotSearch(project, slot);
+  if(hadFocus){
+    search.focus();
+    const end = search.value.length;
+    try{ search.setSelectionRange(end, end); }catch(err){ /* type=search may refuse */ }
+  }
 
   const allCb = document.getElementById(`msAll${slot.suffix}-${project.id}`);
   allCb.addEventListener('change', ()=>{
@@ -1445,6 +1516,10 @@ function wireCampaignToggle(project, slot){
     const isOpen = !panel.hidden;
     document.querySelectorAll('.ms-panel').forEach(p=>p.hidden = true);
     panel.hidden = isOpen;
+    if(!panel.hidden){
+      const search = document.getElementById(`msSearch${slot.suffix}-${project.id}`);
+      if(search) search.focus();
+    }
   });
   panel.addEventListener('click', e=>e.stopPropagation());
 }
