@@ -1,0 +1,2841 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>__DASHBOARD_TITLE__</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="alternate icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#F3F5F9">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    /* Light surfaces: the page is a soft neutral, every panel is plain white. */
+    --bg:#F3F5F9;
+    --bg-elev:#FFFFFF;
+    --surface:#FFFFFF;
+    --surface-2:#F5F7FB;
+    --surface-3:#EDF1F7;
+    --border:#E1E6EF;
+    --border-soft:#EDF0F6;
+    --text:#111827;
+    --text-muted:#5A6577;
+    --text-faint:#7C8798;
+    /* Per-project brand colors override these three on each section. */
+    --accent:#2563EB;
+    --accent-ink:#1D4ED8;          /* the brand color stepped dark enough for text */
+    --accent-2:#1B1F27;
+    --accent-soft:rgba(37,99,235,0.10);
+    --accent-grad:linear-gradient(90deg,var(--accent),var(--accent-2));
+    --positive:#0E7A4F;
+    --positive-soft:rgba(14,122,79,0.10);
+    --negative:#C62026;
+    --negative-soft:rgba(198,32,38,0.09);
+    --amber:#B45309;
+    --amber-soft:rgba(180,83,9,0.12);
+    --radius:14px;
+    --radius-sm:10px;
+    --font-ui:'Vazirmatn',system-ui,-apple-system,sans-serif;
+    --font-mono:'IBM Plex Mono',ui-monospace,monospace;
+    --shadow-card:0 1px 2px rgba(16,24,40,.04), 0 10px 24px -18px rgba(16,24,40,.28);
+    --shadow-pop:0 12px 32px -12px rgba(16,24,40,.24), 0 2px 6px rgba(16,24,40,.06);
+  }
+  *{box-sizing:border-box;}
+  html{background:var(--bg);color-scheme:light;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(900px 420px at 12% -10%, rgba(37,99,235,0.05), transparent 60%),
+      radial-gradient(760px 380px at 100% 0%, rgba(15,23,42,0.035), transparent 55%),
+      var(--bg);
+    color:var(--text);
+    font-family:var(--font-ui);
+    font-size:14px;
+    line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+  :focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px;border-radius:6px;}
+  .wrap{max-width:1280px;margin:0 auto;padding:28px 24px 72px;}
+
+  /* Topbar */
+  .topbar{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;margin-bottom:22px;flex-wrap:wrap;}
+  .brand{display:flex;align-items:center;gap:12px;}
+  .brand-mark{
+    width:38px;height:38px;border-radius:11px;flex-shrink:0;
+    background:linear-gradient(135deg,#1E293B,#334155);
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 6px 16px -8px rgba(15,23,42,.6);
+  }
+  .brand-mark svg{width:18px;height:18px;color:#fff;}
+  .topbar h1{font-size:19px;font-weight:800;margin:0;letter-spacing:-0.01em;}
+  .topbar .sub{color:var(--text-muted);font-size:12.5px;margin-top:2px;}
+  .topbar-right{display:flex;align-items:center;gap:10px;}
+  .status-pill{
+    display:flex;align-items:center;gap:8px;
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:999px;padding:7px 14px;font-size:12.5px;color:var(--text-muted);
+    box-shadow:var(--shadow-card);
+  }
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--text-faint);flex-shrink:0;}
+  .dot.live{background:var(--positive);box-shadow:0 0 0 4px var(--positive-soft);}
+  .dot.err{background:var(--negative);box-shadow:0 0 0 4px var(--negative-soft);}
+  .dot.loading{background:var(--amber);box-shadow:0 0 0 4px var(--amber-soft);animation:pulse 1.1s infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+  /* Coverage meter */
+  .coverage-card{
+    background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+    padding:18px 22px;margin-bottom:22px;box-shadow:var(--shadow-card);
+  }
+  .coverage-top{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:12px;}
+  .coverage-top .title{font-size:13px;font-weight:700;color:var(--text);}
+  .coverage-top .pct{font-family:var(--font-mono);font-size:15px;font-weight:700;color:var(--accent-ink);}
+  .meter-track{height:8px;border-radius:99px;background:var(--surface-3);overflow:hidden;}
+  .meter-fill{height:100%;border-radius:99px;background:var(--accent-grad);transition:width .6s ease;}
+  .coverage-legend{display:flex;gap:18px;margin-top:12px;font-size:12px;color:var(--text-muted);flex-wrap:wrap;}
+  .coverage-legend b{color:var(--text);font-family:var(--font-mono);font-weight:600;}
+
+  /* KPI grid */
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px;}
+  .kpi{
+    position:relative;background:var(--surface);border:1px solid var(--border);
+    border-radius:var(--radius);padding:16px 18px;overflow:hidden;box-shadow:var(--shadow-card);
+  }
+  .kpi::before{
+    content:'';position:absolute;top:0;right:0;left:0;height:3px;background:var(--accent-grad);
+  }
+  .kpi .kpi-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+  .kpi .label{font-size:12px;color:var(--text-muted);font-weight:600;display:flex;align-items:center;}
+  .kpi-key{width:9px;height:9px;border-radius:3px;display:inline-block;margin-inline-end:7px;flex-shrink:0;}
+  .kpi-sub{font-size:11px;color:var(--text-faint);font-family:var(--font-mono);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .kpi .icon{width:28px;height:28px;border-radius:8px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;color:var(--accent-ink);flex-shrink:0;}
+  .kpi .icon svg{width:15px;height:15px;}
+  .kpi .value{font-family:var(--font-mono);font-size:23px;font-weight:700;letter-spacing:-0.02em;color:var(--text);font-variant-numeric:tabular-nums;line-height:1.35;}
+  .kpi .value.accent{color:var(--accent-ink);}
+  .kpi .ctx{font-size:11.5px;color:var(--text-faint);margin-top:6px;}
+
+  /* Cards */
+  .card{
+    background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+    padding:20px 22px;margin-bottom:14px;box-shadow:var(--shadow-card);
+  }
+  .card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px;flex-wrap:wrap;}
+  .card h2{font-size:15px;font-weight:700;margin:0 0 3px;color:var(--text);letter-spacing:-0.01em;}
+  .card .card-sub{font-size:12px;color:var(--text-muted);max-width:70ch;line-height:1.7;}
+  .legend-dots{display:flex;gap:14px;font-size:12px;color:var(--text-muted);flex-wrap:wrap;}
+  .legend-dots span{display:flex;align-items:center;gap:6px;}
+  .legend-dots i{width:10px;height:10px;border-radius:3px;display:inline-block;flex-shrink:0;}
+  .legend-dots i.bar{background:var(--accent-grad);}
+  .legend-dots i.line{height:3px;border-radius:2px;background:var(--accent-2);}
+  .chart-box{position:relative;height:320px;}
+
+  /* Table */
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  thead th{
+    text-align:right;color:var(--text-muted);font-weight:700;font-size:11.5px;
+    letter-spacing:.02em;
+    padding:0 12px 10px;border-bottom:1px solid var(--border);cursor:pointer;user-select:none;white-space:nowrap;
+  }
+  thead th:hover{color:var(--text);}
+  thead th .arrow{opacity:.5;font-size:9px;margin-inline-start:4px;}
+  tbody td{padding:11px 12px;border-bottom:1px solid var(--border-soft);white-space:nowrap;color:var(--text);}
+  tbody td.num{font-family:var(--font-mono);font-size:12.5px;font-variant-numeric:tabular-nums;}
+  tbody tr:hover{background:var(--surface-2);}
+  .badge{
+    display:inline-flex;align-items:center;padding:3px 9px;border-radius:99px;
+    font-family:var(--font-mono);font-size:11.5px;font-weight:600;
+  }
+  .badge.good{background:var(--positive-soft);color:var(--positive);}
+  .badge.bad{background:var(--negative-soft);color:var(--negative);}
+  .badge.neutral{background:var(--surface-3);color:var(--text-muted);}
+
+  .loading-state, .error-state{
+    text-align:center;padding:80px 20px;background:var(--surface);border:1px solid var(--border);
+    border-radius:var(--radius);color:var(--text-muted);font-size:13.5px;box-shadow:var(--shadow-card);
+  }
+  .error-state{color:var(--negative);}
+  .spinner{
+    width:22px;height:22px;border-radius:50%;border:2.5px solid var(--border);border-top-color:var(--accent);
+    margin:0 auto 14px;animation:spin .8s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  .filter-bar{
+    display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+    background:rgba(255,255,255,.92);border:1px solid var(--border);border-radius:var(--radius);
+    padding:12px 16px;margin-bottom:14px;box-shadow:var(--shadow-card);
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    position:sticky;top:var(--sticky-top, 60px);z-index:30;
+  }
+  .filter-group{display:flex;align-items:center;gap:8px;}
+  .filter-group label{font-size:12px;color:var(--text-muted);font-weight:600;}
+  .filter-bar input[type="date"]{
+    background:var(--surface);border:1px solid var(--border);border-radius:8px;
+    padding:7px 10px;font-family:var(--font-mono);font-size:12.5px;color:var(--text);
+    color-scheme:light;
+  }
+  .filter-bar input[type="date"]:hover{border-color:var(--text-faint);}
+  .filter-bar input[type="date"]:focus{outline:none;border-color:var(--accent-ink);box-shadow:0 0 0 3px var(--accent-soft);}
+  .filter-presets{display:flex;gap:6px;margin-inline-start:auto;flex-wrap:wrap;}
+  .preset-btn{
+    background:var(--surface);border:1px solid var(--border);border-radius:999px;
+    padding:6px 13px;font-size:12px;color:var(--text-muted);font-family:var(--font-ui);font-weight:600;cursor:pointer;
+    transition:background .15s, border-color .15s, color .15s;
+  }
+  .preset-btn:hover{border-color:var(--accent-ink);color:var(--text);}
+  .preset-btn.active{background:var(--accent-soft);border-color:var(--accent-ink);color:var(--accent-ink);}
+  .filter-range-label{font-size:11.5px;color:var(--text-faint);font-family:var(--font-mono);}
+
+  .section{margin-bottom:28px;}
+  .section:not(:last-child){padding-bottom:24px;}
+  .section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:12px;}
+  .section-title{font-size:18px;font-weight:800;margin:0 0 3px;color:var(--text);letter-spacing:-0.015em;}
+  .section-sub{font-size:12px;color:var(--text-muted);}
+  .campaign-select{
+    background:var(--surface);border:1px solid var(--border);border-radius:8px;
+    padding:7px 10px;font-family:var(--font-ui);font-size:12.5px;color:var(--text);
+    min-width:180px;color-scheme:light;
+  }
+  .campaign-select:focus{outline:none;border-color:var(--accent-ink);}
+  .coverage-note{
+    font-size:11.5px;color:var(--text-muted);margin-bottom:14px;background:var(--surface-2);
+    border:1px solid var(--border-soft);border-radius:var(--radius-sm);padding:9px 12px;line-height:1.9;
+  }
+  .coverage-note b{color:var(--text);font-family:var(--font-mono);}
+  .error-inline{
+    grid-column:1/-1;background:var(--negative-soft);color:var(--negative);border-radius:8px;
+    padding:12px 16px;font-size:13px;
+  }
+
+  .section-head-left{display:flex;align-items:center;gap:12px;}
+  .section-logo{
+    width:44px;height:44px;border-radius:12px;object-fit:contain;padding:5px;
+    background:#fff;border:1px solid var(--border);box-shadow:var(--shadow-card);flex-shrink:0;
+  }
+  .section-logo.wide{width:auto;max-width:132px;}
+  .section-controls{display:flex;align-items:center;gap:10px;}
+  .ms-dropdown{position:relative;}
+  .ms-toggle{
+    background:var(--surface);border:1px solid var(--border);border-radius:8px;
+    padding:7px 12px;font-family:var(--font-ui);font-size:12.5px;font-weight:600;color:var(--text);
+    min-width:170px;text-align:right;cursor:pointer;box-shadow:var(--shadow-card);
+  }
+  .ms-toggle:hover{border-color:var(--accent-ink);}
+  .ms-panel{
+    position:absolute;top:calc(100% + 6px);left:0;z-index:60;min-width:260px;max-width:340px;
+    max-height:320px;overflow-y:auto;background:var(--surface);border:1px solid var(--border);
+    border-radius:10px;padding:8px;box-shadow:var(--shadow-pop);
+  }
+  .ms-search-wrap{position:sticky;top:-8px;background:var(--surface);padding:2px 2px 8px;z-index:2;}
+  .ms-search{
+    width:100%;box-sizing:border-box;background:var(--surface-2);border:1px solid var(--border);
+    border-radius:8px;padding:7px 10px;font-family:var(--font-ui);font-size:12.5px;color:var(--text);
+  }
+  .ms-search::placeholder{color:var(--text-faint);}
+  .ms-search:focus{outline:none;border-color:var(--accent-ink);box-shadow:0 0 0 3px var(--accent-soft);}
+  .ms-empty{padding:10px 8px;font-size:12px;color:var(--text-muted);text-align:center;}
+  .ms-option{
+    display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:6px;font-size:12.5px;
+    cursor:pointer;color:var(--text);
+  }
+  .ms-option:hover{background:var(--surface-2);}
+  .ms-option input{accent-color:var(--accent-ink);flex-shrink:0;}
+  /* .ms-option sets display:flex, which would otherwise beat the browser's
+     own [hidden] rule and leave filtered-out rows on screen. */
+  .ms-option[hidden]{display:none;}
+  .ms-option-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .ms-option-cost{font-family:var(--font-mono);font-size:11px;color:var(--text-faint);flex-shrink:0;}
+  .ms-option-all{font-weight:700;}
+  .ms-option-all span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .ms-divider{height:1px;background:var(--border);margin:6px 2px;}
+
+  .section-filter-bar{margin-bottom:14px;}
+
+  .tab-bar{
+    display:flex;gap:8px;margin-bottom:18px;border-bottom:1px solid var(--border);flex-wrap:wrap;
+    /* Pinned to the top while scrolling; the side bleed keeps content from
+       showing through the wrap's own gutters as it scrolls underneath. */
+    position:sticky;top:0;z-index:70;
+    background:rgba(243,245,249,.94);
+    -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+    padding-top:10px;padding-bottom:0;margin-inline:-24px;padding-inline:24px;
+  }
+  .tab-btn{
+    display:flex;align-items:center;gap:8px;background:none;border:none;
+    padding:9px 4px;margin-inline-end:18px;font-family:var(--font-ui);font-size:14px;font-weight:700;
+    color:var(--text-muted);cursor:pointer;border-bottom:2.5px solid transparent;margin-bottom:-1px;
+    transition:color .15s, border-color .15s;
+  }
+  .tab-btn img{width:22px;height:22px;border-radius:6px;object-fit:contain;background:#fff;flex-shrink:0;}
+  .tab-btn img.wide{width:auto;max-width:72px;border-radius:4px;}
+  .tab-btn:hover{color:var(--text);}
+  .tab-btn.active{color:var(--tab-ink, var(--text));border-bottom-color:var(--tab-accent, var(--text));}
+
+  .sub-tab-bar{
+    display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;
+    position:sticky;top:var(--tabbar-h, 54px);z-index:65;
+    background:rgba(243,245,249,.94);
+    -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+    padding:10px 24px;margin-inline:-24px;
+  }
+  .sub-tab-btn{
+    background:var(--surface);border:1px solid var(--border);border-radius:999px;
+    padding:7px 16px;font-family:var(--font-ui);font-size:12.5px;font-weight:600;
+    color:var(--text-muted);cursor:pointer;transition:color .15s, border-color .15s, background .15s;
+  }
+  .sub-tab-btn:hover{color:var(--text);border-color:var(--text-faint);}
+  .sub-tab-btn.active{
+    color:var(--tab-ink, var(--text));border-color:var(--tab-ink, var(--border));
+    background:var(--tab-soft, var(--surface-2));
+  }
+
+  .insight-text{font-size:13.5px;line-height:1.9;color:var(--text);margin:0 0 16px;}
+  .insight-chips{display:flex;flex-wrap:wrap;gap:10px;}
+  .insight-chip{
+    background:var(--surface-2);border:1px solid var(--border);border-radius:10px;
+    padding:10px 14px;min-width:150px;flex:1 1 150px;
+  }
+  .insight-chip .ic-label{font-size:11px;color:var(--text-muted);margin-bottom:5px;}
+  .insight-chip .ic-value{font-size:13px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .insight-chip.good{border-color:rgba(14,122,79,.35);background:var(--positive-soft);}
+  .insight-chip.good .ic-value{color:var(--positive);}
+  .insight-chip.bad{border-color:rgba(198,32,38,.3);background:var(--negative-soft);}
+  .insight-chip.bad .ic-value{color:var(--negative);}
+
+  .deep-subhead{
+    font-size:13px;font-weight:700;margin:22px 0 8px;color:var(--text);
+    padding-inline-start:10px;border-inline-start:3px solid var(--accent);border-radius:2px;
+  }
+  .deep-subhead:first-of-type{margin-top:0;}
+  .deep-subtext{font-size:11.5px;color:var(--text-muted);margin:0 0 10px;line-height:1.9;}
+  .deep-list{list-style:none;margin:0;padding:0;}
+  .deep-item{padding:9px 0;border-bottom:1px solid var(--border-soft);font-size:12.5px;line-height:1.8;color:var(--text);}
+  .deep-item:last-child{border-bottom:none;}
+  .deep-item b{font-weight:700;}
+  .di-date{font-family:var(--font-mono);color:var(--text-muted);font-size:11.5px;margin-inline-start:6px;}
+  .di-tag{
+    display:inline-flex;align-items:center;padding:2px 9px;border-radius:99px;
+    font-size:11px;font-weight:700;font-family:var(--font-mono);margin-inline-end:8px;
+  }
+  .di-tag.good{background:var(--positive-soft);color:var(--positive);}
+  .di-tag.bad{background:var(--negative-soft);color:var(--negative);}
+  .deep-empty{font-size:12.5px;color:var(--text-muted);padding:10px 12px;background:var(--surface-2);border-radius:var(--radius-sm);}
+  .budget-bar{padding:12px 0;border-bottom:1px solid var(--border-soft);}
+  .budget-bar:last-child{border-bottom:none;}
+  .budget-bar-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;font-size:12.5px;margin-bottom:7px;}
+  .budget-bar-foot{font-size:11.5px;color:var(--text-muted);margin-top:6px;font-family:var(--font-mono);}
+  .pos-text{color:var(--positive);}
+  .neg-text{color:var(--negative);}
+  .cpa-table tfoot td{border-top:1px solid var(--border);font-weight:700;}
+  .cpa-table-wrap{
+    overflow-x:auto;overflow-y:auto;max-height:420px;
+    border:1px solid var(--border);border-radius:var(--radius-sm);
+  }
+  .cpa-table thead th{position:sticky;top:0;background:var(--surface-2);z-index:1;}
+  .cpa-table{width:100%;border-collapse:collapse;font-size:12px;}
+  .cpa-table th{
+    text-align:right;font-weight:700;font-size:11px;color:var(--text-muted);
+    padding:9px 10px;border-bottom:1px solid var(--border);white-space:nowrap;
+  }
+  .cpa-table td{
+    padding:9px 10px;border-bottom:1px solid var(--border-soft);color:var(--text);
+    white-space:nowrap;font-family:var(--font-mono);font-variant-numeric:tabular-nums;
+  }
+  .cpa-table tbody tr:nth-child(even){background:#FBFCFE;}
+  .cpa-table tbody tr:hover{background:var(--accent-soft);}
+  .cpa-table td.campaign{font-family:var(--font-ui);font-weight:700;white-space:normal;min-width:150px;}
+  .filter-name{
+    background:none;border:none;padding:0;margin:0;cursor:pointer;text-align:right;
+    font-family:inherit;font-size:inherit;font-weight:inherit;color:inherit;
+    border-bottom:1px dashed var(--text-faint);transition:color .15s, border-color .15s;
+  }
+  .filter-name:hover{color:var(--accent-ink);border-bottom-color:var(--accent-ink);}
+  .filter-name.active{color:var(--accent-ink);border-bottom-style:solid;border-bottom-color:var(--accent-ink);}
+  .filter-name.active::before{content:'✓ ';font-weight:700;}
+  .copy-name{
+    background:none;border:none;padding:0;margin:0;cursor:pointer;position:relative;
+    font-family:inherit;font-size:inherit;font-weight:inherit;color:inherit;text-align:right;
+    border-bottom:1px dashed var(--text-faint);transition:color .15s, border-color .15s;
+  }
+  .copy-name:hover{color:var(--accent-ink);border-bottom-color:var(--accent-ink);}
+  .copy-name::after{
+    content:'کپی شد ✓';position:absolute;inset-inline-end:0;top:-22px;white-space:nowrap;
+    background:var(--positive);color:#fff;border-radius:6px;padding:2px 8px;
+    font-size:10.5px;font-family:var(--font-ui);font-weight:600;
+    opacity:0;transform:translateY(4px);transition:opacity .15s, transform .15s;pointer-events:none;
+  }
+  .copy-name.copied::after{opacity:1;transform:translateY(0);}
+  .copy-name.copy-failed::after{content:'کپی نشد';background:var(--negative);color:#fff;opacity:1;transform:translateY(0);}
+  .cpa-table tr:last-child td{border-bottom:none;}
+  .cpa-table td.muted{color:var(--text-muted);}
+  .cpa-table td.pos{color:var(--positive);font-weight:600;}
+  .cpa-table td.neg{color:var(--negative);font-weight:600;}
+
+  @media (max-width:900px){
+    .kpis{grid-template-columns:repeat(2,1fr);}
+    .wrap{padding:20px 16px 56px;}
+    .tab-bar,.sub-tab-bar{margin-inline:-16px;padding-inline:16px;}
+  }
+  @media (max-width:560px){
+    .kpis{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-5 4 4 8-9"/><path d="M14 7h6v6"/></svg>
+      </div>
+      <div>
+        <h1>__DASHBOARD_TITLE__</h1>
+        <div class="sub">__DASHBOARD_SUBTITLE__</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div class="status-pill"><span class="dot" id="statusDot"></span><span id="statusText">در حال بارگذاری...</span></div>
+    </div>
+  </div>
+
+  <div id="tabBar" class="tab-bar"></div>
+  <div id="subTabBar" class="sub-tab-bar" hidden></div>
+
+  <div id="mainContent">
+    <div class="loading-state"><div class="spinner"></div>در حال خوندن شیت‌ها...</div>
+  </div>
+  <div id="resultsContent"></div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+// ---------- Where the rows come from ----------
+// This file has no backend, so a tab is read two ways and the better one wins:
+//
+//   live     — Google's visualization endpoint, straight from the browser. Only
+//              works while the sheet is shared with "anyone with the link", and
+//              only while there is a network. Always the current numbers.
+//   snapshot — the rows baked into this file when it was generated. Always
+//              renders, never changes.
+//
+// Live is tried first and quietly falls back, so the page shows something even
+// offline; the status pill says which one you are looking at.
+const SNAPSHOT = __EMBEDDED_DATA__;
+let liveTabs = 0, snapshotTabs = 0;
+
+// The snapshot stores each tab as column names plus rows of values, which is
+// far smaller than repeating every key on every row; this puts it back.
+function unpackTab(tab){
+  if(!tab) return null;
+  if(Array.isArray(tab)) return tab;
+  const cols = tab.cols || [];
+  return (tab.rows || []).map(values=>{
+    const obj = {};
+    cols.forEach((c,i)=>{ obj[c] = values[i] === undefined ? '' : values[i]; });
+    return obj;
+  });
+}
+
+function gvizUrl(spreadsheetId, sheet){
+  return `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq`
+       + `?tqx=out:json&headers=1&sheet=${encodeURIComponent(sheet)}`;
+}
+// gviz answers with a JS callback wrapper around the JSON, and dates arrive as
+// "Date(2026,8,15)" — month zero-based — so both are unwrapped here.
+function parseGviz(text){
+  const start = text.indexOf('{'), end = text.lastIndexOf('}');
+  if(start < 0 || end < 0) throw new Error('unexpected gviz response');
+  const json = JSON.parse(text.slice(start, end + 1));
+  if(json.status === 'error') throw new Error((json.errors||[]).map(e=>e.detailed_message||e.message).join(' '));
+  const cols = json.table.cols.map((c,i)=> (c.label || c.id || `col${i}`).trim());
+  return json.table.rows.map(r=>{
+    const obj = {};
+    (r.c || []).forEach((cell, i)=>{
+      let v = cell ? (cell.f !== undefined && cell.f !== null ? cell.f : cell.v) : '';
+      if(typeof v === 'string'){
+        const m = v.match(/^Date\((\d+),(\d+),(\d+)/);
+        if(m) v = `${m[1]}${String(+m[2]+1).padStart(2,'0')}${String(+m[3]).padStart(2,'0')}`;
+      }
+      obj[cols[i]] = v === null || v === undefined ? '' : v;
+    });
+    return obj;
+  });
+}
+async function fetchSheetData(spreadsheetId, sheet){
+  const key = sheet;
+  const fallback = unpackTab(SNAPSHOT.tabs && SNAPSHOT.tabs[key]);
+  if(SOURCE_MODE !== 'snapshot'){
+    try{
+      const res = await fetch(gvizUrl(spreadsheetId, sheet));
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      const rows = parseGviz(await res.text());
+      if(rows.length){ liveTabs++; return rows; }
+      throw new Error('empty tab');
+    }catch(e){
+      // A private sheet, no network, or a browser blocking the request: the
+      // baked-in rows keep the page usable instead of showing an error.
+      console.warn('live read failed for', sheet, '-', e.message, fallback ? '(using snapshot)' : '');
+      if(!fallback) throw new Error('این تب نه آنلاین خونده شد نه توی فایل ذخیره شده: ' + sheet);
+    }
+  }
+  if(!fallback) throw new Error('این تب توی فایل ذخیره نشده: ' + sheet);
+  snapshotTabs++;
+  return fallback;
+}
+
+function setStatus(kind, text){
+  const dot = document.getElementById('statusDot');
+  const t = document.getElementById('statusText');
+  dot.className = 'dot' + (kind==='live'?' live':kind==='err'?' err':' loading');
+  t.textContent = text;
+}
+
+// Google Sheets hands us whatever the cell *displays*, so numbers arrive in
+// whatever locale/format the sheet is using: Persian or Arabic-Indic digits,
+// "٬" or a space as thousands separator, "٫" as decimal separator, RTL marks,
+// a currency suffix, "(1,234)" for negatives. Anything we fail to read here
+// silently becomes 0 and a day's cost comes out short, so parse defensively.
+const DIGIT_MAP = {'۰':'0','۱':'1','۲':'2','۳':'3','۴':'4','۵':'5','۶':'6','۷':'7','۸':'8','۹':'9',
+                   '٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9'};
+function latinizeDigits(str){
+  return String(str).replace(/[۰-۹٠-٩]/g, ch => DIGIT_MAP[ch]);
+}
+function toNumber(v){
+  if(v===null||v===undefined) return 0;
+  if(typeof v === 'number') return isFinite(v) ? v : 0;
+  let s = latinizeDigits(String(v)).replace(/[\u200B-\u200F\u202A-\u202E\uFEFF]/g,'').trim();
+  if(!s) return 0;
+  s = s.replace(/[−–—]/g, '-');                   // unicode minus variants
+  // Only a leading/trailing sign or wrapping parens mean negative — the "-" in
+  // an exponent like 1.48E-08 must not flip the whole number.
+  const negative = /^\(.*\)$/.test(s) || /^-/.test(s) || /-$/.test(s);
+  s = s.replace(/٫/g, '.');                       // Persian decimal separator
+  s = s.replace(/[\s\u00A0\u066C٬،']/g, '');      // thousands separators
+  // Scientific notation: a narrow or Scientific-formatted Cost column makes
+  // Sheets display "1.48E+08", which stripped of its letters would read as 1.48.
+  const sci = s.match(/(\d+(?:[.,]\d+)?)[eE]([+-]?\d+)/);
+  if(sci){
+    const n = parseFloat(sci[1].replace(',', '.')) * Math.pow(10, parseInt(sci[2], 10));
+    if(!isFinite(n)) return 0;
+    return negative ? -Math.abs(n) : n;
+  }
+  s = s.replace(/[^0-9.,]/g, '');                 // currency text, signs, etc.
+  if(!s) return 0;
+  const lastComma = s.lastIndexOf(','), lastDot = s.lastIndexOf('.');
+  if(lastComma >= 0 && lastDot >= 0){
+    // Both present: whichever comes last is the decimal separator.
+    if(lastComma > lastDot) s = s.replace(/\./g,'').replace(',', '.');
+    else s = s.replace(/,/g,'');
+  } else if(lastComma >= 0){
+    // Only commas: repeated, or grouping exactly 3 digits => thousands.
+    const parts = s.split(',');
+    s = (parts.length > 2 || parts[1].length === 3) ? parts.join('') : parts.join('.');
+  } else if((s.match(/\./g)||[]).length > 1){
+    s = s.replace(/\./g,'');                      // 1.234.567 style thousands
+  }
+  const n = parseFloat(s);
+  if(isNaN(n)) return 0;
+  return negative ? -Math.abs(n) : n;
+}
+function normCampaign(c){ return String(c||'').trim().toLowerCase(); }
+// Sheet cells come back as numbers when they hold one, so never call string
+// methods on a raw cell — go through here.
+function cellText(v){ return (v===null || v===undefined) ? '' : String(v).trim(); }
+// Dates must all end up in the same YYYYMMDD shape: the date-range filter and
+// the day sort compare them as plain strings, so a single row formatted as
+// "2026-09-01" would sort and filter as if it were a different era and its
+// cost would drop out of the chart.
+function normDate(d){
+  let s = latinizeDigits(String(d||'')).replace(/[\u200B-\u200F\u202A-\u202E\uFEFF]/g,'').trim();
+  if(!s) return '';
+  const ymd = s.match(/^(\d{4})\s*[-\/.]\s*(\d{1,2})\s*[-\/.]\s*(\d{1,2})/);
+  if(ymd) return ymd[1] + String(ymd[2]).padStart(2,'0') + String(ymd[3]).padStart(2,'0');
+  // Month-first dates, the shape Sheets exports in an en-US locale
+  // ("7/5/2026", "7/15/26"). Two-digit years are this century.
+  const mdy = s.match(/^(\d{1,2})\s*[-\/.]\s*(\d{1,2})\s*[-\/.]\s*(\d{2,4})$/);
+  if(mdy){
+    const year = mdy[3].length === 2 ? '20' + mdy[3] : mdy[3];
+    return year + String(mdy[1]).padStart(2,'0') + String(mdy[2]).padStart(2,'0');
+  }
+  const digitsOnly = s.replace(/\D/g,'');
+  if(digitsOnly.length === 8) return digitsOnly;
+  if(digitsOnly.length === 14) return digitsOnly.slice(0,8); // timestamp
+  // A true date cell read unformatted comes back as a Sheets serial number
+  // (days since 1899-12-30). 8-digit YYYYMMDD values are far above this range.
+  if(/^\d{5}$/.test(s)){
+    const d = new Date(Date.UTC(1899,11,30) + Number(s)*86400000);
+    return String(d.getUTCFullYear()) + String(d.getUTCMonth()+1).padStart(2,'0') + String(d.getUTCDate()).padStart(2,'0');
+  }
+  return s;
+}
+function fmtDateLabel(yyyymmdd){
+  const s = String(yyyymmdd);
+  if(s.length !== 8) return s;
+  return s.slice(0,4)+'-'+s.slice(4,6)+'-'+s.slice(6,8);
+}
+function fmtNum(n, digits){
+  if(n===null||n===undefined||isNaN(n)) return '—';
+  return Number(n).toLocaleString('en-US',{maximumFractionDigits: digits===undefined?0:digits, minimumFractionDigits: digits===undefined?0:digits});
+}
+function fmtMoney(n){
+  if(n===null||n===undefined||isNaN(n)) return '—';
+  return fmtNum(n,0) + ' تومان';
+}
+function escapeHtml(str){
+  return String(str).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+function todayStr(){
+  const d = new Date();
+  return String(d.getFullYear()) + String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0');
+}
+function toInputDate(yyyymmdd){
+  const s = String(yyyymmdd);
+  return s.slice(0,4)+'-'+s.slice(4,6)+'-'+s.slice(6,8);
+}
+function fromInputDate(isoDate){
+  return isoDate.replace(/-/g,'');
+}
+
+// ---------- Brand palettes ----------
+// Each project paints with its own brand: `accent` is the brand color itself
+// (cost columns, rules, meters), `ink` is that same color stepped dark enough
+// to read as text on white (tab labels, KPI figures), and `accent2` is the
+// second series — the CPA/CPI line. Where a brand's second color is black or
+// white, the line takes a near-black ink instead: white is the page here, and
+// a neutral line next to a colored column keeps the two series far apart.
+const BRAND_INK = '#1B1F27';
+function brandTheme(accent, ink, accent2, softAlpha, grad){
+  const h = accent.replace('#','');
+  const rgb = [0,2,4].map(i=>parseInt(h.substring(i,i+2),16)).join(',');
+  return {accent, ink, accent2, accentSoft:`rgba(${rgb},${softAlpha})`, ...(grad?{grad}:{})};
+}
+const BRANDS = {
+  arzplus:  brandTheme('#FDB913', '#A46400', BRAND_INK, 0.16),
+  tochal:   brandTheme('#DE7E34', '#B55900', BRAND_INK, 0.14),
+  ramzarz:  brandTheme('#E57E03', '#B95500', BRAND_INK, 0.14, ['#E57E03','#F3B112']),
+  shahr:    brandTheme('#004892', '#004892', '#C50725', 0.10),
+  snapp:    brandTheme('#21AA58', '#008737', '#008EFA', 0.12),
+  talaeen:  brandTheme('#F0CC49', '#906E00', '#4E0692', 0.20),
+  wepod:    brandTheme('#00B578', '#00864D', BRAND_INK, 0.12),
+  bankino:  brandTheme('#FF8C22', '#C15300', BRAND_INK, 0.13),
+  blue:     brandTheme('#3B82F6', '#286FE1', '#EF4444', 0.12),
+  blueJr:   brandTheme('#0EA5E9', '#0079BA', '#A855F7', 0.12)
+};
+
+// ---------- This dashboard's own configuration ----------
+// Everything above is the engine; everything below is what makes this file
+// about one particular set of sheets. The generator writes CONFIG — see the
+// skill's references/config.md for what each key means.
+const CONFIG = __DASHBOARD_CONFIG__;
+const SOURCE_MODE = CONFIG.sourceMode || 'live+snapshot';
+
+// Campaign rules arrive as data rather than functions so the whole config can
+// be JSON: {contains:'-prf'} / {startsWith:'inapp'} / {excludes:['wheel','seo']}
+// and any combination of them. A campaign has to satisfy every rule given.
+function campaignMatcher(rule){
+  if(!rule) return null;
+  const list = v => v === undefined || v === null ? [] : (Array.isArray(v) ? v : [v]).map(x=>String(x).toLowerCase());
+  const contains = list(rule.contains), startsWith = list(rule.startsWith), excludes = list(rule.excludes);
+  return key => {
+    const k = String(key || '').toLowerCase();
+    if(contains.length && !contains.some(s=>k.includes(s))) return false;
+    if(startsWith.length && !startsWith.some(s=>k.startsWith(s))) return false;
+    if(excludes.length && excludes.some(s=>k.includes(s))) return false;
+    return true;
+  };
+}
+
+function hydrateProject(p){
+  const theme = typeof p.theme === 'string' ? (BRANDS[p.theme] || BRANDS.blue)
+              : p.theme ? brandTheme(p.theme.accent, p.theme.ink || p.theme.accent,
+                                     p.theme.accent2 || BRAND_INK, p.theme.softAlpha || 0.13, p.theme.grad)
+              : BRANDS.blue;
+  const keep = campaignMatcher(p.campaigns);
+  return {
+    ...p,
+    theme,
+    // The engine asks "should this campaign be dropped?", the config says
+    // which ones to keep — so the rule is inverted once, here.
+    ...(keep ? {excludeCampaign: key => !keep(key)} : {})
+  };
+}
+
+const ALL_PROJECTS = (CONFIG.projects || []).map(hydrateProject);
+const PROJECTS = ALL_PROJECTS.filter(p => !p.hidden);
+
+const projectState = {}; // { [id]: { campaigns: 'ALL' | Set(keys), from, to } }
+const chartInstances = {};
+
+// extraCols are further conversion columns the section reports a cost-per for
+// (Deposit, Purchase…). They ride along as `extras` so the join and the range
+// filter treat them exactly like the main conversion.
+function normalizeRefRows(rows, conversionCol, installsCol, adgroupCol, creativeCol, extraCols){
+  adgroupCol = adgroupCol || 'Adgroup';
+  creativeCol = creativeCol || 'Creative';
+  return rows.map(r=>{
+    const date = normDate(r['Date']);
+    const campaignRaw = r['Campaign'];
+    const campaign = normCampaign(campaignRaw);
+    if(!date || !campaign) return null;
+    return {
+      date, campaign, campaignLabel: cellText(campaignRaw),
+      adgroup: cellText(r[adgroupCol]) || '(بدون Adgroup)',
+      creative: cellText(r[creativeCol]) || '(بدون Creative)',
+      installs: installsCol ? toNumber(r[installsCol]) : 0,
+      conversion: toNumber(r[conversionCol]),
+      extras: (extraCols||[]).reduce((acc,col)=>{ acc[col] = toNumber(r[col]); return acc; }, {})
+    };
+  }).filter(Boolean);
+}
+function addExtras(target, extras){
+  Object.entries(extras||{}).forEach(([k,v])=>{ target[k] = (target[k]||0) + v; });
+  return target;
+}
+function normalizeCostRows(rows, impressionsCol, clicksCol, diag){
+  impressionsCol = impressionsCol || 'Impressions';
+  clicksCol = clicksCol || 'Clicks';
+  return rows.map(r=>{
+    const date = normDate(r['Date']);
+    const campaign = normCampaign(r['Campaign']);
+    const cost = toNumber(r['Cost']);
+    const rawCost = String(r['Cost']===undefined||r['Cost']===null ? '' : r['Cost']).trim();
+    if(!date || !campaign){
+      // A total row, a stray note, or a row whose Date/Campaign cell is empty.
+      // Its cost never reaches the chart, so count it instead of losing it.
+      if(diag && (rawCost || date || campaign)){ diag.skippedRows++; diag.skippedCost += cost; }
+      return null;
+    }
+    // Cell had something in it but we read 0 — an unsupported number format.
+    if(diag && rawCost && !/^[0-]*$/.test(latinizeDigits(rawCost).replace(/\D/g,'')||'0') && cost===0) diag.unreadableCost++;
+    return {date, campaign, campaignLabel: cellText(r['Campaign']),
+            cost, impressions: toNumber(r[impressionsCol]), clicks: toNumber(r[clicksCol])};
+  }).filter(Boolean);
+}
+// ---------- Budget/profit sections ----------
+// Blend Data: one row per day + campaign, carrying what the panel really cost
+// (Cost R) and what was declared to the client (Cost).
+function normalizeBlendRows(rows){
+  return rows.map(r=>{
+    const date = normDate(r['Date']);
+    const campaign = normCampaign(r['Campaign']);
+    if(!date || !campaign) return null;
+    return {
+      date, campaign,
+      campaignLabel: cellText(r['Campaign']),
+      campaignName: cellText(r['Campaign Name']) || '(بدون نام)',
+      sessions: toNumber(r['Sessions']),
+      impressions: toNumber(r['Impression']),
+      clicks: toNumber(r['Click']),
+      costReal: toNumber(r['Cost R']),
+      cost: toNumber(r['Cost'])
+    };
+  }).filter(Boolean);
+}
+// Budgeting: one row per campaign. Total Budget is the only figure that isn't
+// derived from Blend Data, but the rest is read from here too so the dashboard
+// agrees with the sheet the client is shown.
+function normalizeBudgetRows(rows){
+  return rows.map(r=>{
+    const campaign = normCampaign(r['Campaign']);
+    if(!campaign) return null;
+    return {
+      campaign,
+      campaignLabel: cellText(r['Campaign']),
+      campaignName: cellText(r['Campaign Name']) || '(بدون نام)',
+      totalBudget: toNumber(r['Total Budget']),
+      spent: toNumber(r['Spent']),
+      remaining: toNumber(r['Remaining Budget']),
+      spentPanel: toNumber(r['Spent (Panel)']),
+      profit: toNumber(r['Profit'])
+    };
+  }).filter(Boolean);
+}
+
+// Profit only accrues on declared cost that is still inside the campaign's
+// budget: profit = min(declared so far, budget) - real cost. Walking each
+// campaign's days in order turns that into a daily number whose total matches
+// the Budgeting sheet's Profit column.
+function budgetNameFilter(project){
+  const st = projectState[project.id];
+  if(!st || st.campaigns === 'ALL') return () => true;
+  return name => st.campaigns.has(normCampaign(name));
+}
+// The second slot: a campaign key inside the selected Campaign Names.
+function budgetCampaignFilter(project){
+  const st = projectState[project.id];
+  if(!st || !st.subCampaigns || st.subCampaigns === 'ALL') return () => true;
+  return key => st.subCampaigns.has(key);
+}
+function buildBudgetDaily(project){
+  const {from, to} = sectionRange(project);
+  const inRange = d => (!from || d >= from) && (!to || d <= to);
+  const inName = budgetNameFilter(project);
+  const inCampaign = budgetCampaignFilter(project);
+  const byCampaign = {};
+  // The cumulative walk needs every day of a campaign, but only the selected
+  // Campaign Names and campaigns take part at all.
+  (project.rawBlend||[]).filter(r=>inName(r.campaignName) && inCampaign(r.campaign))
+    .forEach(r=>{ (byCampaign[r.campaign] = byCampaign[r.campaign] || []).push(r); });
+
+  const byDate = {};
+  Object.entries(byCampaign).forEach(([key, rows])=>{
+    rows.sort((a,b)=>a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+    const budgetRow = project.budgetByCampaign[key];
+    const budget = budgetRow ? budgetRow.totalBudget : Infinity;
+    let declared = 0;
+    rows.forEach(r=>{
+      const before = Math.min(declared, budget);
+      declared += r.cost;
+      const billable = Math.min(declared, budget) - before;  // today's part still inside the budget
+      if(!inRange(r.date)) return;
+      const d = byDate[r.date] = byDate[r.date] || {cost:0, costReal:0, profit:0};
+      d.cost += r.cost;
+      d.costReal += r.costReal;
+      d.profit += billable - r.costReal;
+    });
+  });
+
+  const keys = Object.keys(byDate).sort();
+  return {
+    labels: keys.map(fmtDateLabel),
+    cost: keys.map(k=>byDate[k].cost),
+    costReal: keys.map(k=>byDate[k].costReal),
+    profit: keys.map(k=>byDate[k].profit),
+    totals: keys.reduce((t,k)=>({cost:t.cost+byDate[k].cost, costReal:t.costReal+byDate[k].costReal, profit:t.profit+byDate[k].profit}),
+                        {cost:0, costReal:0, profit:0}),
+    dayCount: keys.length
+  };
+}
+
+// Budget figures are lifetime by nature, so they ignore the date filter.
+function buildBudgetTable(project){
+  const inName = budgetNameFilter(project);
+  const inCampaign = budgetCampaignFilter(project);
+  const rows = (project.rawBudget||[]).filter(r=>inName(r.campaignName) && inCampaign(r.campaign))
+    .sort((a,b)=>b.totalBudget - a.totalBudget);
+  const totals = rows.reduce((t,r)=>({
+    totalBudget: t.totalBudget + r.totalBudget, spent: t.spent + r.spent,
+    remaining: t.remaining + r.remaining, spentPanel: t.spentPanel + r.spentPanel, profit: t.profit + r.profit
+  }), {totalBudget:0, spent:0, remaining:0, spentPanel:0, profit:0});
+
+  const byName = {};
+  rows.forEach(r=>{
+    const g = byName[r.campaignName] = byName[r.campaignName] ||
+      {name:r.campaignName, totalBudget:0, spent:0, remaining:0, profit:0, campaigns:0};
+    g.totalBudget += r.totalBudget; g.spent += r.spent; g.remaining += r.remaining;
+    g.profit += r.profit; g.campaigns++;
+  });
+  const groups = Object.values(byName).map(g=>({
+    ...g,
+    remainingPct: g.totalBudget>0 ? Math.max(0, Math.min(100, g.remaining/g.totalBudget*100)) : 0,
+    spentPct: g.totalBudget>0 ? Math.max(0, Math.min(100, g.spent/g.totalBudget*100)) : 0
+  })).sort((a,b)=>b.totalBudget - a.totalBudget);
+
+  return {rows, totals, groups};
+}
+
+function normalizeCompareRows(rows, sessionsCol){
+  return rows.map(r=>{
+    const date = normDate(r['Date']);
+    const campaign = normCampaign(r['Campaign']);
+    if(!date || !campaign) return null;
+    return {date, campaign, sessions: toNumber(r[sessionsCol])};
+  }).filter(Boolean);
+}
+function aggregateRef(rows){
+  const map = {};
+  rows.forEach(r=>{
+    const key = r.date + '||' + r.campaign;
+    if(!map[key]) map[key] = {date:r.date, campaign:r.campaign, campaignLabel:r.campaignLabel, installs:0, conversion:0, extras:{}};
+    map[key].installs += r.installs;
+    map[key].conversion += r.conversion;
+    addExtras(map[key].extras, r.extras);
+  });
+  return map;
+}
+function aggregateCost(rows){
+  const map = {};
+  rows.forEach(r=>{
+    const key = r.date + '||' + r.campaign;
+    if(!map[key]) map[key] = {date:r.date, campaign:r.campaign, campaignLabel:r.campaignLabel, cost:0, impressions:0, clicks:0};
+    map[key].cost += r.cost;
+    map[key].impressions += r.impressions;
+    map[key].clicks += r.clicks;
+  });
+  return map;
+}
+// With includeUnmatchedCost, a day+campaign that spent but has no row in the
+// conversion sheet still contributes its cost — an overview reports the whole
+// spend of the cost sheet, not only the part that joined.
+function buildJoinedRows(refMap, costMap, includeUnmatchedCost){
+  const joined = [];
+  let matchedCost = 0;
+  const keys = includeUnmatchedCost
+    ? Array.from(new Set([...Object.keys(refMap), ...Object.keys(costMap)]))
+    : Object.keys(refMap);
+  keys.forEach(key=>{
+    const base = refMap[key];
+    const costRow = costMap[key];
+    const cost = costRow ? costRow.cost : 0;
+    if(costRow && base) matchedCost += costRow.cost;
+    const conversion = base ? base.conversion : 0;
+    joined.push({
+      date: base ? base.date : costRow.date,
+      campaign: base ? base.campaign : costRow.campaign,
+      campaignLabel: base ? base.campaignLabel : (costRow.campaignLabel || costRow.campaign),
+      installs: base ? base.installs : 0,
+      conversion,
+      extras: base ? base.extras : {},
+      cost, cpa: conversion>0 ? (cost/conversion) : null
+    });
+  });
+  const totalCostInSheet = Object.values(costMap).reduce((s,r)=>s+r.cost,0);
+  return {joined, matchedCost, totalCostInSheet, unmatchedCost: totalCostInSheet - matchedCost};
+}
+function groupByDateGeneric(joined){
+  const map = {};
+  joined.forEach(r=>{
+    if(!map[r.date]) map[r.date] = {cost:0, conversion:0};
+    map[r.date].cost += r.cost; map[r.date].conversion += r.conversion;
+  });
+  const keys = Object.keys(map).sort();
+  return {
+    labels: keys.map(fmtDateLabel),
+    cost: keys.map(k=>map[k].cost),
+    cpaSeries: keys.map(k=> map[k].conversion>0 ? (map[k].cost/map[k].conversion) : null)
+  };
+}
+
+// Sessions as Yektanet reports them vs. sessions as GA4 reports them, per day.
+// This is a pure day-to-day comparison: campaign names are ignored on both
+// sides — no matching between the tabs, and neither the campaign multi-select
+// nor the project's own campaign filter applies, since the two sources don't
+// name campaigns the same way. Each day is simply the whole tab's total for
+// that day. The section's date range still applies.
+// The gap is measured against GA4: (Yektanet − GA4) / GA4.
+function buildSessionsComparison(project){
+  const {from, to} = sectionRange(project);
+  const inRange = d => (!from || d >= from) && (!to || d <= to);
+  const byDate = {};
+  const bucket = d => (byDate[d] = byDate[d] || {own:0, other:0});
+  (project.allRef||[]).forEach(r=>{ if(inRange(r.date)) bucket(r.date).own += r.installs; });
+  (project.rawCompare||[]).forEach(r=>{ if(inRange(r.date)) bucket(r.date).other += r.sessions; });
+  const keys = Object.keys(byDate).sort();
+  return {
+    labels: keys.map(fmtDateLabel),
+    own: keys.map(k=>byDate[k].own),
+    other: keys.map(k=>byDate[k].other),
+    diffPct: keys.map(k=> byDate[k].other>0 ? ((byDate[k].own - byDate[k].other)/byDate[k].other*100) : null)
+  };
+}
+
+// A budget section filters by Campaign Name, listing each group's total budget.
+function getBudgetNameOptions(project){
+  const byKey = {};
+  (project.rawBudget||[]).forEach(r=>{
+    const key = normCampaign(r.campaignName);
+    const o = byKey[key] = byKey[key] || {key, label:r.campaignName, cost:0};
+    o.cost += r.totalBudget;
+  });
+  (project.rawBlend||[]).forEach(r=>{
+    const key = normCampaign(r.campaignName);
+    if(!byKey[key]) byKey[key] = {key, label:r.campaignName, cost:0};
+  });
+  return Object.values(byKey).sort((a,b)=> b.cost - a.cost || a.label.localeCompare(b.label));
+}
+
+// The campaigns themselves (not their Campaign Name group), so a budget
+// section can be narrowed to one campaign the same way the others are.
+function getBudgetCampaignOptions(project){
+  const byKey = {};
+  (project.rawBudget||[]).forEach(r=>{
+    const o = byKey[r.campaign] = byKey[r.campaign] || {key:r.campaign, label:r.campaignLabel || r.campaign, cost:0};
+    o.cost += r.totalBudget;
+  });
+  (project.rawBlend||[]).forEach(r=>{
+    if(!byKey[r.campaign]) byKey[r.campaign] = {key:r.campaign, label:r.campaignLabel || r.campaign, cost:0};
+  });
+  return Object.values(byKey).sort((a,b)=> b.cost - a.cost || a.label.localeCompare(b.label));
+}
+
+// Campaign options sorted by total cost (desc); label falls back to the raw key.
+function getCampaignOptionsSortedByCost(project){
+  const costByCampaign = {};
+  project.rawCost.forEach(r=>{ costByCampaign[r.campaign] = (costByCampaign[r.campaign]||0) + r.cost; });
+  const labelByCampaign = {};
+  project.rawRef.forEach(r=>{ if(!labelByCampaign[r.campaign]) labelByCampaign[r.campaign] = r.campaignLabel; });
+  const allKeys = new Set([...Object.keys(costByCampaign), ...Object.keys(labelByCampaign)]);
+  return Array.from(allKeys).map(k=>({
+    key: k, label: labelByCampaign[k] || k, cost: costByCampaign[k] || 0
+  })).sort((a,b)=> b.cost - a.cost || a.label.localeCompare(b.label));
+}
+
+function renderError(msg){
+  document.getElementById('mainContent').innerHTML = `<div class="error-state">${msg}</div>`;
+  setStatus('err','خطا در دریافت داده');
+}
+
+// ---------- Global date range (applies to projects without their own filter) ----------
+let sheetMinDate = null;
+let sheetMaxDate = null;
+let currentFrom = null;
+let currentTo = null;
+
+function sectionRange(project){
+  const st = projectState[project.id];
+  return project.ownDateFilter ? {from: st.from, to: st.to} : {from: currentFrom, to: currentTo};
+}
+function computeSection(project){
+  const st = projectState[project.id];
+  const {from, to} = sectionRange(project);
+  const inRange = d => (!from || d >= from) && (!to || d <= to);
+  const inCampaign = c => st.campaigns === 'ALL' || st.campaigns.has(c);
+  const refFiltered = project.rawRef.filter(r=>inRange(r.date) && inCampaign(r.campaign));
+  const costFiltered = project.rawCost.filter(r=>inRange(r.date) && inCampaign(r.campaign));
+  const refMap = aggregateRef(refFiltered);
+  const costMap = aggregateCost(costFiltered);
+  return buildJoinedRows(refMap, costMap, project.includeUnmatchedCost);
+}
+
+// ---------- Global filter bar (for projects without their own date filter) ----------
+// The Persian week opens on Saturday, so "this week" runs from the last
+// Saturday up to the newest day the sheet has. Anchoring on that day rather
+// than on today keeps the range non-empty when a sheet lags a few days.
+function weekStartFor(yyyymmdd){
+  const d = new Date(toInputDate(yyyymmdd));
+  d.setDate(d.getDate() - ((d.getDay() + 1) % 7));   // Sat=6 -> 0 days back
+  return d.toISOString().slice(0,10);
+}
+
+function renderFilterBar(){
+  document.getElementById('mainContent').innerHTML = `
+    <div class="filter-bar">
+      <div class="filter-group">
+        <label>از</label>
+        <input type="date" id="fromDate" value="${toInputDate(sheetMinDate)}" min="${toInputDate(sheetMinDate)}" max="${toInputDate(sheetMaxDate)}">
+      </div>
+      <div class="filter-group">
+        <label>تا</label>
+        <input type="date" id="toDate" value="${toInputDate(sheetMaxDate)}" min="${toInputDate(sheetMinDate)}" max="${toInputDate(sheetMaxDate)}">
+      </div>
+      <div class="filter-presets">
+        <button class="preset-btn active" id="presetAll">کل بازه</button>
+        <button class="preset-btn" id="presetWeek">از شنبه</button>
+        <button class="preset-btn" id="preset7">۷ روز اخیر</button>
+        <button class="preset-btn" id="preset30">۳۰ روز اخیر</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('fromDate').addEventListener('change', ()=>{
+    document.querySelectorAll('#mainContent .preset-btn').forEach(b=>b.classList.remove('active'));
+    applyGlobalFilter();
+  });
+  document.getElementById('toDate').addEventListener('change', ()=>{
+    document.querySelectorAll('#mainContent .preset-btn').forEach(b=>b.classList.remove('active'));
+    applyGlobalFilter();
+  });
+  document.getElementById('presetAll').addEventListener('click', (e)=>setGlobalPreset(null, e.target));
+  document.getElementById('presetWeek').addEventListener('click', (e)=>setGlobalPreset('week', e.target));
+  document.getElementById('preset7').addEventListener('click', (e)=>setGlobalPreset(7, e.target));
+  document.getElementById('preset30').addEventListener('click', (e)=>setGlobalPreset(30, e.target));
+}
+function setGlobalPreset(days, btn){
+  document.querySelectorAll('#mainContent .preset-btn').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  if(days === null){
+    document.getElementById('fromDate').value = toInputDate(sheetMinDate);
+    document.getElementById('toDate').value = toInputDate(sheetMaxDate);
+  } else if(days === 'week'){
+    const minIso = toInputDate(sheetMinDate);
+    const weekIso = weekStartFor(sheetMaxDate);
+    document.getElementById('fromDate').value = weekIso < minIso ? minIso : weekIso;
+    document.getElementById('toDate').value = toInputDate(sheetMaxDate);
+  } else {
+    const maxD = new Date(toInputDate(sheetMaxDate));
+    const fromD = new Date(maxD);
+    fromD.setDate(fromD.getDate() - (days - 1));
+    const minD = new Date(toInputDate(sheetMinDate));
+    const clampedFrom = fromD < minD ? minD : fromD;
+    document.getElementById('fromDate').value = clampedFrom.toISOString().slice(0,10);
+    document.getElementById('toDate').value = toInputDate(sheetMaxDate);
+  }
+  applyGlobalFilter();
+}
+function applyGlobalFilter(){
+  const fromVal = document.getElementById('fromDate').value;
+  const toVal = document.getElementById('toDate').value;
+  currentFrom = fromVal ? fromInputDate(fromVal) : sheetMinDate;
+  currentTo = toVal ? fromInputDate(toVal) : sheetMaxDate;
+  PROJECTS.filter(p=>!p.ownDateFilter && !p.error).forEach(p=>updateSection(p));
+  setStatus('live', 'همگام‌سازی شد — ' + new Date().toLocaleTimeString('fa-IR',{hour:'2-digit',minute:'2-digit'}));
+}
+
+// ---------- Per-section date filter (for projects with ownDateFilter) ----------
+function applyOwnDateFilter(project){
+  const fromVal = document.getElementById(`ownFrom-${project.id}`).value;
+  const toVal = document.getElementById(`ownTo-${project.id}`).value;
+  projectState[project.id].from = fromVal ? fromInputDate(fromVal) : project.minDate;
+  projectState[project.id].to = toVal ? fromInputDate(toVal) : project.maxDate;
+  updateSection(project);
+}
+function setOwnPreset(project, days, btn){
+  const wrap = document.getElementById(`section-${project.id}`);
+  if(!wrap) return;
+  if(!project.minDate || !project.maxDate){ updateSection(project); return; }
+  wrap.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  const fromInput = document.getElementById(`ownFrom-${project.id}`);
+  const toInput = document.getElementById(`ownTo-${project.id}`);
+  if(days === null){
+    fromInput.value = toInputDate(project.minDate);
+    toInput.value = toInputDate(project.maxDate);
+  } else if(days === 'week'){
+    const minIso = toInputDate(project.minDate);
+    const weekIso = weekStartFor(project.maxDate);
+    fromInput.value = weekIso < minIso ? minIso : weekIso;
+    toInput.value = toInputDate(project.maxDate);
+  } else {
+    const maxD = new Date(toInputDate(project.maxDate));
+    const fromD = new Date(maxD);
+    fromD.setDate(fromD.getDate() - (days - 1));
+    const minD = new Date(toInputDate(project.minDate));
+    const clampedFrom = fromD < minD ? minD : fromD;
+    fromInput.value = clampedFrom.toISOString().slice(0,10);
+    toInput.value = toInputDate(project.maxDate);
+  }
+  applyOwnDateFilter(project);
+}
+
+// ---------- Multi-select campaign filter ----------
+// A section carries one multi-select per filter slot. Most have a single one
+// (the campaign); the budget sections filter by Campaign Name and, inside it,
+// by the campaign itself, so they have two.
+function filterSlots(project){
+  const slots = [{
+    key:'main', stateKey:'campaigns', suffix:'',
+    unit: project.filterUnit || 'کمپین',
+    allLabel: project.filterAllLabel || 'همه کمپین‌ها',
+    options: () => project.campaignOptions || []
+  }];
+  if(project.kind === 'budget'){
+    slots.push({
+      key:'sub', stateKey:'subCampaigns', suffix:'2',
+      unit:'کمپین', allLabel:'همه کمپین‌ها',
+      options: () => project.subCampaignOptions || []
+    });
+  }
+  return slots;
+}
+function slotState(project, slot){ return projectState[project.id][slot.stateKey]; }
+
+function campaignButtonLabel(project, slot){
+  const sel = slotState(project, slot);
+  const opts = slot.options();
+  if(sel === 'ALL' || sel.size === opts.length) return slot.allLabel;
+  if(sel.size === 0) return 'هیچ‌کدوم';
+  if(sel.size === 1){
+    const only = opts.find(o=>sel.has(o.key));
+    return only ? only.label : `۱ ${slot.unit}`;
+  }
+  return `${sel.size} ${slot.unit} انتخاب شده`;
+}
+// Campaign names are typed in two alphabets and two sets of digits, so a
+// search compares them flattened: Latin digits, lowercase, and the Arabic
+// letters that stand in for Persian ones folded together.
+function searchKey(str){
+  return latinizeDigits(String(str == null ? '' : str))
+    .toLowerCase()
+    .replace(/[\u064A\u0649]/g, '\u06CC')   // ي / ى -> ی
+    .replace(/\u0643/g, '\u06A9')           // ك -> ک
+    .replace(/[\u200c\u200f\u200e]/g, ' ')  // zero-width and direction marks
+    .trim();
+}
+// Typing in one panel must survive the re-render that every tick causes, so
+// the query lives next to the selection rather than in the DOM.
+function slotQuery(project, slot){
+  const st = projectState[project.id];
+  if(!st.search) st.search = {};
+  return st.search[slot.key] || '';
+}
+// The options the current query leaves on screen — every option when the
+// search box is empty.
+function slotMatches(project, slot){
+  const q = searchKey(slotQuery(project, slot));
+  const opts = slot.options();
+  if(!q) return opts;
+  return opts.filter(o => searchKey(o.label + ' ' + o.key).includes(q));
+}
+function applySlotSearch(project, slot){
+  const panel = document.getElementById(`msPanel${slot.suffix}-${project.id}`);
+  if(!panel) return;
+  const q = searchKey(slotQuery(project, slot));
+  let shown = 0;
+  panel.querySelectorAll('.ms-option[data-search]').forEach(row=>{
+    const hit = !q || row.dataset.search.includes(q);
+    row.hidden = !hit;
+    if(hit) shown++;
+  });
+  const empty = panel.querySelector('.ms-empty');
+  if(empty) empty.hidden = shown > 0;
+
+  // While a search is on, the top row means "all the matches", not "all the
+  // campaigns" — so it says so, and its tick follows only what's on screen.
+  const matches = slotMatches(project, slot);
+  const sel = slotState(project, slot);
+  const isPicked = key => sel === 'ALL' || sel.has(key);
+  const allCb = document.getElementById(`msAll${slot.suffix}-${project.id}`);
+  const allLabel = document.getElementById(`msAllLabel${slot.suffix}-${project.id}`);
+  if(allCb){
+    const picked = matches.filter(o=>isPicked(o.key)).length;
+    allCb.checked = matches.length > 0 && picked === matches.length;
+    allCb.indeterminate = picked > 0 && picked < matches.length;
+    allCb.disabled = matches.length === 0;
+  }
+  if(allLabel){
+    allLabel.textContent = q
+      ? `همه‌ی ${fmtNum(matches.length)} نتیجه‌ی «${slotQuery(project, slot).trim()}»`
+      : slot.allLabel;
+  }
+}
+
+function renderCampaignDropdown(project, slot){
+  if(!slot) return filterSlots(project).forEach(sl=>renderCampaignDropdown(project, sl));
+  const opts = slot.options();
+  const sel = slotState(project, slot);
+  const allSelected = sel === 'ALL' || sel.size === opts.length;
+  const panel = document.getElementById(`msPanel${slot.suffix}-${project.id}`);
+  if(!panel) return;
+  const searchId = `msSearch${slot.suffix}-${project.id}`;
+  const hadFocus = document.activeElement && document.activeElement.id === searchId;
+  panel.innerHTML = `
+    <div class="ms-search-wrap">
+      <input type="search" class="ms-search" id="${searchId}" placeholder="جست‌وجوی ${escapeHtml(slot.unit)}…"
+             value="${escapeHtml(slotQuery(project, slot))}" autocomplete="off">
+    </div>
+    <label class="ms-option ms-option-all">
+      <input type="checkbox" id="msAll${slot.suffix}-${project.id}" ${allSelected?'checked':''}>
+      <span id="msAllLabel${slot.suffix}-${project.id}">${escapeHtml(slot.allLabel)}</span>
+    </label>
+    <div class="ms-divider"></div>
+    ${opts.map(o=>`
+      <label class="ms-option" data-search="${escapeHtml(searchKey(o.label + ' ' + o.key))}">
+        <input type="checkbox" class="ms-item${slot.suffix}-${project.id}" value="${escapeHtml(o.key)}" ${allSelected || (sel!=='ALL' && sel.has(o.key)) ? 'checked':''}>
+        <span class="ms-option-label">${escapeHtml(o.label)}</span>
+        <span class="ms-option-cost">${fmtMoney(o.cost)}</span>
+      </label>`).join('')}
+    <div class="ms-empty" hidden>چیزی پیدا نشد</div>
+  `;
+  document.getElementById(`msToggle${slot.suffix}-${project.id}`).textContent = campaignButtonLabel(project, slot) + ' ▾';
+
+  const search = document.getElementById(searchId);
+  search.addEventListener('input', ()=>{
+    projectState[project.id].search[slot.key] = search.value;
+    applySlotSearch(project, slot);
+  });
+  // Escape clears the query rather than closing the panel mid-typing.
+  search.addEventListener('keydown', e=>{
+    if(e.key === 'Escape'){
+      e.stopPropagation();
+      search.value = '';
+      projectState[project.id].search[slot.key] = '';
+      applySlotSearch(project, slot);
+    }
+  });
+  applySlotSearch(project, slot);
+  if(hadFocus){
+    search.focus();
+    const end = search.value.length;
+    try{ search.setSelectionRange(end, end); }catch(err){ /* type=search may refuse */ }
+  }
+
+  const allCb = document.getElementById(`msAll${slot.suffix}-${project.id}`);
+  allCb.addEventListener('change', ()=>{
+    const q = searchKey(slotQuery(project, slot));
+    if(!q){
+      projectState[project.id][slot.stateKey] = allCb.checked ? 'ALL' : new Set();
+    } else {
+      // With a search on, this row is about the matches: ticking it shows
+      // exactly the campaigns containing the query, unticking drops them and
+      // leaves anything picked outside the search alone.
+      const matchKeys = slotMatches(project, slot).map(o=>o.key);
+      let cur;
+      if(allCb.checked){
+        cur = new Set(matchKeys);
+      } else {
+        cur = slotState(project, slot);
+        cur = cur === 'ALL' ? new Set(opts.map(o=>o.key)) : new Set(cur);
+        matchKeys.forEach(k=>cur.delete(k));
+      }
+      projectState[project.id][slot.stateKey] = cur.size === opts.length ? 'ALL' : cur;
+    }
+    renderCampaignDropdown(project, slot);
+    updateSection(project);
+  });
+  panel.querySelectorAll(`.ms-item${slot.suffix}-${project.id}`).forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      let cur = projectState[project.id][slot.stateKey];
+      if(cur === 'ALL') cur = new Set(opts.map(o=>o.key));
+      if(cb.checked) cur.add(cb.value); else cur.delete(cb.value);
+      if(cur.size === opts.length) cur = 'ALL';
+      projectState[project.id][slot.stateKey] = cur;
+      renderCampaignDropdown(project, slot);
+      updateSection(project);
+    });
+  });
+}
+function wireCampaignToggle(project, slot){
+  if(!slot) return filterSlots(project).forEach(sl=>wireCampaignToggle(project, sl));
+  const toggle = document.getElementById(`msToggle${slot.suffix}-${project.id}`);
+  const panel = document.getElementById(`msPanel${slot.suffix}-${project.id}`);
+  if(!toggle || !panel) return;
+  toggle.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    const isOpen = !panel.hidden;
+    document.querySelectorAll('.ms-panel').forEach(p=>p.hidden = true);
+    panel.hidden = isOpen;
+    if(!panel.hidden){
+      const search = document.getElementById(`msSearch${slot.suffix}-${project.id}`);
+      if(search) search.focus();
+    }
+  });
+  panel.addEventListener('click', e=>e.stopPropagation());
+}
+
+// A campaign name printed in a table doubles as a filter: clicking it narrows
+// the section to that campaign, clicking the selected one again clears it.
+function filterableName(project, slotKey, key, label){
+  const slot = filterSlots(project).find(s=>s.key===slotKey);
+  const sel = slot ? slotState(project, slot) : 'ALL';
+  const isOnly = sel !== 'ALL' && sel.size === 1 && sel.has(key);
+  return `<button type="button" class="filter-name${isOnly?' active':''}"
+    data-project="${escapeHtml(project.id)}" data-slot="${escapeHtml(slotKey)}" data-key="${escapeHtml(key)}"
+    title="${isOnly ? 'کلیک کن تا فیلتر برداشته بشه' : 'کلیک کن تا داشبورد روی همین فیلتر بشه'}"
+    >${escapeHtml(label)}</button>`;
+}
+document.addEventListener('click', (e)=>{
+  const btn = e.target.closest('.filter-name');
+  if(!btn) return;
+  const project = PROJECTS.find(p=>p.id === btn.dataset.project);
+  if(!project) return;
+  const slot = filterSlots(project).find(s=>s.key === btn.dataset.slot);
+  if(!slot) return;
+  const sel = slotState(project, slot);
+  const isOnly = sel !== 'ALL' && sel.size === 1 && sel.has(btn.dataset.key);
+  projectState[project.id][slot.stateKey] = isOnly ? 'ALL' : new Set([btn.dataset.key]);
+  renderCampaignDropdown(project, slot);
+  updateSection(project);
+});
+document.addEventListener('click', ()=>{
+  document.querySelectorAll('.ms-panel').forEach(p=>p.hidden = true);
+});
+
+// ---------- Section shell + rendering ----------
+function sectionThemeStyle(project){
+  const t = project.theme;
+  const grad = t.grad ? `linear-gradient(90deg,${t.grad[0]},${t.grad[1]})`
+                      : `linear-gradient(90deg,${t.accent},${t.ink || t.accent})`;
+  return `--accent:${t.accent}; --accent-ink:${t.ink || t.accent}; --accent-2:${t.accent2}; `
+       + `--accent-soft:${t.accentSoft}; --accent-grad:${grad};`;
+}
+
+// The CPI page is a chart per campaign group (everything, in-app, Cafe
+// Bazaar) followed by the tables each group asked for.
+function cpiCards(p){
+  const cpaLabel = p.cpaLabel || 'CPA';
+  return (p.cpiGroups||[]).map(g=>`
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h2>هزینه و ${escapeHtml(cpaLabel)} بر حسب روز — ${escapeHtml(g.title)}</h2>
+            <div class="card-sub">${escapeHtml(g.sub || '')}</div>
+          </div>
+          <div class="legend-dots">
+            <span><i class="bar"></i>هزینه</span>
+            <span><i class="line"></i>${escapeHtml(cpaLabel)}</span>
+          </div>
+        </div>
+        <div class="chart-box"><canvas id="cpiChart-${p.id}-${g.id}"></canvas></div>
+        ${g.campaignTable ? `
+        <div class="deep-subhead">${escapeHtml(cpaLabel)} کمپین‌ها — ${escapeHtml(g.title)}</div>
+        <div id="cpiCampaigns-${p.id}-${g.id}"></div>` : ''}
+        ${g.creativeTable ? `
+        <div class="deep-subhead">${escapeHtml(cpaLabel)} کریتیوها — ${escapeHtml(g.title)}</div>
+        <div id="cpiCreatives-${p.id}-${g.id}"></div>` : ''}
+      </div>`).join('');
+}
+
+function renderSectionsShell(){
+  const container = document.getElementById('resultsContent');
+  container.innerHTML = PROJECTS.map(p => `
+    <div class="section" id="section-${p.id}" style="${sectionThemeStyle(p)}">
+      <div class="section-head">
+        <div class="section-head-left">
+          ${p.logo ? `<img src="${p.logo}" alt="${escapeHtml(p.title)}" class="section-logo${p.logoWide?' wide':''}">` : ''}
+          <div>
+            <h2 class="section-title">${escapeHtml(p.title)}</h2>
+            <div class="section-sub">${escapeHtml(p.subtitle)}</div>
+          </div>
+        </div>
+        <div class="section-controls">
+          ${filterSlots(p).map(slot=>`
+          <div class="ms-dropdown" id="msWrap${slot.suffix}-${p.id}">
+            <button type="button" class="ms-toggle" id="msToggle${slot.suffix}-${p.id}">${escapeHtml(slot.allLabel)} ▾</button>
+            <div class="ms-panel" id="msPanel${slot.suffix}-${p.id}" hidden></div>
+          </div>`).join('')}
+        </div>
+      </div>
+      ${p.ownDateFilter ? `
+      <div class="filter-bar section-filter-bar">
+        <div class="filter-group">
+          <label>از</label>
+          <input type="date" id="ownFrom-${p.id}">
+        </div>
+        <div class="filter-group">
+          <label>تا</label>
+          <input type="date" id="ownTo-${p.id}">
+        </div>
+        <div class="filter-presets">
+          <button class="preset-btn" id="ownPresetAll-${p.id}">کل بازه</button>
+          <button class="preset-btn" id="ownPresetWeek-${p.id}">از شنبه</button>
+          <button class="preset-btn" id="ownPreset7-${p.id}">۷ روز اخیر</button>
+          <button class="preset-btn active" id="ownPreset30-${p.id}">۳۰ روز اخیر</button>
+        </div>
+      </div>` : ''}
+      <div class="coverage-note" id="coverageNote-${p.id}"></div>
+      <div class="kpis" id="kpis-${p.id}"></div>
+      ${p.kind === 'cpi' ? cpiCards(p) : (p.kind === 'budget' ? `
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h2>هزینه‌ی اعلامی و سود بر حسب روز</h2>
+            <div class="card-sub">سود هر روز = بخشی از هزینه‌ی اعلامی که هنوز داخل بودجه‌ی کمپین بوده، منهای هزینه‌ی واقعی همان روز.</div>
+          </div>
+          <div class="legend-dots">
+            <span><i class="bar"></i>Cost اعلامی</span>
+            <span><i style="background:#475569"></i>Cost R واقعی</span>
+            <span><i style="background:var(--accent-2)"></i>سود</span>
+          </div>
+        </div>
+        <div class="chart-box"><canvas id="budgetChart-${p.id}"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h2>بودجه و سود هر کمپین</h2>
+            <div class="card-sub">این اعداد از شیت Budgeting میان و مربوط به کل عمر کمپین‌ان — فیلتر تاریخ روشون اثر نداره.</div>
+          </div>
+        </div>
+        <div id="budgetTable-${p.id}"></div>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h2>باقی‌مانده‌ی بودجه به تفکیک Campaign Name</h2>
+          </div>
+        </div>
+        <div id="budgetBars-${p.id}"></div>
+      </div>` : `
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h2>هزینه و CPA بر حسب روز</h2>
+          </div>
+          <div class="legend-dots">
+            <span><i class="bar"></i>هزینه</span>
+            <span><i class="line"></i>CPA</span>
+          </div>
+        </div>
+        <div class="chart-box"><canvas id="trendChart-${p.id}"></canvas></div>
+      </div>`)}
+      ${p.hideDeepAnalysis ? '' : `
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h2>تحلیل عمیق</h2>
+          </div>
+        </div>
+
+        <div class="deep-subhead">CPA کمپین‌ها در روزهای گذشته</div>
+        <div id="cpaTable-${p.id}"></div>
+
+        <div class="deep-subhead">عامل تغییر هزینه (آخرین روز نسبت به روز قبلش)</div>
+        <div id="costDrivers-${p.id}"></div>
+
+        <div class="deep-subhead">تغییرات قابل‌توجه CPA روزانه</div>
+        <div id="cpaDrivers-${p.id}"></div>
+
+        ${p.hideSegmentAnalysis ? '' : `
+        <div class="deep-subhead">گرون‌ترین Adgroup‌ها و Creative‌ها بر اساس CPA</div>
+        <div id="segmentIntro-${p.id}"></div>
+        <div class="deep-subtext" style="margin:10px 0 4px;font-weight:700;color:var(--text);">Adgroup</div>
+        <div id="segmentAdgroup-${p.id}"></div>
+        <div class="deep-subtext" style="margin:16px 0 4px;font-weight:700;color:var(--text);">Creative</div>
+        <div id="segmentCreative-${p.id}"></div>`}
+      </div>`}
+      ${p.sessionsCompare ? `
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h2>مقایسه‌ی سشن‌ها: ${escapeHtml(p.sessionsCompare.ownLabel)} و ${escapeHtml(p.sessionsCompare.otherLabel)}</h2>
+            <div class="card-sub">مقایسه‌ی روزبه‌روزِ جمع کل هر دو تب — بدون توجه به نام کمپین و مستقل از فیلتر کمپین. اختلاف نسبت به ${escapeHtml(p.sessionsCompare.otherLabel)} حساب می‌شه.</div>
+          </div>
+          <div class="legend-dots">
+            <span><i style="background:var(--accent)"></i>${escapeHtml(p.sessionsCompare.otherLabel)}</span>
+            <span><i style="background:#D9730D"></i>${escapeHtml(p.sessionsCompare.ownLabel)}</span>
+            <span><i style="background:var(--accent-2)"></i>اختلاف٪</span>
+          </div>
+        </div>
+        <div class="kpis" id="sessionKpis-${p.id}"></div>
+        <div class="chart-box"><canvas id="sessionsChart-${p.id}"></canvas></div>
+        <div class="deep-subhead">کدوم کمپین‌ها بیشترین تاثیر رو روی اختلاف کلی دارن؟</div>
+        <div id="sessionGaps-${p.id}"></div>
+      </div>` : ''}
+    </div>
+  `).join('');
+
+  PROJECTS.forEach(p=>{
+    if(p.error){
+      document.getElementById(`kpis-${p.id}`).innerHTML = `<div class="error-inline">${escapeHtml(p.error)}</div>`;
+      return;
+    }
+
+    p.campaignOptions = p.kind === 'budget' ? getBudgetNameOptions(p) : getCampaignOptionsSortedByCost(p);
+    if(p.kind === 'budget') p.subCampaignOptions = getBudgetCampaignOptions(p);
+    // A project may open on a subset rather than everything.
+    let initial = 'ALL';
+    if(p.defaultCampaigns && p.defaultCampaigns.length){
+      const wanted = new Set(p.defaultCampaigns.map(normCampaign));
+      const matched = p.campaignOptions.filter(o=>wanted.has(o.key)).map(o=>o.key);
+      if(matched.length && matched.length < p.campaignOptions.length) initial = new Set(matched);
+    }
+    projectState[p.id] = { campaigns: initial, subCampaigns: 'ALL', from: null, to: null };
+    renderCampaignDropdown(p);
+    wireCampaignToggle(p);
+
+    if(p.ownDateFilter){
+      const fromInput = document.getElementById(`ownFrom-${p.id}`);
+      const toInput = document.getElementById(`ownTo-${p.id}`);
+      if(p.minDate && p.maxDate){
+        fromInput.min = toInputDate(p.minDate); fromInput.max = toInputDate(p.maxDate);
+        toInput.min = toInputDate(p.minDate); toInput.max = toInputDate(p.maxDate);
+      } else {
+        fromInput.disabled = toInput.disabled = true;
+      }
+      fromInput.addEventListener('change', ()=>{
+        document.querySelectorAll(`#section-${p.id} .preset-btn`).forEach(b=>b.classList.remove('active'));
+        applyOwnDateFilter(p);
+      });
+      toInput.addEventListener('change', ()=>{
+        document.querySelectorAll(`#section-${p.id} .preset-btn`).forEach(b=>b.classList.remove('active'));
+        applyOwnDateFilter(p);
+      });
+      document.getElementById(`ownPresetAll-${p.id}`).addEventListener('click', e=>setOwnPreset(p, null, e.target));
+      document.getElementById(`ownPresetWeek-${p.id}`).addEventListener('click', e=>setOwnPreset(p, 'week', e.target));
+      document.getElementById(`ownPreset7-${p.id}`).addEventListener('click', e=>setOwnPreset(p, 7, e.target));
+      document.getElementById(`ownPreset30-${p.id}`).addEventListener('click', e=>setOwnPreset(p, 30, e.target));
+      // Default: last {defaultRangeDays} days
+      setOwnPreset(p, p.defaultRangeDays || 30, document.getElementById(`ownPreset30-${p.id}`));
+    }
+  });
+}
+
+function pivotByDateCampaign(joined){
+  const map = {};
+  joined.forEach(r=>{
+    if(!map[r.date]) map[r.date] = {};
+    if(!map[r.date][r.campaign]) map[r.date][r.campaign] = {cost:0, conversion:0, label:r.campaignLabel};
+    map[r.date][r.campaign].cost += r.cost;
+    map[r.date][r.campaign].conversion += r.conversion;
+  });
+  return map;
+}
+
+function mean(arr){ return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0; }
+function stdev(arr, m){
+  if(arr.length < 2) return 0;
+  const v = arr.reduce((a,b)=>a+Math.pow(b-m,2),0)/arr.length;
+  return Math.sqrt(v);
+}
+
+// For each day, is the day-over-day cost change large enough (relative to this
+// section's own normal day-to-day noise) to be worth explaining? If so, find
+// which single campaign's own cost delta best explains the total delta.
+// Only compares the most recent available day against the one before it (not
+// the whole range), and lists every campaign that contributed to the change
+// in spend, ranked by the size of its own contribution.
+function computeLatestCostBreakdown(joined){
+  const pivot = pivotByDateCampaign(joined);
+  const dates = Object.keys(pivot).sort();
+  if(dates.length < 2) return null;
+  const d = dates[dates.length-1], prevD = dates[dates.length-2];
+  const today = pivot[d], yesterday = pivot[prevD];
+  const totalToday = Object.values(today).reduce((s,c)=>s+c.cost,0);
+  const totalYesterday = Object.values(yesterday).reduce((s,c)=>s+c.cost,0);
+  const totalDelta = totalToday - totalYesterday;
+  const pctChange = totalYesterday>0 ? (totalDelta/totalYesterday*100) : null;
+
+  const allKeys = new Set([...Object.keys(today), ...Object.keys(yesterday)]);
+  const contributions = [];
+  allKeys.forEach(k=>{
+    const c1 = today[k] ? today[k].cost : 0;
+    const c0 = yesterday[k] ? yesterday[k].cost : 0;
+    const delta = c1-c0;
+    if(Math.abs(delta) < 1) return; // ignore true zero / rounding noise
+    contributions.push({
+      campaign: (today[k]||yesterday[k]).label,
+      delta, todayCost:c1, yesterdayCost:c0,
+      share: totalDelta!==0 ? (delta/totalDelta*100) : 0
+    });
+  });
+  contributions.sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta));
+  return {date:d, prevDate:prevD, totalToday, totalYesterday, totalDelta, pctChange, contributions};
+}
+
+// Same idea for CPA, but attribution uses a leave-one-out counterfactual: "if
+// only this campaign's cost/conversion had stayed at yesterday's level, what
+// would today's overall CPA have been?" The campaign whose reversal moves CPA
+// the most is the one driving the change.
+// Only compares the most recent available day's CPA against the day before —
+// not the whole range. Only reports a cause if that change is clearly bigger
+// than this section's normal day-to-day CPA noise; otherwise says so plainly.
+// Attribution uses leave-one-out: "if only this campaign's cost/conversion
+// had stayed at yesterday's level, what would today's CPA have been?" — the
+// gap between that counterfactual and today's real CPA is the campaign's
+// contribution, and only the main contributor(s) (~80% of the shift) are shown.
+function computeLatestCpaChange(joined){
+  const pivot = pivotByDateCampaign(joined);
+  const dates = Object.keys(pivot).sort();
+  if(dates.length < 2) return null;
+  const dayAgg = d => {
+    const cost = Object.values(pivot[d]).reduce((s,c)=>s+c.cost,0);
+    const conv = Object.values(pivot[d]).reduce((s,c)=>s+c.conversion,0);
+    return {cost, conv, cpa: conv>0 ? cost/conv : null};
+  };
+  const totals = dates.map(d=>({date:d, ...dayAgg(d)}));
+
+  const cpaChanges = [];
+  for(let i=1;i<totals.length;i++){
+    if(totals[i-1].cpa!==null && totals[i].cpa!==null) cpaChanges.push((totals[i].cpa-totals[i-1].cpa)/totals[i-1].cpa*100);
+  }
+  const m = mean(cpaChanges), sd = stdev(cpaChanges, m);
+
+  const d = dates[dates.length-1], prevD = dates[dates.length-2];
+  const today = totals[totals.length-1], yesterday = totals[totals.length-2];
+  if(today.cpa===null || yesterday.cpa===null) return {date:d, prevDate:prevD, significant:false, pctChange:null};
+
+  const pctChange = (today.cpa-yesterday.cpa)/yesterday.cpa*100;
+  const zLike = sd>0 ? Math.abs(pctChange-m)/sd : (Math.abs(pctChange)>=25 ? 2 : 0);
+  const significant = zLike >= 1.5 && Math.abs(pctChange) >= 10;
+
+  const base = {date:d, prevDate:prevD, pctChange, todayCpa:today.cpa, yesterdayCpa:yesterday.cpa, significant};
+  if(!significant) return base;
+
+  const todayC = pivot[d], yesterdayC = pivot[prevD];
+  const allKeys = new Set([...Object.keys(todayC), ...Object.keys(yesterdayC)]);
+  const contributions = [];
+  allKeys.forEach(k=>{
+    const c1 = todayC[k] ? todayC[k].cost : 0;
+    const v1 = todayC[k] ? todayC[k].conversion : 0;
+    const c0 = yesterdayC[k] ? yesterdayC[k].cost : 0;
+    const v0 = yesterdayC[k] ? yesterdayC[k].conversion : 0;
+    const cfCost = today.cost - c1 + c0;
+    const cfConv = today.conv - v1 + v0;
+    if(cfConv<=0) return;
+    const contribution = today.cpa - (cfCost/cfConv);
+    if(Math.abs(contribution) < 1) return;
+    contributions.push({campaign:(todayC[k]||yesterdayC[k]).label, contribution});
+  });
+  contributions.sort((a,b)=>Math.abs(b.contribution)-Math.abs(a.contribution));
+
+  const totalAbs = contributions.reduce((s,c)=>s+Math.abs(c.contribution),0);
+  const target = totalAbs*0.8;
+  const main = [];
+  let cum = 0;
+  for(const c of contributions){ main.push(c); cum += Math.abs(c.contribution); if(cum>=target || main.length>=3) break; }
+
+  base.contributors = main;
+  return base;
+}
+
+// CPA per Adgroup and per Creative.
+//
+// Cost is only known per Date + Campaign, and installs are what the money
+// actually buys, so the campaign is priced per install over the selected range:
+//
+//   cost per install = campaign cost / campaign installs
+//   segment cost     = segment installs x cost per install
+//   segment CPA      = segment cost / segment conversions
+//
+// Installs and conversions are the sheet's real numbers; only the cost is
+// apportioned, and since a campaign's segment installs add back up to its own
+// installs, each table accounts for exactly that campaign's spend. Adgroups and
+// Creatives are priced independently of each other.
+//
+// A campaign with no installs in the range can't be priced this way at all, so
+// its rows are left out rather than guessed at.
+const SEG_MIN_INSTALLS = 5;           // an absolute floor for a meaningful CPA
+const SEG_MIN_INSTALL_SHARE = 0.001; // and at least 0.1% of the section's installs
+function computeSegmentCpa(project, joined, keyFn){
+  const st = projectState[project.id];
+  const {from, to} = sectionRange(project);
+  const inRange = d => (!from || d >= from) && (!to || d <= to);
+  const inCampaign = c => st.campaigns === 'ALL' || st.campaigns.has(c);
+  const refRows = project.rawRef.filter(r=>inRange(r.date) && inCampaign(r.campaign));
+  if(!refRows.length) return null;
+
+  // Per campaign over the whole range: what the sheet spent, and what it bought.
+  const byCampaign = {};
+  joined.forEach(r=>{
+    const c = byCampaign[r.campaign] = byCampaign[r.campaign] || {cost:0, installs:0, label:r.campaignLabel || r.campaign};
+    c.cost += r.cost;
+  });
+  refRows.forEach(r=>{
+    const c = byCampaign[r.campaign] = byCampaign[r.campaign] || {cost:0, installs:0, label:r.campaignLabel || r.campaign};
+    c.installs += r.installs;
+  });
+
+  const segments = {};
+  let pricedInstalls = 0, unpricedCampaigns = 0;
+  Object.entries(byCampaign).forEach(([key, c])=>{
+    if(c.installs <= 0){ if(c.cost > 0) unpricedCampaigns++; return; }
+    const costPerInstall = c.cost / c.installs;
+    refRows.filter(r=>r.campaign===key).forEach(r=>{
+      const segKey = key + '||' + keyFn(r);
+      const seg = segments[segKey] = segments[segKey] ||
+        {label: keyFn(r), campaign: c.label, cost:0, conversion:0, installs:0, costPerInstall};
+      seg.installs += r.installs;
+      seg.conversion += r.conversion;
+      seg.cost += r.installs * costPerInstall;
+    });
+    pricedInstalls += c.installs;
+  });
+
+  const totalCost = joined.reduce((s,r)=>s+r.cost,0);
+  const totalConversion = joined.reduce((s,r)=>s+r.conversion,0);
+  const benchmark = totalConversion>0 ? totalCost/totalConversion : null;
+
+  const minInstalls = Math.max(SEG_MIN_INSTALLS, pricedInstalls*SEG_MIN_INSTALL_SHARE);
+  const rows = Object.values(segments).map(seg=>({
+    ...seg,
+    cpa: seg.conversion>0 ? seg.cost/seg.conversion : null,
+    installShare: pricedInstalls>0 ? seg.installs/pricedInstalls*100 : 0,
+    vsBenchmark: (benchmark && seg.conversion>0) ? ((seg.cost/seg.conversion)-benchmark)/benchmark*100 : null
+  }));
+
+  // Enough install volume for a CPA to mean something. "Spent and never
+  // converted" leads the table, so it needs twice that volume behind it.
+  const hasVolume = r => r.installs >= (r.conversion>0 ? minInstalls : minInstalls*2);
+  // Everything costing more than the section's own average, most expensive
+  // first; a segment that spent without converting has no CPA to compare and
+  // belongs at the top. The rest are counted, not listed.
+  const withVolume = rows.filter(hasVolume);
+  const aboveAverage = withVolume.filter(r => r.cpa === null || (benchmark !== null && r.cpa > benchmark))
+    .sort((a,b)=>{
+      if(a.cpa===null && b.cpa===null) return b.cost - a.cost;
+      if(a.cpa===null) return -1;
+      if(b.cpa===null) return 1;
+      return b.cpa - a.cpa;
+    });
+
+  return {rows: aboveAverage, benchmark, totalCost, minInstalls, unpricedCampaigns,
+          candidateCount: rows.length, belowAverageCount: withVolume.length - aboveAverage.length};
+}
+
+// Ad group and creative names are long ids people paste into the panel, and
+// selecting one by hand inside a scrolling table is fiddly — so clicking the
+// name copies it whole.
+function copyableName(name, copyValue){
+  const value = (copyValue === undefined || copyValue === '') ? name : copyValue;
+  const title = value === name ? 'کلیک کن تا کپی بشه' : `کلیک کن تا «${value}» کپی بشه`;
+  return `<button type="button" class="copy-name" data-copy="${escapeHtml(value)}" title="${escapeHtml(title)}">${escapeHtml(name)}</button>`;
+}
+// What people actually paste into the panel for a creative is the number
+// inside its name (yn_mob_646179 -> 646179), so that's what a creative name
+// copies. Names with no digits at all — the Cafe Bazaar creatives are plain
+// Persian words — copy whole, since there's no number to pick out.
+function creativeCopyValue(name){
+  const runs = String(name == null ? '' : name).match(/\d+/g);
+  if(!runs) return name;
+  return runs.reduce((best, r) => r.length >= best.length ? r : best, '');
+}
+function flashCopied(btn){
+  btn.classList.add('copied');
+  setTimeout(()=>btn.classList.remove('copied'), 1200);
+}
+document.addEventListener('click', async (e)=>{
+  const btn = e.target.closest('.copy-name');
+  if(!btn) return;
+  const text = btn.getAttribute('data-copy') || '';
+  try{
+    if(navigator.clipboard && window.isSecureContext){
+      await navigator.clipboard.writeText(text);
+    } else {
+      // http://localhost and older browsers don't get the async clipboard
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;top:-1000px;opacity:0;';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+    }
+    flashCopied(btn);
+  }catch(err){
+    console.error('copy failed', err);
+    btn.classList.add('copy-failed');
+    setTimeout(()=>btn.classList.remove('copy-failed'), 1200);
+  }
+});
+
+function renderSegmentCpaTable(project, joined, keyFn, elId, segLabel, copyValueFn){
+  const el = document.getElementById(elId);
+  if(!el) return;
+  const t = computeSegmentCpa(project, joined, keyFn);
+  if(!t){ el.innerHTML = `<div class="deep-empty">برای این بازه دیتای کافی برای محاسبه‌ی CPA ${escapeHtml(segLabel)} نیست.</div>`; return; }
+  if(!t.rows.length){
+    el.innerHTML = `<div class="deep-empty">هیچ ${escapeHtml(segLabel)} ای با حجم کافی (حداقل ${fmtNum(t.minInstalls)}) CPA بالاتر از میانگین پروژه${t.benchmark!==null?` (${fmtMoney(t.benchmark)})`:''} نداشت.</div>`;
+    return;
+  }
+  const label = project.conversionLabel;
+  const installLabel = project.installsLabel || 'نصب';
+  const body = t.rows.map(r=>`
+    <tr>
+      <td class="campaign">${copyableName(r.label, copyValueFn ? copyValueFn(r.label) : undefined)}</td>
+      <td class="muted">${escapeHtml(r.campaign)}</td>
+      <td>${fmtNum(r.installs)}</td>
+      <td class="muted">${r.installShare.toFixed(0)}٪</td>
+      <td>${fmtNum(r.cost)}</td>
+      <td>${fmtNum(r.conversion)}</td>
+      ${r.cpa!==null ? `<td>${fmtNum(r.cpa)}</td>` : `<td class="neg">بدون ${escapeHtml(label)}</td>`}
+      ${r.vsBenchmark!==null
+        ? `<td class="${r.vsBenchmark>0?'neg':'pos'}">${r.vsBenchmark>0?'▲':'▼'} ${Math.abs(r.vsBenchmark).toFixed(0)}٪</td>`
+        : `<td class="muted">—</td>`}
+    </tr>`).join('');
+  el.innerHTML = `
+    <div class="cpa-table-wrap">
+      <table class="cpa-table">
+        <thead>
+          <tr>
+            <th>${escapeHtml(segLabel)}</th><th>کمپین</th><th>${escapeHtml(installLabel)}</th><th>سهم ${escapeHtml(installLabel)}</th>
+            <th>هزینه‌ی تخصیصی (تومان)</th><th>${escapeHtml(label)}</th><th>CPA (تومان)</th><th>نسبت به میانگین</th>
+          </tr>
+        </thead>
+        <tbody>${body}</tbody>
+      </table>
+    </div>
+    ${t.belowAverageCount > 0 ? `<div class="deep-subtext" style="margin-top:8px;">${fmtNum(t.belowAverageCount)} مورد دیگه حجم کافی دارن ولی CPA‌شون از میانگین بهتره و نمایش داده نشدن.</div>` : ''}`;
+}
+
+function renderSegmentIssues(project, joined){
+  const head = document.getElementById(`segmentIntro-${project.id}`);
+  if(head){
+    const t = computeSegmentCpa(project, joined, r=>r.adgroup);
+    const installLabel = project.installsLabel || 'نصب';
+    head.innerHTML = `<div class="deep-subtext">
+      هزینه فقط در سطح کمپین موجوده، پس برای هر کمپین «هزینه به ازای ${escapeHtml(installLabel)}» حساب شده (هزینه‌ی کمپین ÷ ${escapeHtml(installLabel)} کمپین) و هزینه‌ی هر Adgroup / Creative = ${escapeHtml(installLabel)} خودش × همون عدد؛ بعد CPA = این هزینه ÷ ${escapeHtml(project.conversionLabel)} خودش.
+      فقط مواردی میان که حجم ${escapeHtml(installLabel)}شون معنادار باشه${t ? ` (حداقل ${fmtNum(t.minInstalls)}؛ برای موارد بدون کانورژن حداقل ${fmtNum(t.minInstalls*2)})` : ''}، و CPA‌شون از میانگین پروژه بالاتر باشه — همه‌شون، به‌ترتیب گرون‌ترین${t && t.benchmark ? ` — میانگین CPA پروژه در همین بازه: ${fmtMoney(t.benchmark)}` : ''}.
+      ${t && t.unpricedCampaigns ? `<br>${fmtNum(t.unpricedCampaigns)} کمپین چون توی این بازه ${escapeHtml(installLabel)} نداشته قابل قیمت‌گذاری نبوده و کنار گذاشته شده.` : ''}
+    </div>`;
+  }
+  renderSegmentCpaTable(project, joined, r=>r.adgroup, `segmentAdgroup-${project.id}`, 'Adgroup');
+  renderSegmentCpaTable(project, joined, r=>r.creative, `segmentCreative-${project.id}`, 'Creative', creativeCopyValue);
+}
+
+function computeCampaignCpaTable(project, joined){
+  if(!joined.length) return null;
+  const dates = Array.from(new Set(joined.map(r=>r.date))).sort();
+  const recentWindow = Math.min(7, dates.length);
+  const recentFrom = dates[dates.length - recentWindow];
+
+  const byCampaign = {};
+  joined.forEach(r=>{
+    const c = byCampaign[r.campaign] = byCampaign[r.campaign] ||
+      {label: r.campaignLabel || r.campaign, cost:0, conversion:0, days:new Set(), recentCost:0, recentConversion:0};
+    c.cost += r.cost;
+    c.conversion += r.conversion;
+    if(r.cost > 0) c.days.add(r.date);
+    if(r.date >= recentFrom){ c.recentCost += r.cost; c.recentConversion += r.conversion; }
+  });
+
+  const totalCost = joined.reduce((s,r)=>s+r.cost,0);
+  const totalConversion = joined.reduce((s,r)=>s+r.conversion,0);
+  const benchmark = totalConversion>0 ? totalCost/totalConversion : null;
+
+  const rows = Object.entries(byCampaign).map(([key,c])=>{
+    const cpa = c.conversion>0 ? c.cost/c.conversion : null;
+    return {
+      key, label:c.label, cost:c.cost, conversion:c.conversion, activeDays:c.days.size,
+      share: totalCost>0 ? c.cost/totalCost*100 : 0,
+      cpa,
+      recentCpa: c.recentConversion>0 ? c.recentCost/c.recentConversion : null,
+      recentCost: c.recentCost,
+      vsBenchmark: (benchmark && cpa!==null) ? (cpa-benchmark)/benchmark*100 : null
+    };
+  }).filter(r=>r.cost>0 || r.conversion>0);
+  rows.sort((a,b)=>b.cost-a.cost);
+
+  return {rows, totalCost, totalConversion, benchmark, recentWindow,
+          dayCount:dates.length, from:dates[0], to:dates[dates.length-1]};
+}
+
+const CPA_TABLE_MAX_ROWS = 12;
+function renderCampaignCpaTable(project, joined, elId){
+  const el = document.getElementById(elId || `cpaTable-${project.id}`);
+  if(!el) return;
+  const t = computeCampaignCpaTable(project, joined);
+  if(!t){ el.innerHTML = `<div class="deep-empty">توی این بازه دیتایی نیست.</div>`; return; }
+  const label = project.conversionLabel;
+  const cpaLabel = project.cpaLabel || 'CPA';
+
+  const head = `
+    <div class="deep-subtext">
+      ${fmtDateLabel(t.from)} تا ${fmtDateLabel(t.to)} (${fmtNum(t.dayCount)} روز) —
+      میانگین ${escapeHtml(cpaLabel)} در همین بازه: <b>${t.benchmark!==null?fmtMoney(t.benchmark):'—'}</b>.
+      ستون «نسبت به میانگین» اختلاف هر کمپین با همین عدده.
+    </div>`;
+
+  const shown = t.rows.slice(0, CPA_TABLE_MAX_ROWS);
+  const body = shown.map(r=>{
+    const cpaCell = r.cpa!==null
+      ? `<td>${fmtNum(r.cpa)}</td>`
+      : `<td class="neg">بدون ${escapeHtml(label)}</td>`;
+    const recentCell = r.recentCost<=0
+      ? `<td class="muted">بدون هزینه</td>`
+      : r.recentCpa!==null ? `<td>${fmtNum(r.recentCpa)}</td>`
+      : `<td class="neg">بدون ${escapeHtml(label)}</td>`;
+    const vsCell = r.vsBenchmark===null
+      ? `<td class="muted">—</td>`
+      : `<td class="${r.vsBenchmark>0?'neg':'pos'}">${r.vsBenchmark>0?'▲':'▼'} ${Math.abs(r.vsBenchmark).toFixed(0)}٪</td>`;
+    return `
+      <tr>
+        <td class="campaign">${filterableName(project, 'main', r.key, r.label)}</td>
+        <td>${fmtNum(r.cost)}</td>
+        <td class="muted">${r.share.toFixed(0)}٪</td>
+        <td>${fmtNum(r.conversion)}</td>
+        ${cpaCell}
+        ${recentCell}
+        ${vsCell}
+        <td class="muted">${fmtNum(r.activeDays)}</td>
+      </tr>`;
+  }).join('');
+
+  const more = t.rows.length > shown.length
+    ? `<div class="deep-subtext" style="margin-top:8px;">${fmtNum(t.rows.length - shown.length)} کمپین دیگه با هزینه‌ی کمتر نمایش داده نشدن.</div>` : '';
+
+  el.innerHTML = head + `
+    <div class="cpa-table-wrap">
+      <table class="cpa-table">
+        <thead>
+          <tr>
+            <th>کمپین</th><th>هزینه (تومان)</th><th>سهم هزینه</th><th>${escapeHtml(label)}</th>
+            <th>${escapeHtml(cpaLabel)} کل بازه (تومان)</th><th>${escapeHtml(cpaLabel)} ${fmtNum(t.recentWindow)} روز اخیر</th>
+            <th>نسبت به میانگین</th><th>روز فعال</th>
+          </tr>
+        </thead>
+        <tbody>${body}</tbody>
+      </table>
+    </div>` + more;
+}
+
+function renderCostDrivers(project, joined){
+  const b = computeLatestCostBreakdown(joined);
+  const el = document.getElementById(`costDrivers-${project.id}`);
+  if(!el) return;
+  if(!b){ el.innerHTML = `<div class="deep-empty">برای مقایسه‌ی آخرین روز با روز قبلش، حداقل ۲ روز داده لازمه.</div>`; return; }
+  const headline = `
+    <div class="deep-item" style="border-bottom:1px solid var(--border);padding-bottom:12px;">
+      <span class="di-tag ${b.totalDelta>=0?'good':'bad'}">${b.totalDelta>=0?'▲':'▼'} ${b.pctChange!==null?Math.abs(b.pctChange).toFixed(0)+'٪':'—'}</span>
+      <span class="di-date">${fmtDateLabel(b.prevDate)} ← ${fmtDateLabel(b.date)}</span><br>
+      هزینه از <b>${fmtMoney(b.totalYesterday)}</b> به <b>${fmtMoney(b.totalToday)}</b> ${b.totalDelta>=0?'رسیده (افزایش':'رسیده (کاهش'} ${fmtMoney(Math.abs(b.totalDelta))})
+    </div>`;
+  if(!b.contributions.length){
+    el.innerHTML = headline + `<div class="deep-empty">هیچ کمپینی تغییر هزینه‌ی قابل‌ثبتی نداشته.</div>`;
+    return;
+  }
+  // Only surface the main driver(s): keep adding the next-largest contributor
+  // until they cumulatively explain ~80% of the total change, capped at 3 —
+  // this is "the main factor(s)", not an exhaustive list of every campaign.
+  const targetAbs = Math.abs(b.totalDelta) * 0.8;
+  const mainContributors = [];
+  let cum = 0;
+  for(const c of b.contributions){
+    mainContributors.push(c);
+    cum += Math.abs(c.delta);
+    if(cum >= targetAbs || mainContributors.length >= 3) break;
+  }
+  const rows = mainContributors.map(c=>`
+    <li class="deep-item">
+      <span class="di-tag ${c.delta>=0?'good':'bad'}">${c.delta>=0?'+':''}${fmtMoney(c.delta)}</span>
+      <b>${escapeHtml(c.campaign)}</b>
+      <span class="di-date">${fmtMoney(c.yesterdayCost)} ← ${fmtMoney(c.todayCost)}</span>
+      ${b.totalDelta!==0?` — ${Math.abs(c.share).toFixed(0)}٪ از کل تغییر`:''}
+    </li>`).join('');
+  el.innerHTML = headline + `<ul class="deep-list">${rows}</ul>`;
+}
+function renderCpaDrivers(project, joined){
+  const r = computeLatestCpaChange(joined);
+  const el = document.getElementById(`cpaDrivers-${project.id}`);
+  if(!el) return;
+  if(!r){ el.innerHTML = `<div class="deep-empty">برای مقایسه‌ی CPA آخرین روز با روز قبلش، حداقل ۲ روز داده لازمه.</div>`; return; }
+  if(r.pctChange===null){ el.innerHTML = `<div class="deep-empty">دیروز یا پریروز کانورژنی ثبت نشده، پس CPA قابل مقایسه نیست.</div>`; return; }
+  if(!r.significant){
+    el.innerHTML = `<div class="deep-empty">CPA از ${fmtDateLabel(r.prevDate)} به ${fmtDateLabel(r.date)} تغییر قابل‌توجهی (نسبت به نوسان عادی) نداشته (${r.pctChange>=0?'+':''}${r.pctChange.toFixed(0)}٪).</div>`;
+    return;
+  }
+  const headline = `
+    <div class="deep-item" style="border-bottom:1px solid var(--border);padding-bottom:12px;">
+      <span class="di-tag ${r.pctChange>=0?'bad':'good'}">${r.pctChange>=0?'▲':'▼'} ${Math.abs(r.pctChange).toFixed(0)}٪</span>
+      <span class="di-date">${fmtDateLabel(r.prevDate)} ← ${fmtDateLabel(r.date)}</span><br>
+      CPA از <b>${fmtMoney(r.yesterdayCpa)}</b> به <b>${fmtMoney(r.todayCpa)}</b> ${r.pctChange>=0?'بدتر شده':'بهتر شده'}
+    </div>`;
+  if(!r.contributors || !r.contributors.length){
+    el.innerHTML = headline + `<div class="deep-empty">عامل مشخصی در سطح کمپین پیدا نشد (احتمالاً ترکیب چندتایی کوچیک از تغییرات بوده).</div>`;
+    return;
+  }
+  const rows = r.contributors.map(c=>`
+    <li class="deep-item">
+      <span class="di-tag ${c.contribution>=0?'bad':'good'}">${c.contribution>=0?'+':''}${fmtMoney(c.contribution)}</span>
+      <b>${escapeHtml(c.campaign)}</b> از تغییر CPA
+    </li>`).join('');
+  el.innerHTML = headline + `<ul class="deep-list">${rows}</ul>`;
+}
+function computeSessionGapDrivers(project){
+  const {from, to} = sectionRange(project);
+  const inRange = d => (!from || d >= from) && (!to || d <= to);
+  const byCampaign = {};
+  const bucket = (key, label) => {
+    if(!byCampaign[key]) byCampaign[key] = {label: label || key, own:0, other:0};
+    return byCampaign[key];
+  };
+  (project.allRef||[]).forEach(r=>{ if(inRange(r.date)) bucket(r.campaign, r.campaignLabel).own += r.installs; });
+  (project.rawCompare||[]).forEach(r=>{ if(inRange(r.date)) bucket(r.campaign, r.campaign).other += r.sessions; });
+
+  const entries = Object.entries(byCampaign);
+  if(!entries.length) return null;
+  const totalOwn = entries.reduce((s,[,v])=>s+v.own,0);
+  const totalOther = entries.reduce((s,[,v])=>s+v.other,0);
+  const totalGap = totalOwn - totalOther;
+  const overallPct = totalOther>0 ? (totalGap/totalOther*100) : null;
+
+  const drivers = entries.map(([key,v])=>({
+    key, label:v.label, own:v.own, other:v.other,
+    gap: v.own - v.other,
+    // Percentage points of the overall gap that this campaign is responsible for.
+    contributionPct: totalOther>0 ? ((v.own - v.other)/totalOther*100) : null,
+    // Share of the net gap, so "this one campaign is most of it" reads clearly.
+    share: totalGap!==0 ? ((v.own - v.other)/totalGap*100) : 0,
+    missingFrom: v.other===0 && v.own>0 ? 'other' : (v.own===0 && v.other>0 ? 'own' : null)
+  })).filter(d=>d.gap !== 0);
+  drivers.sort((a,b)=>Math.abs(b.gap)-Math.abs(a.gap));
+
+  // Keep the campaigns that make up the bulk (~90%) of the total movement.
+  const totalAbs = drivers.reduce((s,d)=>s+Math.abs(d.gap),0);
+  const main = [];
+  let cum = 0;
+  for(const d of drivers){
+    main.push(d);
+    cum += Math.abs(d.gap);
+    if(totalAbs>0 && cum/totalAbs >= 0.9) break;
+    if(main.length >= 6) break;
+  }
+  return {totalOwn, totalOther, totalGap, overallPct, drivers: main, driverCount: drivers.length};
+}
+
+function renderSessionGaps(project){
+  const el = document.getElementById(`sessionGaps-${project.id}`);
+  if(!el) return;
+  const cfg = project.sessionsCompare;
+  const r = computeSessionGapDrivers(project);
+  if(!r){ el.innerHTML = `<div class="deep-empty">توی این بازه دیتایی برای مقایسه نیست.</div>`; return; }
+  if(r.overallPct===null){ el.innerHTML = `<div class="deep-empty">توی این بازه ${escapeHtml(cfg.otherLabel)} سشنی ثبت نکرده، پس درصد اختلاف قابل محاسبه نیست.</div>`; return; }
+
+  const headline = `
+    <div class="deep-item" style="border-bottom:1px solid var(--border);padding-bottom:12px;">
+      <span class="di-tag ${r.overallPct>=0?'bad':'good'}">${r.overallPct>=0?'▲':'▼'} ${Math.abs(r.overallPct).toFixed(1)}٪</span>
+      <span class="di-date">${escapeHtml(cfg.otherLabel)}: ${fmtNum(r.totalOther)} ← ${escapeHtml(cfg.ownLabel)}: ${fmtNum(r.totalOwn)}</span><br>
+      اختلاف کل بازه: <b>${r.totalGap>=0?'+':''}${fmtNum(r.totalGap)}</b> سشن
+    </div>`;
+
+  if(!r.drivers.length){
+    el.innerHTML = headline + `<div class="deep-empty">هیچ کمپینی اختلاف قابل‌ثبتی نداره.</div>`;
+    return;
+  }
+
+  const rows = r.drivers.map(d=>{
+    const note = d.missingFrom === 'other' ? ` <span class="di-date">(توی ${escapeHtml(cfg.otherLabel)} با این اسم نیست)</span>`
+               : d.missingFrom === 'own' ? ` <span class="di-date">(توی ${escapeHtml(cfg.ownLabel)} با این اسم نیست)</span>` : '';
+    return `
+    <li class="deep-item">
+      <span class="di-tag ${d.contributionPct>=0?'bad':'good'}">${d.contributionPct>=0?'+':''}${d.contributionPct.toFixed(1)} واحد</span>
+      <b>${escapeHtml(d.label)}</b>${note}
+      <span class="di-date">${escapeHtml(cfg.otherLabel)}: ${fmtNum(d.other)} ← ${escapeHtml(cfg.ownLabel)}: ${fmtNum(d.own)}</span>
+      — ${d.gap>=0?'+':''}${fmtNum(d.gap)} سشن${r.totalGap!==0?`، ${Math.abs(d.share).toFixed(0)}٪ از کل اختلاف`:''}
+    </li>`;
+  }).join('');
+
+  el.innerHTML = headline
+    + `<div class="deep-subtext">سهم هر کمپین از اون ${Math.abs(r.overallPct).toFixed(1)}٪، برحسب واحد درصد. مجموع سهم همه‌ی کمپین‌ها دقیقاً همون اختلاف کلیه.</div>`
+    + `<ul class="deep-list">${rows}</ul>`
+    + (r.driverCount > r.drivers.length ? `<div class="deep-subtext" style="margin-top:8px;">${fmtNum(r.driverCount - r.drivers.length)} کمپین دیگه هم اختلاف کوچیک‌تری دارن.</div>` : '');
+}
+
+// The same three numbers the chart is made of, totalled over the range: what
+// each source counted, and how far apart they ended up.
+function renderSessionsKpis(project, series){
+  const el = document.getElementById(`sessionKpis-${project.id}`);
+  if(!el) return;
+  const cfg = project.sessionsCompare;
+  const sum = arr => arr.reduce((a,b)=>a+b, 0);
+  const own = sum(series.own), other = sum(series.other);
+  const gap = other > 0 ? (own - other)/other*100 : null;
+  const cards = [
+    {label:`سشن ${cfg.ownLabel}`,   value: fmtNum(own),   color:'#D9730D',
+     sub:`${fmtNum(series.labels.length)} روز`},
+    {label:`سشن ${cfg.otherLabel}`, value: fmtNum(other), color: project.theme.accent,
+     sub:`${fmtNum(series.labels.length)} روز`},
+    {label:'درصد اختلاف سشن', accent:true,
+     value: gap===null ? '—' : `${gap>0?'▲':'▼'} ${Math.abs(gap).toFixed(1)}٪`,
+     sub: `${own>=other?'+':'−'}${fmtNum(Math.abs(own-other))} سشن نسبت به ${cfg.otherLabel}`}
+  ];
+  el.style.gridTemplateColumns = `repeat(${cards.length}, 1fr)`;
+  el.innerHTML = cards.map(c=>`
+    <div class="kpi">
+      <div class="kpi-top"><span class="label">${c.color?`<i class="kpi-key" style="background:${c.color}"></i>`:''}${escapeHtml(c.label)}</span></div>
+      <div class="value ${c.accent?'accent':''}">${c.value}</div>
+      <div class="kpi-sub">${escapeHtml(c.sub)}</div>
+    </div>`).join('');
+}
+
+function renderSessionsChart(project){
+  const canvas = document.getElementById(`sessionsChart-${project.id}`);
+  if(!canvas) return;
+  const cfg = project.sessionsCompare;
+  const series = buildSessionsComparison(project);
+  const {labels, own, other, diffPct} = series;
+  renderSessionsKpis(project, series);
+  const key = project.id + ':sessions';
+  if(chartInstances[key]) chartInstances[key].destroy();
+  const accentHex = project.theme.accent, accent2Hex = project.theme.accent2, ownHex = '#D9730D';
+  chartInstances[key] = new Chart(canvas, {
+    type:'bar',
+    data:{
+      labels,
+      datasets:[
+        {type:'bar', label:cfg.otherLabel, data:other, backgroundColor: hexToRgba(accentHex,0.8), hoverBackgroundColor: hexToRgba(accentHex,0.95), borderRadius:4, borderSkipped:false, yAxisID:'y', order:3, maxBarThickness:18},
+        {type:'bar', label:cfg.ownLabel, data:own, backgroundColor: hexToRgba(ownHex,0.8), hoverBackgroundColor: hexToRgba(ownHex,0.95), borderRadius:4, borderSkipped:false, yAxisID:'y', order:2, maxBarThickness:18},
+        {type:'line', label:'اختلاف٪', data:diffPct, borderColor: accent2Hex, backgroundColor: hexToRgba(accent2Hex,0.12), fill:false, tension:.35, yAxisID:'y1', pointRadius: labels.length > 24 ? 0 : 4, pointHoverRadius:5, pointBackgroundColor: accent2Hex, pointBorderColor:CHART_INK.pointRing, pointBorderWidth:2, borderWidth:2, order:1}
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index', intersect:false},
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:CHART_INK.tooltipBg, borderColor:CHART_INK.tooltipBorder, borderWidth:1,
+          titleColor:CHART_INK.tooltipTitle, bodyColor:CHART_INK.tooltipBody, padding:12, boxPadding:5, cornerRadius:10,
+          displayColors:true, usePointStyle:true,
+          titleFont:{family:"'IBM Plex Mono', monospace", size:11},
+          bodyFont:{family:"'IBM Plex Mono', monospace", size:11.5},
+          callbacks:{ label: ctx => ctx.parsed.y===null ? `${ctx.dataset.label}: —`
+            : ctx.dataset.yAxisID==='y1'
+              ? `${ctx.dataset.label}: ${ctx.parsed.y>=0?'+':''}${fmtNum(ctx.parsed.y,1)}٪`
+              : `${ctx.dataset.label}: ${fmtNum(ctx.parsed.y,0)} سشن` }
+        }
+      },
+      scales:{
+        y:{position:'left', grid:{color:CHART_INK.grid, drawTicks:false}, border:{display:false}, ticks:{font:{size:10}, color:CHART_INK.tick, padding:6, callback:v=>fmtNum(v)}},
+        y1:{position:'right', grid:{display:false}, border:{display:false}, ticks:{font:{size:10}, callback:v=>fmtNum(v,0)+'٪'}},
+        x:{grid:{display:false}, border:{display:false}, ticks:{font:{size:10}, color:CHART_INK.tick, maxRotation:45, minRotation:45, autoSkip:true, maxTicksLimit:12}}
+      }
+    }
+  });
+}
+
+function updateBudgetSection(project){
+  const daily = buildBudgetDaily(project);
+  const {rows, totals, groups} = buildBudgetTable(project);
+
+  const note = [];
+  note.push(`${fmtNum(rows.length)} کمپین توی شیت Budgeting — بودجه‌ی کل: <b>${fmtMoney(totals.totalBudget)}</b>`);
+  if(!daily.dayCount)
+    note.push('توی این بازه ردیفی در Blend Data نبود، پس نمودار روزانه خالیه');
+  if(project.noBudgetCampaigns && project.noBudgetCampaigns.length)
+    note.push(`${fmtNum(project.noBudgetCampaigns.length)} کمپین هزینه دارن ولی ردیف بودجه ندارن (سودشون بدون سقف حساب شده): ${escapeHtml(project.noBudgetCampaigns.slice(0,4).join('، '))}`);
+  document.getElementById(`coverageNote-${project.id}`).innerHTML = note.join(' — ');
+
+  const margin = daily.totals.cost>0 ? daily.totals.profit/daily.totals.cost*100 : null;
+  const cards = [
+    {label:'Cost اعلامی (بازه)', value: fmtMoney(daily.totals.cost)},
+    {label:'Cost R واقعی (بازه)', value: fmtMoney(daily.totals.costReal)},
+    {label:'سود بازه', value: fmtMoney(daily.totals.profit), accent:true},
+    {label:'حاشیه سود', value: margin!==null ? `${margin.toFixed(1)}٪` : '—'},
+    {label:'باقی‌مانده‌ی بودجه (کل)', value: fmtMoney(totals.remaining)}
+  ];
+  const kpiEl = document.getElementById(`kpis-${project.id}`);
+  kpiEl.style.gridTemplateColumns = `repeat(${cards.length}, 1fr)`;
+  kpiEl.innerHTML = cards.map(c=>`
+    <div class="kpi">
+      <div class="kpi-top"><span class="label">${c.label}</span></div>
+      <div class="value ${c.accent?'accent':''}">${c.value}</div>
+    </div>`).join('');
+
+  // Declared cost, real cost and profit share one axis — all three are Toman,
+  // and profit dips below zero once a campaign is past its budget.
+  const key = project.id + ':budget';
+  if(chartInstances[key]) chartInstances[key].destroy();
+  const accentHex = project.theme.accent, accent2Hex = project.theme.accent2, realHex = '#475569';
+  chartInstances[key] = new Chart(document.getElementById(`budgetChart-${project.id}`), {
+    type:'bar',
+    data:{
+      labels: daily.labels,
+      datasets:[
+        {label:'Cost اعلامی', data:daily.cost, backgroundColor: hexToRgba(accentHex,0.8), hoverBackgroundColor: hexToRgba(accentHex,0.95), borderRadius:4, borderSkipped:false, maxBarThickness:18},
+        {label:'Cost R واقعی', data:daily.costReal, backgroundColor: hexToRgba(realHex,0.7), hoverBackgroundColor: hexToRgba(realHex,0.9), borderRadius:4, borderSkipped:false, maxBarThickness:18},
+        {label:'سود', data:daily.profit, backgroundColor: hexToRgba(accent2Hex,0.8), hoverBackgroundColor: hexToRgba(accent2Hex,0.95), borderRadius:4, borderSkipped:false, maxBarThickness:18}
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index', intersect:false},
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:CHART_INK.tooltipBg, borderColor:CHART_INK.tooltipBorder, borderWidth:1,
+          titleColor:CHART_INK.tooltipTitle, bodyColor:CHART_INK.tooltipBody, padding:12, boxPadding:5, cornerRadius:10,
+          displayColors:true, usePointStyle:true,
+          titleFont:{family:"'IBM Plex Mono', monospace", size:11},
+          bodyFont:{family:"'IBM Plex Mono', monospace", size:11.5},
+          callbacks:{ label: ctx => `${ctx.dataset.label}: ${fmtNum(ctx.parsed.y,0)} تومان` }
+        }
+      },
+      scales:{
+        y:{grid:{color:CHART_INK.grid, drawTicks:false}, border:{display:false}, ticks:{font:{size:10}, color:CHART_INK.tick, padding:6, callback:v=>fmtNum(v)}},
+        x:{grid:{display:false}, border:{display:false}, ticks:{font:{size:10}, color:CHART_INK.tick, maxRotation:45, minRotation:45, autoSkip:true, maxTicksLimit:12}}
+      }
+    }
+  });
+
+  // Per-campaign table
+  const money = (v, cls) => `<td class="${cls||''}">${fmtNum(v)}</td>`;
+  const body = rows.map(r=>{
+    const over = r.totalBudget>0 && r.spent > r.totalBudget;
+    return `
+      <tr>
+        <td class="campaign">${filterableName(project, 'sub', r.campaign, r.campaignLabel)}</td>
+        <td class="muted">${filterableName(project, 'main', normCampaign(r.campaignName), r.campaignName)}</td>
+        ${money(r.totalBudget)}
+        ${money(r.spent, over?'neg':'')}
+        ${money(r.remaining, r.remaining<=0?'muted':'')}
+        ${money(r.spentPanel)}
+        ${money(r.profit, r.profit>=0?'pos':'neg')}
+        <td class="muted">${over ? 'از بودجه رد شده' : '—'}</td>
+      </tr>`;
+  }).join('');
+  document.getElementById(`budgetTable-${project.id}`).innerHTML = rows.length ? `
+    <div class="cpa-table-wrap">
+      <table class="cpa-table">
+        <thead>
+          <tr>
+            <th>کمپین</th><th>Campaign Name</th><th>بودجه کل</th><th>خرج‌شده (اعلامی)</th>
+            <th>باقی‌مانده</th><th>خرج واقعی (پنل)</th><th>سود</th><th>وضعیت</th>
+          </tr>
+        </thead>
+        <tbody>${body}</tbody>
+        <tfoot>
+          <tr>
+            <td class="campaign">مجموع</td><td class="muted">${fmtNum(rows.length)} کمپین</td>
+            ${money(totals.totalBudget)}${money(totals.spent)}${money(totals.remaining)}${money(totals.spentPanel)}
+            ${money(totals.profit, totals.profit>=0?'pos':'neg')}<td class="muted">—</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>` : `<div class="deep-empty">شیت Budgeting ردیفی نداشت.</div>`;
+
+  // Remaining budget per Campaign Name
+  document.getElementById(`budgetBars-${project.id}`).innerHTML = groups.length ? groups.map(g=>`
+    <div class="budget-bar">
+      <div class="budget-bar-head">
+        <span><b>${escapeHtml(g.name)}</b> <span class="di-date">${fmtNum(g.campaigns)} کمپین</span></span>
+        <span class="di-date">${fmtMoney(g.remaining)} از ${fmtMoney(g.totalBudget)} مونده — ${g.remainingPct.toFixed(0)}٪</span>
+      </div>
+      <div class="meter-track"><div class="meter-fill" style="width:${g.spentPct.toFixed(1)}%;background:${g.spent > g.totalBudget ? 'var(--negative)' : 'var(--accent)'}"></div></div>
+      <div class="budget-bar-foot">خرج‌شده: ${fmtMoney(g.spent)} (${g.spentPct.toFixed(0)}٪) — سود: <b class="${g.profit>=0?'pos-text':'neg-text'}">${fmtMoney(g.profit)}</b></div>
+    </div>`).join('') : `<div class="deep-empty">دیتایی برای گروه‌بندی نبود.</div>`;
+}
+
+// What this section's numbers are built on: how much of the cost sheet found
+// a conversion row, and every row the normalizers had to drop.
+// Every chart reads its neutrals from here, so the page has one chart ink.
+const CHART_INK = {
+  grid:'#EAEEF5', tick:'#6B7280', tooltipBg:'#FFFFFF', tooltipBorder:'#DFE5EE',
+  tooltipTitle:'#111827', tooltipBody:'#5A6577', pointRing:'#FFFFFF'
+};
+// Columns take a soft vertical wash of the brand color — or the brand's own
+// gradient where it has one. Falls back to a flat fill before the canvas has
+// been laid out.
+function barFill(ctx, theme, alpha){
+  const area = ctx.chartArea;
+  const hi = theme.grad ? theme.grad[1] : theme.accent;
+  const lo = theme.grad ? theme.grad[0] : theme.accent;
+  if(!area) return hexToRgba(lo, alpha);
+  const g = ctx.ctx.createLinearGradient(0, area.bottom, 0, area.top);
+  g.addColorStop(0, hexToRgba(lo, alpha));
+  g.addColorStop(1, hexToRgba(hi, Math.min(1, alpha + 0.22)));
+  return g;
+}
+
+function renderCoverageNote(project, joined, matchedCost, totalCostInSheet, totalCost){
+  const matchPct = totalCostInSheet>0 ? Math.round(matchedCost/totalCostInSheet*100) : 0;
+  if(!project.minDate || !project.maxDate){
+    document.getElementById(`coverageNote-${project.id}`).innerHTML =
+      'توی شیت‌های این بخش ردیفی پیدا نشد که با فیلتر کمپین‌هاش بخونه — اسم شیت و فیلتر کمپین رو چک کن.';
+  }
+  const d = project.diag || {};
+  // With includeUnmatchedCost the whole sheet's cost is already in the numbers,
+  // so "coverage" would read as if something were missing — say what it means.
+  const notes = [project.includeUnmatchedCost
+    ? `کل هزینه‌ی شیت لحاظ شده: <b>${fmtMoney(totalCost)}</b> — ${matchPct}٪ از این هزینه به ردیف‌های ${escapeHtml(project.conversionLabel)} مچ شد`
+    : `پوشش join: <b>${matchPct}%</b> هزینه (${fmtMoney(matchedCost)} از ${fmtMoney(totalCostInSheet)} تطبیق یافت)`];
+  if(d.excludedCost > 0) notes.push(`${fmtMoney(d.excludedCost)} هزینه‌ی کمپین‌های خارج از فیلتر این پروژه (کل بازه‌ی شیت)`);
+  if(d.skippedRows > 0) notes.push(`<b>${fmtNum(d.skippedRows)}</b> ردیف بدون Date یا Campaign نادیده گرفته شد (${fmtMoney(d.skippedCost)})`);
+  if(d.unreadableCost > 0) notes.push(`<b>${fmtNum(d.unreadableCost)}</b> سلول Cost با فرمت غیرقابل‌خوندن`);
+  if(d.futureRows > 0) notes.push(`<b>${fmtNum(d.futureRows)}</b> ردیف با تاریخ آینده نادیده گرفته شد`);
+  if(d.refNoCostCampaign > 0) notes.push(`<b>${fmtNum(d.refNoCostCampaign)}</b> ردیف کانورژن کنار گذاشته شد چون کمپینش توی شیت هزینه نیست`);
+  // Cost in the range with nothing to join it to reads as an empty section;
+  // say which side ran out and when, instead of showing zeroes.
+  if(!joined.length && totalCostInSheet > 0){
+    const lastRef = (project.rawRef||[]).reduce((m,r)=> r.date > m ? r.date : m, '');
+    notes.push(`<b>توی این بازه هیچ ردیف ${escapeHtml(project.conversionLabel)} وجود نداره</b>` +
+      (lastRef ? ` — آخرین روزی که شیت مرجع دیتا داره: ${fmtDateLabel(lastRef)}` : ''));
+  }
+  document.getElementById(`coverageNote-${project.id}`).innerHTML = notes.join(' — ');
+}
+
+// Daily cost as columns with the cost per conversion as a line: the standard
+// section chart, and the one the CPI page draws once per campaign group.
+function renderCostCpaChart(project, key, canvasId, joined, cpaLabel){
+  const canvas = document.getElementById(canvasId);
+  if(!canvas) return;
+  const {labels, cost, cpaSeries} = groupByDateGeneric(joined);
+  if(chartInstances[key]){ chartInstances[key].destroy(); }
+  const accent2Hex = project.theme.accent2;
+  const inkHex = project.theme.ink || project.theme.accent;
+  chartInstances[key] = new Chart(canvas, {
+    type:'bar',
+    data:{
+      labels,
+      datasets:[
+        {type:'bar', label:'هزینه', data:cost,
+         backgroundColor: ctx=>barFill(ctx, project.theme, 0.78),
+         hoverBackgroundColor: ctx=>barFill(ctx, project.theme, 0.95),
+         borderColor: inkHex, borderWidth:{top:1.5, right:0, bottom:0, left:0},
+         borderRadius:4, borderSkipped:false, yAxisID:'y', order:2, maxBarThickness:22},
+        {type:'line', label:cpaLabel, data:cpaSeries, borderColor: accent2Hex,
+         backgroundColor: hexToRgba(accent2Hex,0.07), fill:true, tension:.32, yAxisID:'y1',
+         pointRadius: labels.length > 24 ? 0 : 4, pointHoverRadius:5,
+         pointBackgroundColor: accent2Hex, pointBorderColor:CHART_INK.pointRing, pointBorderWidth:2,
+         borderWidth:2, order:1}
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index', intersect:false},
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:CHART_INK.tooltipBg, borderColor:CHART_INK.tooltipBorder, borderWidth:1,
+          titleColor:CHART_INK.tooltipTitle, bodyColor:CHART_INK.tooltipBody, padding:12, boxPadding:5, cornerRadius:10,
+          displayColors:true, usePointStyle:true,
+          titleFont:{family:"'IBM Plex Mono', monospace", size:11},
+          bodyFont:{family:"'IBM Plex Mono', monospace", size:11.5},
+          callbacks:{ label: ctx => `${ctx.dataset.label}: ${fmtNum(ctx.parsed.y,0)}` }
+        }
+      },
+      scales:{
+        y:{position:'left', grid:{color:CHART_INK.grid, drawTicks:false}, border:{display:false}, ticks:{font:{size:10}, color:CHART_INK.tick, padding:6, callback:v=>fmtNum(v)}},
+        y1:{position:'right', grid:{display:false}, border:{display:false}, ticks:{font:{size:10}, color:CHART_INK.tick, padding:6, callback:v=>fmtNum(v)}},
+        x:{grid:{display:false}, border:{display:false}, ticks:{font:{size:10}, color:CHART_INK.tick, maxRotation:45, minRotation:45, autoSkip:true, maxTicksLimit:12}}
+      }
+    }
+  });
+
+
+}
+
+// ---------- CPI sections (cost and cost per install only) ----------
+// A campaign group is either everything, or the campaigns whose name starts
+// with a prefix (inapp- for in-app, cb- for Cafe Bazaar).
+function cpiGroupFilter(group){
+  return group.prefix ? (key => key.startsWith(group.prefix)) : (() => true);
+}
+
+// Cost lives on the campaign, never on the creative, so a creative's cost is
+// its share of that day's campaign installs. Two creatives of one campaign
+// therefore differ only by the days and campaigns they ran on — a creative
+// that kept running on the expensive days ends up with the higher CPI.
+function computeCreativeCpi(project, group, keyFn){
+  const st = projectState[project.id];
+  const {from, to} = sectionRange(project);
+  const inRange = d => (!from || d >= from) && (!to || d <= to);
+  const inCampaign = c => st.campaigns === 'ALL' || st.campaigns.has(c);
+  const inGroup = cpiGroupFilter(group);
+  const keep = r => inRange(r.date) && inCampaign(r.campaign) && inGroup(r.campaign);
+
+  const refRows = project.rawRef.filter(keep);
+  if(!refRows.length) return null;
+
+  const costByDay = {};
+  project.rawCost.filter(keep).forEach(r=>{
+    const key = r.date + '||' + r.campaign;
+    costByDay[key] = (costByDay[key] || 0) + r.cost;
+  });
+  const installsByDay = {};
+  refRows.forEach(r=>{
+    const key = r.date + '||' + r.campaign;
+    installsByDay[key] = (installsByDay[key] || 0) + r.installs;
+  });
+
+  const segments = {};
+  let pricedInstalls = 0, unpricedInstalls = 0;
+  refRows.forEach(r=>{
+    const label = keyFn(r);
+    const key = r.date + '||' + r.campaign;
+    const dayInstalls = installsByDay[key];
+    const seg = segments[label] = segments[label] ||
+      {label, installs:0, cost:0, campaigns:new Set()};
+    seg.installs += r.installs;
+    seg.campaigns.add(r.campaignLabel || r.campaign);
+    if(dayInstalls > 0){
+      seg.cost += (costByDay[key] || 0) * (r.installs / dayInstalls);
+      pricedInstalls += r.installs;
+    } else {
+      unpricedInstalls += r.installs;
+    }
+  });
+
+  const totalCost = Object.values(costByDay).reduce((a,b)=>a+b, 0);
+  const totalInstalls = Object.values(installsByDay).reduce((a,b)=>a+b, 0);
+  const benchmark = totalInstalls > 0 ? totalCost/totalInstalls : null;
+
+  const all = Object.values(segments);
+  const rows = all.filter(seg=>seg.installs > 0).map(seg=>({
+    label: seg.label,
+    campaigns: Array.from(seg.campaigns),
+    installs: seg.installs,
+    cost: seg.cost,
+    cpi: seg.installs>0 ? seg.cost/seg.installs : null,
+    installShare: totalInstalls>0 ? seg.installs/totalInstalls*100 : 0,
+    vsBenchmark: benchmark ? ((seg.cost/seg.installs)-benchmark)/benchmark*100 : null
+  })).sort((a,b)=>b.cost - a.cost);
+
+  return {rows, benchmark, totalCost, totalInstalls, unpricedInstalls,
+          noInstallCount: all.length - rows.length};
+}
+
+function renderCreativeCpiTable(project, group, elId, segLabel){
+  const el = document.getElementById(elId);
+  if(!el) return;
+  const cpaLabel = project.cpaLabel || 'CPA';
+  const t = computeCreativeCpi(project, group, r=>r.creative);
+  if(!t || !t.rows.length){
+    el.innerHTML = `<div class="deep-empty">توی این بازه ${escapeHtml(segLabel)} با نصب ثبت‌شده‌ای نبود.</div>`;
+    return;
+  }
+  const head = `
+    <div class="deep-subtext">
+      هزینه فقط در سطح کمپین موجوده، پس هزینه‌ی هر روزِ هر کمپین به‌نسبت نصب بین ${escapeHtml(segLabel)}‌های همون روز پخش شده؛
+      ${escapeHtml(cpaLabel)} هر ${escapeHtml(segLabel)} = هزینه‌ی تخصیصی ÷ نصب خودش.
+      میانگین ${escapeHtml(cpaLabel)} این بخش در همین بازه: <b>${t.benchmark!==null?fmtMoney(t.benchmark):'—'}</b> —
+      به‌ترتیب بیشترین هزینه.
+      ${t.noInstallCount ? `<br>${fmtNum(t.noInstallCount)} ${escapeHtml(segLabel)} توی این بازه نصبی نداشته و چون هزینه‌ای بهش تخصیص نمی‌گیره نیومده.` : ''}
+    </div>`;
+  const body = t.rows.map(r=>{
+    const camps = r.campaigns.length > 2
+      ? r.campaigns.slice(0,2).join('، ') + ` +${fmtNum(r.campaigns.length-2)}`
+      : r.campaigns.join('، ');
+    return `
+    <tr>
+      <td class="campaign">${copyableName(r.label, creativeCopyValue(r.label))}</td>
+      <td>${fmtNum(r.installs)}</td>
+      <td class="muted">${r.installShare.toFixed(1)}٪</td>
+      <td>${fmtNum(r.cost)}</td>
+      <td>${fmtNum(r.cpi)}</td>
+      ${r.vsBenchmark!==null
+        ? `<td class="${r.vsBenchmark>0?'neg':'pos'}">${r.vsBenchmark>0?'▲':'▼'} ${Math.abs(r.vsBenchmark).toFixed(0)}٪</td>`
+        : `<td class="muted">—</td>`}
+      <td class="muted" title="${escapeHtml(r.campaigns.join('، '))}">${escapeHtml(camps)}</td>
+    </tr>`;
+  }).join('');
+  el.innerHTML = head + `
+    <div class="cpa-table-wrap">
+      <table class="cpa-table">
+        <thead>
+          <tr>
+            <th>${escapeHtml(segLabel)}</th><th>نصب</th><th>سهم نصب</th>
+            <th>هزینه‌ی تخصیصی (تومان)</th><th>${escapeHtml(cpaLabel)} (تومان)</th><th>نسبت به میانگین</th><th>کمپین</th>
+          </tr>
+        </thead>
+        <tbody>${body}</tbody>
+      </table>
+    </div>`;
+}
+
+// One page, three campaign groups: everything, the in-app campaigns and the
+// Cafe Bazaar ones. Each gets the same cost/CPI chart; the tables each group
+// asks for hang under its own chart.
+function updateCpiSection(project){
+  if(project.error) return;
+  const {joined, matchedCost, totalCostInSheet} = computeSection(project);
+  const totalCost = joined.reduce((s,r)=>s+r.cost,0);
+  const totalInstalls = joined.reduce((s,r)=>s+r.conversion,0);
+  const cpaLabel = project.cpaLabel || 'CPA';
+
+  renderCoverageNote(project, joined, matchedCost, totalCostInSheet, totalCost);
+
+  const groups = (project.cpiGroups||[]).map(g=>{
+    const inGroup = cpiGroupFilter(g);
+    const rows = joined.filter(r=>inGroup(r.campaign));
+    const cost = rows.reduce((s,r)=>s+r.cost,0);
+    const installs = rows.reduce((s,r)=>s+r.conversion,0);
+    return {group:g, rows, cost, installs, cpi: installs>0 ? cost/installs : null};
+  });
+
+  const cards = [
+    {label:'هزینه کل', value: fmtMoney(totalCost)},
+    {label:'نصب کل', value: fmtNum(totalInstalls)},
+    {label:cpaLabel + ' کلی', value: totalInstalls>0 ? fmtMoney(totalCost/totalInstalls) : '—', accent:true}
+  ];
+  groups.filter(g=>g.group.id !== 'all').forEach(g=>{
+    cards.push({label:`${cpaLabel} ${g.group.title}`,
+                value: g.cpi!==null ? fmtMoney(g.cpi) : '—',
+                sub: `${fmtMoney(g.cost)} هزینه · ${fmtNum(g.installs)} نصب`});
+  });
+  const kpiEl = document.getElementById(`kpis-${project.id}`);
+  kpiEl.style.gridTemplateColumns = `repeat(${cards.length}, 1fr)`;
+  kpiEl.innerHTML = cards.map(c=>`
+    <div class="kpi">
+      <div class="kpi-top"><span class="label">${c.label}</span></div>
+      <div class="value ${c.accent?'accent':''}">${c.value}</div>
+      ${c.sub ? `<div class="kpi-sub">${c.sub}</div>` : ''}
+    </div>`).join('');
+
+  groups.forEach(g=>{
+    renderCostCpaChart(project, `${project.id}-${g.group.id}`,
+                       `cpiChart-${project.id}-${g.group.id}`, g.rows, cpaLabel);
+    if(g.group.campaignTable){
+      renderCampaignCpaTable(project, g.rows, `cpiCampaigns-${project.id}-${g.group.id}`);
+    }
+    if(g.group.creativeTable){
+      renderCreativeCpiTable(project, g.group, `cpiCreatives-${project.id}-${g.group.id}`, 'Creative');
+    }
+  });
+}
+
+function updateSection(project){
+  if(project.kind === 'budget') return updateBudgetSection(project);
+  if(project.kind === 'cpi') return updateCpiSection(project);
+  if(project.error) return;
+  const {joined, matchedCost, totalCostInSheet} = computeSection(project);
+  const totalCost = joined.reduce((s,r)=>s+r.cost,0);
+  const totalConversion = joined.reduce((s,r)=>s+r.conversion,0);
+  const totalInstalls = joined.reduce((s,r)=>s+r.installs,0);
+  const cpa = totalConversion>0 ? totalCost/totalConversion : null;
+
+  renderCoverageNote(project, joined, matchedCost, totalCostInSheet, totalCost);
+
+  const cards = [
+    {label:'هزینه کل', value: fmtMoney(totalCost)},
+    {label: project.conversionLabel + ' کل', value: fmtNum(totalConversion)}
+  ];
+  if(project.showInstalls) cards.push({label:(project.installsLabel || 'Installs') + ' کل', value: fmtNum(totalInstalls)});
+  cards.push({label:'CPA کلی', value: cpa!==null?fmtMoney(cpa):'—', accent:true});
+  (project.costPerMetrics||[]).forEach(m=>{
+    const total = joined.reduce((s,r)=>s + ((r.extras && r.extras[m.col]) || 0), 0);
+    cards.push({label:`هزینه به ازای ${m.label || m.col}`, value: total>0 ? fmtMoney(totalCost/total) : '—',
+                sub: `${fmtNum(total)} ${m.label || m.col}`});
+  });
+
+  const kpiEl = document.getElementById(`kpis-${project.id}`);
+  kpiEl.style.gridTemplateColumns = `repeat(${cards.length}, 1fr)`;
+  kpiEl.innerHTML = cards.map(c=>`
+    <div class="kpi">
+      <div class="kpi-top"><span class="label">${c.label}</span></div>
+      <div class="value ${c.accent?'accent':''}">${c.value}</div>
+      ${c.sub ? `<div class="kpi-sub">${c.sub}</div>` : ''}
+    </div>`).join('');
+
+  renderCostCpaChart(project, project.id, `trendChart-${project.id}`, joined, 'CPA');
+
+  renderCampaignCpaTable(project, joined);
+  renderSessionsChart(project);
+  renderSessionGaps(project);
+  renderCostDrivers(project, joined);
+  renderCpaDrivers(project, joined);
+  if(!project.hideSegmentAnalysis) renderSegmentIssues(project, joined);
+}
+function hexToRgba(hex, alpha){
+  const h = hex.replace('#','');
+  const r = parseInt(h.substring(0,2),16), g = parseInt(h.substring(2,4),16), b = parseInt(h.substring(4,6),16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+// ---------- Init ----------
+// Sections can share tabs (several parts of one project read the same sheets),
+// so each tab is fetched once per load and reused.
+const sheetCache = {};
+function fetchSheetCached(spreadsheetId, sheet){
+  const key = spreadsheetId + '||' + sheet;
+  if(!sheetCache[key]) sheetCache[key] = fetchSheetData(spreadsheetId, sheet);
+  return sheetCache[key];
+}
+
+async function loadProject(project){
+  try{
+    if(project.kind === 'budget'){
+      const [blendRows, budgetRows] = await Promise.all([
+        fetchSheetCached(project.spreadsheetId, project.blendSheet),
+        fetchSheetCached(project.spreadsheetId, project.budgetSheet)
+      ]);
+      const today = todayStr();
+      project.rawBlend = normalizeBlendRows(blendRows).filter(r=>!(/^\d{8}$/.test(r.date) && r.date > today));
+      project.rawBudget = normalizeBudgetRows(budgetRows);
+      project.budgetByCampaign = {};
+      project.rawBudget.forEach(r=>{ project.budgetByCampaign[r.campaign] = r; });
+      project.diag = {};
+      project.error = null;
+      const dates = project.rawBlend.map(r=>r.date).sort();
+      project.minDate = dates[0] || null;
+      project.maxDate = dates[dates.length-1] || null;
+      // Campaigns that spend without a budget row can't be capped, so say so.
+      project.noBudgetCampaigns = Array.from(new Set(
+        project.rawBlend.filter(r=>!project.budgetByCampaign[r.campaign] && r.cost > 0).map(r=>r.campaignLabel || r.campaign)));
+      return;
+    }
+    const cmp = project.sessionsCompare;
+    // refSheet may name several sheets; their rows are concatenated and then
+    // aggregated on Date + Campaign, which sums a campaign's conversions across
+    // the sheets for each day.
+    // An entry is either a sheet name (using the project's conversionCol) or
+    // {sheet, conversionCol} — sheets that count the same conversion under
+    // different column names still add up.
+    const refSheets = (Array.isArray(project.refSheet) ? project.refSheet : [project.refSheet])
+      .map(entry => typeof entry === 'string' ? {sheet: entry, conversionCol: project.conversionCol} : entry);
+    const [refSheetRows, costRows, compareOrNull] = await Promise.all([
+      Promise.all(refSheets.map(r => fetchSheetCached(project.spreadsheetId, r.sheet))),
+      fetchSheetCached(project.spreadsheetId, project.costSheet),
+      cmp ? fetchSheetCached(project.spreadsheetId, cmp.sheet) : null
+    ]);
+    const compareRows = compareOrNull || [];
+    const diag = {skippedRows:0, skippedCost:0, unreadableCost:0, excludedCost:0, futureRows:0};
+    project.rawRef = refSheetRows.flatMap((rows, i) =>
+      normalizeRefRows(rows, refSheets[i].conversionCol || project.conversionCol,
+                       project.installsCol, project.adgroupCol, project.creativeCol,
+                       (project.costPerMetrics||[]).map(m=>m.col)));
+    project.rawCost = normalizeCostRows(costRows, project.impressionsCol, project.clicksCol, diag);
+    // The session comparison works off daily totals of each tab as-is, so it
+    // keeps the rows the project's campaign filter removes from everything else.
+    project.rawCompare = cmp ? normalizeCompareRows(compareRows, cmp.sessionsCol) : [];
+    // With refCampaignsFromCost the conversion sheet may cover several trackers
+    // or networks; a row counts only if its campaign appears in the cost sheet,
+    // which is what makes Campaign the join key on its own.
+    if(project.refCampaignsFromCost){
+      const costCampaigns = new Set(project.rawCost.map(r=>r.campaign));
+      const kept = project.rawRef.filter(r=>costCampaigns.has(r.campaign));
+      diag.refNoCostCampaign = project.rawRef.length - kept.length;
+      project.rawRef = kept;
+    }
+    project.allRef = project.rawRef;
+    if(project.excludeCampaign){
+      project.rawRef = project.rawRef.filter(r=>!project.excludeCampaign(r.campaign));
+      const keptCost = project.rawCost.filter(r=>!project.excludeCampaign(r.campaign));
+      diag.excludedCost = project.rawCost.reduce((s,r)=>s+r.cost,0) - keptCost.reduce((s,r)=>s+r.cost,0);
+      project.rawCost = keptCost;
+    }
+    // Sheets often carry pre-created rows for days that haven't happened yet.
+    // Left in, they push maxDate into the future — so "last 7 days" lands on
+    // empty days and the chart draws columns for days with nothing in them.
+    // Only well-formed YYYYMMDD dates are compared, so other date shapes stay.
+    const today = todayStr();
+    const isFuture = d => /^\d{8}$/.test(d) && d > today;
+    const dropFuture = (rows, count) => {
+      const kept = rows.filter(r=>!isFuture(r.date));
+      if(count) diag.futureRows += rows.length - kept.length;
+      return kept;
+    };
+    diag.futureRows = 0;
+    project.rawRef = dropFuture(project.rawRef, true);
+    project.rawCost = dropFuture(project.rawCost, true);
+    project.rawCompare = dropFuture(project.rawCompare, true);
+    // allRef holds the same conversion rows before the campaign filter, so its
+    // dropped rows are the ones already counted above.
+    project.allRef = dropFuture(project.allRef, false);
+
+    project.diag = diag;
+    project.error = null;
+    const allDates = [...project.rawRef.map(r=>r.date), ...project.rawCost.map(r=>r.date), ...project.rawCompare.map(r=>r.date)].sort();
+    project.minDate = allDates[0] || null;
+    project.maxDate = allDates[allDates.length-1] || null;
+  }catch(e){
+    project.rawRef = [];
+    project.allRef = [];
+    project.rawCost = [];
+    project.rawCompare = [];
+    project.rawBlend = [];
+    project.rawBudget = [];
+    project.budgetByCampaign = {};
+    project.error = 'نتونستم دیتای این پروژه رو بخونم: ' + (e.message || 'خطای نامشخص') + ' — مطمئن شو شیت با ایمیل Service Account شیر شده.';
+  }
+}
+
+// A tab is either one project, or the group of parts sharing a `group` key —
+// several sections of the same project, each with its own sheets and filters,
+// behind one tab with a second row of buttons.
+function buildTabs(){
+  const tabs = [];
+  const byId = {};
+  PROJECTS.forEach(p=>{
+    const tabId = p.group || p.id;
+    if(!byId[tabId]){
+      byId[tabId] = {id:tabId, title: p.groupTitle || p.tabTitle || p.title, logo:p.logo,
+                     logoWide:p.logoWide, theme:p.theme, parts:[]};
+      tabs.push(byId[tabId]);
+    }
+    byId[tabId].parts.push(p);
+  });
+  return tabs;
+}
+let TABS = [];
+const activePart = {};   // { [tabId]: projectId }
+let activeTabId = null;
+
+// A tab wears its project's brand: the rule under the label is the brand color
+// itself, the label the darker ink so it stays readable on white.
+function tabThemeStyle(t){
+  const th = t.theme;
+  return `--tab-accent:${th.accent}; --tab-ink:${th.ink || th.accent}; --tab-soft:${th.accentSoft};`;
+}
+
+function renderTabBar(){
+  TABS = buildTabs();
+  const el = document.getElementById('tabBar');
+  el.innerHTML = TABS.map(t=>`
+    <button type="button" class="tab-btn" id="tab-${t.id}" style="${tabThemeStyle(t)}">
+      ${t.logo?`<img src="${t.logo}" class="${t.logoWide?'wide':''}" alt="">`:''}${escapeHtml(t.title)}
+    </button>`).join('');
+  TABS.forEach(t=>{
+    document.getElementById(`tab-${t.id}`).addEventListener('click', ()=>switchTab(t.id));
+  });
+}
+
+function renderSubTabBar(tab){
+  const el = document.getElementById('subTabBar');
+  if(tab.parts.length < 2){ el.innerHTML = ''; el.hidden = true; return; }
+  el.hidden = false;
+  el.innerHTML = tab.parts.map(p=>`
+    <button type="button" class="sub-tab-btn${p.id===activePart[tab.id]?' active':''}"
+            id="subtab-${p.id}" style="${tabThemeStyle(p)}">${escapeHtml(p.partTitle || p.title)}</button>`).join('');
+  tab.parts.forEach(p=>{
+    document.getElementById(`subtab-${p.id}`).addEventListener('click', ()=>{
+      activePart[tab.id] = p.id;
+      switchTab(tab.id);
+    });
+  });
+}
+
+// The filter bar sticks below the pinned header, whose height changes when the
+// tabs wrap onto a second row or a sub-tab row appears.
+function syncStickyOffset(){
+  const bar = document.getElementById('tabBar');
+  const sub = document.getElementById('subTabBar');
+  if(!bar) return;
+  const barH = bar.offsetHeight;
+  const subH = (sub && !sub.hidden) ? sub.offsetHeight : 0;
+  document.documentElement.style.setProperty('--tabbar-h', barH + 'px');
+  document.documentElement.style.setProperty('--sticky-top', (barH + subH) + 'px');
+}
+
+function switchTab(tabId){
+  const tab = TABS.find(t=>t.id===tabId);
+  if(!tab) return;
+  activeTabId = tabId;
+  if(!activePart[tabId] || !tab.parts.some(p=>p.id===activePart[tabId])) activePart[tabId] = tab.parts[0].id;
+  const shownId = activePart[tabId];
+
+  PROJECTS.forEach(p=>{
+    const sectionEl = document.getElementById(`section-${p.id}`);
+    if(sectionEl) sectionEl.style.display = (p.id===shownId) ? '' : 'none';
+  });
+  TABS.forEach(t=>{
+    const tabEl = document.getElementById(`tab-${t.id}`);
+    if(tabEl) tabEl.classList.toggle('active', t.id===tabId);
+  });
+  renderSubTabBar(tab);
+
+  const shownProject = PROJECTS.find(p=>p.id===shownId);
+  const mainContentEl = document.getElementById('mainContent');
+  mainContentEl.style.display = (shownProject && !shownProject.ownDateFilter) ? '' : 'none';
+  syncStickyOffset();
+}
+
+async function init(){
+  setStatus('loading','در حال خوندن شیت‌ها...');
+  await Promise.all(PROJECTS.map(loadProject));
+
+  const globalProjects = PROJECTS.filter(p=>!p.ownDateFilter && !p.error);
+  const allDates = [];
+  globalProjects.forEach(p=>{
+    p.rawRef.forEach(r=>allDates.push(r.date));
+    p.rawCost.forEach(r=>allDates.push(r.date));
+  });
+  allDates.sort();
+  if(allDates.length){
+    sheetMinDate = allDates[0];
+    sheetMaxDate = allDates[allDates.length-1];
+    currentFrom = sheetMinDate;
+    currentTo = sheetMaxDate;
+    renderFilterBar();
+  } else {
+    document.getElementById('mainContent').innerHTML = '';
+  }
+
+  renderSectionsShell();
+  PROJECTS.filter(p=>!p.error).forEach(p=>{
+    try{ updateSection(p); }
+    catch(e){
+      console.error('section failed:', p.id, e);
+      const el = document.getElementById(`coverageNote-${p.id}`);
+      if(el) el.innerHTML = 'نمایش این بخش با خطا مواجه شد: ' + escapeHtml(e.message || 'خطای نامشخص');
+    }
+  });
+  renderTabBar();
+  switchTab(TABS[0].id);
+  syncStickyOffset();
+  window.addEventListener('resize', syncStickyOffset);
+  if(window.ResizeObserver){
+    const ro = new ResizeObserver(syncStickyOffset);
+    ro.observe(document.getElementById('tabBar'));
+    ro.observe(document.getElementById('subTabBar'));
+  }
+
+  const anyError = PROJECTS.some(p=>p.error);
+  const now = new Date().toLocaleTimeString('fa-IR',{hour:'2-digit',minute:'2-digit'});
+  const source = liveTabs && !snapshotTabs ? 'دیتای زنده — ' + now
+               : liveTabs && snapshotTabs ? `${fmtNum(liveTabs)} تب زنده، ${fmtNum(snapshotTabs)} تب از فایل (${escapeHtml(SNAPSHOT.takenAt || '')})`
+               : `اسنپ‌شات ${escapeHtml(SNAPSHOT.takenAt || '')} — دیتای زنده خونده نشد`;
+  setStatus(anyError ? 'err' : (snapshotTabs && !liveTabs ? 'loading' : 'live'),
+            anyError ? 'بعضی بخش‌ها خطا دادن — جزئیات توی همون بخش' : source);
+}
+
+init();
+})();
+
+</script>
+</body>
+</html>
