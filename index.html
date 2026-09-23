@@ -816,6 +816,13 @@ const ALL_PROJECTS = [
     ownDateFilter: true,
     defaultRangeDays: 30,
     excludeCampaign: (key) => TALAEEN_EXCLUDED.some(term => key.includes(term)),
+    // Three tabs that count the same Verified against a different dimension.
+    // They carry no campaign column, so only the date filter reaches them.
+    dimensionTables: [
+      {sheet: 'Web - Source',  dimCol: 'Source',  metricCol: 'Verified'},
+      {sheet: 'Web - Term',    dimCol: 'Term',    metricCol: 'Verified'},
+      {sheet: 'Web - Content', dimCol: 'Content', metricCol: 'Verified'}
+    ],
     theme: BRANDS.talaeen
   },
   {
@@ -1102,6 +1109,17 @@ function buildBudgetTable(project){
   return {rows, totals, groups};
 }
 
+// A tab that counts one metric against one dimension (Source / Term / Content)
+// and nothing else — no campaign, so nothing to join on; the date is the only
+// thing the dashboard needs from it.
+function normalizeDimensionRows(rows, dimCol, metricCol){
+  return rows.map(r=>{
+    const date = normDate(r['Date']);
+    const label = cellText(r[dimCol]);
+    if(!date || !label) return null;
+    return {date, label, value: toNumber(r[metricCol])};
+  }).filter(Boolean);
+}
 function normalizeCompareRows(rows, sessionsCol){
   return rows.map(r=>{
     const date = normDate(r['Date']);
@@ -1266,13 +1284,31 @@ function computeSection(project){
 }
 
 // ---------- Global filter bar (for projects without their own date filter) ----------
+// toISOString() would answer in UTC, which is the day before for anyone east
+// of Greenwich for part of the evening — these dates are calendar days as the
+// person reading the screen sees them, so they are built from local parts.
+function localIso(d){
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+// "Yesterday" means yesterday, but a sheet that hasn't been filled in yet would
+// leave an empty page; when the data stops earlier, this lands on the newest
+// day it has, and the date inputs show which day that was.
+function yesterdayWithin(minDate, maxDate){
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  let iso = localIso(d);
+  if(maxDate && iso > toInputDate(maxDate)) iso = toInputDate(maxDate);
+  if(minDate && iso < toInputDate(minDate)) iso = toInputDate(minDate);
+  return iso;
+}
+
 // The Persian week opens on Saturday, so "this week" runs from the last
 // Saturday up to the newest day the sheet has. Anchoring on that day rather
 // than on today keeps the range non-empty when a sheet lags a few days.
 function weekStartFor(yyyymmdd){
   const d = new Date(toInputDate(yyyymmdd));
   d.setDate(d.getDate() - ((d.getDay() + 1) % 7));   // Sat=6 -> 0 days back
-  return d.toISOString().slice(0,10);
+  return localIso(d);
 }
 
 function renderFilterBar(){
@@ -1288,6 +1324,7 @@ function renderFilterBar(){
       </div>
       <div class="filter-presets">
         <button class="preset-btn active" id="presetAll">کل بازه</button>
+        <button class="preset-btn" id="presetYesterday">دیروز</button>
         <button class="preset-btn" id="presetWeek">از شنبه</button>
         <button class="preset-btn" id="preset7">۷ روز اخیر</button>
         <button class="preset-btn" id="preset30">۳۰ روز اخیر</button>
@@ -1303,6 +1340,7 @@ function renderFilterBar(){
     applyGlobalFilter();
   });
   document.getElementById('presetAll').addEventListener('click', (e)=>setGlobalPreset(null, e.target));
+  document.getElementById('presetYesterday').addEventListener('click', (e)=>setGlobalPreset('yesterday', e.target));
   document.getElementById('presetWeek').addEventListener('click', (e)=>setGlobalPreset('week', e.target));
   document.getElementById('preset7').addEventListener('click', (e)=>setGlobalPreset(7, e.target));
   document.getElementById('preset30').addEventListener('click', (e)=>setGlobalPreset(30, e.target));
@@ -1313,6 +1351,10 @@ function setGlobalPreset(days, btn){
   if(days === null){
     document.getElementById('fromDate').value = toInputDate(sheetMinDate);
     document.getElementById('toDate').value = toInputDate(sheetMaxDate);
+  } else if(days === 'yesterday'){
+    const iso = yesterdayWithin(sheetMinDate, sheetMaxDate);
+    document.getElementById('fromDate').value = iso;
+    document.getElementById('toDate').value = iso;
   } else if(days === 'week'){
     const minIso = toInputDate(sheetMinDate);
     const weekIso = weekStartFor(sheetMaxDate);
@@ -1324,7 +1366,7 @@ function setGlobalPreset(days, btn){
     fromD.setDate(fromD.getDate() - (days - 1));
     const minD = new Date(toInputDate(sheetMinDate));
     const clampedFrom = fromD < minD ? minD : fromD;
-    document.getElementById('fromDate').value = clampedFrom.toISOString().slice(0,10);
+    document.getElementById('fromDate').value = localIso(clampedFrom);
     document.getElementById('toDate').value = toInputDate(sheetMaxDate);
   }
   applyGlobalFilter();
@@ -1357,6 +1399,10 @@ function setOwnPreset(project, days, btn){
   if(days === null){
     fromInput.value = toInputDate(project.minDate);
     toInput.value = toInputDate(project.maxDate);
+  } else if(days === 'yesterday'){
+    const iso = yesterdayWithin(project.minDate, project.maxDate);
+    fromInput.value = iso;
+    toInput.value = iso;
   } else if(days === 'week'){
     const minIso = toInputDate(project.minDate);
     const weekIso = weekStartFor(project.maxDate);
@@ -1368,7 +1414,7 @@ function setOwnPreset(project, days, btn){
     fromD.setDate(fromD.getDate() - (days - 1));
     const minD = new Date(toInputDate(project.minDate));
     const clampedFrom = fromD < minD ? minD : fromD;
-    fromInput.value = clampedFrom.toISOString().slice(0,10);
+    fromInput.value = localIso(clampedFrom);
     toInput.value = toInputDate(project.maxDate);
   }
   applyOwnDateFilter(project);
@@ -1664,6 +1710,7 @@ function renderSectionsShell(){
         </div>
         <div class="filter-presets">
           <button class="preset-btn" id="ownPresetAll-${p.id}">کل بازه</button>
+          <button class="preset-btn" id="ownPresetYesterday-${p.id}">دیروز</button>
           <button class="preset-btn" id="ownPresetWeek-${p.id}">از شنبه</button>
           <button class="preset-btn" id="ownPreset7-${p.id}">۷ روز اخیر</button>
           <button class="preset-btn active" id="ownPreset30-${p.id}">۳۰ روز اخیر</button>
@@ -1740,6 +1787,18 @@ function renderSectionsShell(){
         <div class="deep-subtext" style="margin:16px 0 4px;font-weight:700;color:var(--text);">Creative</div>
         <div id="segmentCreative-${p.id}"></div>`}
       </div>`}
+      ${(p.dimensionTables||[]).length ? `
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h2>${escapeHtml(p.dimensionTables[0].metricCol)} به تفکیک ${p.dimensionTables.map(d=>escapeHtml(d.dimCol)).join(' / ')}</h2>
+            <div class="card-sub">هر جدول از تب خودش خونده می‌شه و فقط فیلتر تاریخ این بخش روش اثر داره — این تب‌ها ستون کمپین ندارن، پس فیلتر کمپین شاملشون نمی‌شه.</div>
+          </div>
+        </div>
+        ${p.dimensionTables.map((d,i)=>`
+        <div class="deep-subhead">${escapeHtml(d.dimCol)}</div>
+        <div id="dimTable-${p.id}-${i}"></div>`).join('')}
+      </div>` : ''}
       ${p.sessionsCompare ? `
       <div class="card">
         <div class="card-head">
@@ -1798,6 +1857,7 @@ function renderSectionsShell(){
         applyOwnDateFilter(p);
       });
       document.getElementById(`ownPresetAll-${p.id}`).addEventListener('click', e=>setOwnPreset(p, null, e.target));
+      document.getElementById(`ownPresetYesterday-${p.id}`).addEventListener('click', e=>setOwnPreset(p, 'yesterday', e.target));
       document.getElementById(`ownPresetWeek-${p.id}`).addEventListener('click', e=>setOwnPreset(p, 'week', e.target));
       document.getElementById(`ownPreset7-${p.id}`).addEventListener('click', e=>setOwnPreset(p, 7, e.target));
       document.getElementById(`ownPreset30-${p.id}`).addEventListener('click', e=>setOwnPreset(p, 30, e.target));
@@ -2749,6 +2809,58 @@ function renderCreativeCpiTable(project, group, elId, segLabel){
     </div>`;
 }
 
+// A dimension tab totalled over the section's date range: the dimension and
+// its metric, biggest first. Nothing is attributed or derived here — these are
+// the sheet's own numbers added up, which is why the table can stay this bare.
+function computeDimensionTable(project, index){
+  const rows = (project.rawDims || [])[index] || [];
+  const {from, to} = sectionRange(project);
+  const inRange = d => (!from || d >= from) && (!to || d <= to);
+  const byLabel = {};
+  let total = 0, days = new Set();
+  rows.filter(r=>inRange(r.date)).forEach(r=>{
+    byLabel[r.label] = (byLabel[r.label] || 0) + r.value;
+    total += r.value;
+    days.add(r.date);
+  });
+  const out = Object.entries(byLabel).map(([label, value])=>({label, value}))
+    .sort((a,b)=> b.value - a.value || a.label.localeCompare(b.label));
+  return {rows: out, total, dayCount: days.size, hasData: rows.length > 0};
+}
+
+function renderDimensionTable(project, index){
+  const cfg = (project.dimensionTables || [])[index];
+  const el = document.getElementById(`dimTable-${project.id}-${index}`);
+  if(!cfg || !el) return;
+  const t = computeDimensionTable(project, index);
+  if(!t.rows.length){
+    el.innerHTML = `<div class="deep-empty">${t.hasData
+      ? 'توی این بازه ردیفی برای این تب نبود.'
+      : `تب «${escapeHtml(cfg.sheet)}» خونده نشد یا خالیه.`}</div>`;
+    return;
+  }
+  const body = t.rows.map(r=>`
+    <tr>
+      <td class="campaign">${copyableName(r.label)}</td>
+      <td>${fmtNum(r.value)}</td>
+    </tr>`).join('');
+  el.innerHTML = `
+    <div class="cpa-table-wrap">
+      <table class="cpa-table">
+        <thead>
+          <tr><th>${escapeHtml(cfg.dimCol)}</th><th>${escapeHtml(cfg.metricCol)}</th></tr>
+        </thead>
+        <tbody>${body}</tbody>
+        <tfoot>
+          <tr><td class="campaign">مجموع (${fmtNum(t.rows.length)} ${escapeHtml(cfg.dimCol)} در ${fmtNum(t.dayCount)} روز)</td><td>${fmtNum(t.total)}</td></tr>
+        </tfoot>
+      </table>
+    </div>`;
+}
+function renderDimensionTables(project){
+  (project.dimensionTables || []).forEach((d, i)=>renderDimensionTable(project, i));
+}
+
 // One page, three campaign groups: everything, the in-app campaigns and the
 // Cafe Bazaar ones. Each gets the same cost/CPI chart; the tables each group
 // asks for hang under its own chart.
@@ -2787,6 +2899,8 @@ function updateCpiSection(project){
       <div class="value ${c.accent?'accent':''}">${c.value}</div>
       ${c.sub ? `<div class="kpi-sub">${c.sub}</div>` : ''}
     </div>`).join('');
+
+  renderDimensionTables(project);
 
   groups.forEach(g=>{
     renderCostCpaChart(project, `${project.id}-${g.group.id}`,
@@ -2836,6 +2950,7 @@ function updateSection(project){
   renderCostCpaChart(project, project.id, `trendChart-${project.id}`, joined, 'CPA');
 
   renderCampaignCpaTable(project, joined);
+  renderDimensionTables(project);
   renderSessionsChart(project);
   renderSessionGaps(project);
   renderCostDrivers(project, joined);
@@ -2895,6 +3010,11 @@ async function loadProject(project){
       cmp ? fetchSheetCached(project.spreadsheetId, cmp.sheet) : null
     ]);
     const compareRows = compareOrNull || [];
+    // Dimension tabs are independent of the join, so they are fetched on their
+    // own and kept beside it.
+    const dimTables = project.dimensionTables || [];
+    const dimRows = await Promise.all(dimTables.map(d => fetchSheetCached(project.spreadsheetId, d.sheet)));
+    project.rawDims = dimTables.map((d, i) => normalizeDimensionRows(dimRows[i], d.dimCol, d.metricCol));
     const diag = {skippedRows:0, skippedCost:0, unreadableCost:0, excludedCost:0, futureRows:0};
     project.rawRef = refSheetRows.flatMap((rows, i) =>
       normalizeRefRows(rows, refSheets[i].conversionCol || project.conversionCol,
@@ -2932,6 +3052,7 @@ async function loadProject(project){
       return kept;
     };
     diag.futureRows = 0;
+    project.rawDims = (project.rawDims || []).map(rows => dropFuture(rows, false));
     project.rawRef = dropFuture(project.rawRef, true);
     project.rawCost = dropFuture(project.rawCost, true);
     project.rawCompare = dropFuture(project.rawCompare, true);
@@ -2949,6 +3070,7 @@ async function loadProject(project){
     project.allRef = [];
     project.rawCost = [];
     project.rawCompare = [];
+    project.rawDims = [];
     project.rawBlend = [];
     project.rawBudget = [];
     project.budgetByCampaign = {};
