@@ -753,7 +753,7 @@ const ALL_PROJECTS = [
     partTitle: 'نمای کلی',
     title: 'طلاین — نمای کلی',
     logo: '/taline-logo.jpg',
-    subtitle: 'KYC از Adtrace + Verified از Web - Campaign × هزینه از Cost - Yektanet — فقط کمپین‌های شامل web یا cpi',
+    subtitle: 'KYC از Adtrace + Verified از Web - Campaign × هزینه از Cost - Yektanet — بدون wheel / seo / _aghsat / _pishraft / branding / DB_Rtrgt_CP_sticky',
     spreadsheetId: '1r9f3Vdl6ldgQeL50tHX4TxjVP0H_UxYeYFKhGFp0yeQ',
     // Both conversion sheets, summed per Date + Campaign — each names the
     // conversion differently.
@@ -769,7 +769,7 @@ const ALL_PROJECTS = [
     clicksCol: 'Click',
     ownDateFilter: true,
     defaultRangeDays: 30,
-    excludeCampaign: (key) => !(key.includes('web') || key.includes('cpi')),
+    excludeCampaign: (key) => TALAEEN_EXCLUDED.some(term => key.includes(term)) || key.includes('db_rtrgt_cp_sticky'),
     // An overview reports the whole spend, including campaigns with no KYC row.
     includeUnmatchedCost: true,
     hideDeepAnalysis: true,
