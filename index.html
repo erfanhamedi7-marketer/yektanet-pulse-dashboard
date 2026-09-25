@@ -773,6 +773,7 @@ const ALL_PROJECTS = [
     // An overview reports the whole spend, including campaigns with no KYC row.
     includeUnmatchedCost: true,
     hideDeepAnalysis: true,
+    showCostCategoryBreakdown: true,
     theme: BRANDS.talaeen
   },
   {
@@ -1718,6 +1719,16 @@ function renderSectionsShell(){
       </div>` : ''}
       <div class="coverage-note" id="coverageNote-${p.id}"></div>
       <div class="kpis" id="kpis-${p.id}"></div>
+      ${p.showCostCategoryBreakdown ? `
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h2>هزینه به تفکیک نوع کمپین</h2>
+            <div class="card-sub">web و cpi در برابر بقیه‌ی کمپین‌ها — همون‌هایی که باعث اختلاف CPA این صفحه با داشبورد وب/اپ می‌شن</div>
+          </div>
+        </div>
+        <div id="costCategoryBreakdown-${p.id}"></div>
+      </div>` : ''}
       ${p.kind === 'cpi' ? cpiCards(p) : (p.kind === 'budget' ? `
       <div class="card">
         <div class="card-head">
@@ -2914,6 +2925,48 @@ function updateCpiSection(project){
   });
 }
 
+// Buckets cost into web / cpi(app) / other by campaign name, and lists each
+// "other" campaign individually — this is what's dragging the overview's CPA
+// away from the web-only and app-only dashboards' CPA, since it's cost that
+// isn't in either of those.
+function renderCostCategoryBreakdown(project, joined){
+  const el = document.getElementById(`costCategoryBreakdown-${project.id}`);
+  if(!el) return;
+  const byCampaign = {};
+  joined.forEach(r=>{
+    if(!byCampaign[r.campaign]) byCampaign[r.campaign] = {label:r.campaignLabel, cost:0, conversion:0};
+    byCampaign[r.campaign].cost += r.cost;
+    byCampaign[r.campaign].conversion += r.conversion;
+  });
+  const buckets = {web:{cost:0, conversion:0}, cpi:{cost:0, conversion:0}, other:{cost:0, conversion:0, campaigns:[]}};
+  Object.entries(byCampaign).forEach(([key, c])=>{
+    if(c.cost<=0 && c.conversion<=0) return;
+    if(key.includes('web')){ buckets.web.cost+=c.cost; buckets.web.conversion+=c.conversion; }
+    else if(key.includes('cpi')){ buckets.cpi.cost+=c.cost; buckets.cpi.conversion+=c.conversion; }
+    else { buckets.other.cost+=c.cost; buckets.other.conversion+=c.conversion; buckets.other.campaigns.push({label:c.label, cost:c.cost, conversion:c.conversion}); }
+  });
+  const totalCost = buckets.web.cost + buckets.cpi.cost + buckets.other.cost;
+  const cpaOf = b => b.conversion>0 ? b.cost/b.conversion : null;
+  const rows = [
+    {label:'web', ...buckets.web},
+    {label:'cpi (اپ)', ...buckets.cpi},
+    {label:'بقیه (نه web، نه cpi)', ...buckets.other}
+  ];
+  let html = `<ul class="deep-list">` + rows.map(r=>`
+    <li class="deep-item">
+      <b>${escapeHtml(r.label)}</b> — هزینه: ${fmtMoney(r.cost)} (${totalCost>0?(r.cost/totalCost*100).toFixed(0):0}٪ از کل) — ${project.conversionLabel}: ${fmtNum(r.conversion)} — CPA: ${cpaOf(r)!==null?fmtMoney(cpaOf(r)):'—'}
+    </li>`).join('') + `</ul>`;
+  if(buckets.other.campaigns.length){
+    const list = buckets.other.campaigns.sort((a,b)=>b.cost-a.cost);
+    html += `<div class="deep-subtext" style="margin:12px 0 4px;font-weight:700;color:var(--text);">کمپین‌های داخل «بقیه» (مرتب بر اساس هزینه)</div>`;
+    html += `<ul class="deep-list">` + list.map(c=>`
+      <li class="deep-item">
+        ${escapeHtml(c.label)} — ${fmtMoney(c.cost)} — ${project.conversionLabel}: ${fmtNum(c.conversion)}${c.conversion===0?' <span style="color:var(--negative)">(بدون کانورژن ثبت‌شده)</span>':''}
+      </li>`).join('') + `</ul>`;
+  }
+  el.innerHTML = html;
+}
+
 function updateSection(project){
   if(project.kind === 'budget') return updateBudgetSection(project);
   if(project.kind === 'cpi') return updateCpiSection(project);
@@ -2925,6 +2978,7 @@ function updateSection(project){
   const cpa = totalConversion>0 ? totalCost/totalConversion : null;
 
   renderCoverageNote(project, joined, matchedCost, totalCostInSheet, totalCost);
+  if(project.showCostCategoryBreakdown) renderCostCategoryBreakdown(project, joined);
 
   const cards = [
     {label:'هزینه کل', value: fmtMoney(totalCost)},
