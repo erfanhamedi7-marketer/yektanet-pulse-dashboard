@@ -226,7 +226,7 @@
   }
   .ms-toggle:hover{border-color:var(--accent-ink);}
   .ms-panel{
-    position:absolute;top:calc(100% + 6px);left:0;z-index:60;min-width:260px;max-width:340px;
+    position:absolute;top:calc(100% + 6px);left:0;z-index:60;min-width:280px;max-width:420px;
     max-height:320px;overflow-y:auto;background:var(--surface);border:1px solid var(--border);
     border-radius:10px;padding:8px;box-shadow:var(--shadow-pop);
   }
@@ -239,16 +239,18 @@
   .ms-search:focus{outline:none;border-color:var(--accent-ink);box-shadow:0 0 0 3px var(--accent-soft);}
   .ms-empty{padding:10px 8px;font-size:12px;color:var(--text-muted);text-align:center;}
   .ms-option{
-    display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:6px;font-size:12.5px;
+    display:flex;align-items:flex-start;gap:8px;padding:7px 8px;border-radius:6px;font-size:12.5px;
     cursor:pointer;color:var(--text);
   }
   .ms-option:hover{background:var(--surface-2);}
-  .ms-option input{accent-color:var(--accent-ink);flex-shrink:0;}
+  .ms-option input{accent-color:var(--accent-ink);flex-shrink:0;margin-top:3px;}
   /* .ms-option sets display:flex, which would otherwise beat the browser's
      own [hidden] rule and leave filtered-out rows on screen. */
   .ms-option[hidden]{display:none;}
-  .ms-option-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .ms-option-cost{font-family:var(--font-mono);font-size:11px;color:var(--text-faint);flex-shrink:0;}
+  /* Campaign names are long and the end of one is often the part that tells
+     them apart, so a name wraps onto a second line rather than being cut. */
+  .ms-option-label{flex:1;min-width:0;overflow-wrap:anywhere;line-height:1.6;}
+  .ms-option-cost{font-family:var(--font-mono);font-size:11px;color:var(--text-faint);flex-shrink:0;padding-top:2px;}
   .ms-option-all{font-weight:700;}
   .ms-option-all span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .ms-divider{height:1px;background:var(--border);margin:6px 2px;}
@@ -1063,9 +1065,10 @@ function buildBudgetDaily(project){
       declared += r.cost;
       const billable = Math.min(declared, budget) - before;  // today's part still inside the budget
       if(!inRange(r.date)) return;
-      const d = byDate[r.date] = byDate[r.date] || {cost:0, costReal:0, profit:0};
+      const d = byDate[r.date] = byDate[r.date] || {cost:0, costReal:0, profit:0, sessions:0};
       d.cost += r.cost;
       d.costReal += r.costReal;
+      d.sessions += r.sessions;
       d.profit += billable - r.costReal;
     });
   });
@@ -1076,8 +1079,10 @@ function buildBudgetDaily(project){
     cost: keys.map(k=>byDate[k].cost),
     costReal: keys.map(k=>byDate[k].costReal),
     profit: keys.map(k=>byDate[k].profit),
-    totals: keys.reduce((t,k)=>({cost:t.cost+byDate[k].cost, costReal:t.costReal+byDate[k].costReal, profit:t.profit+byDate[k].profit}),
-                        {cost:0, costReal:0, profit:0}),
+    sessions: keys.map(k=>byDate[k].sessions),
+    totals: keys.reduce((t,k)=>({cost:t.cost+byDate[k].cost, costReal:t.costReal+byDate[k].costReal,
+                                 profit:t.profit+byDate[k].profit, sessions:t.sessions+byDate[k].sessions}),
+                        {cost:0, costReal:0, profit:0, sessions:0}),
     dayCount: keys.length
   };
 }
@@ -2492,12 +2497,11 @@ function updateBudgetSection(project){
     note.push(`${fmtNum(project.noBudgetCampaigns.length)} کمپین هزینه دارن ولی ردیف بودجه ندارن (سودشون بدون سقف حساب شده): ${escapeHtml(project.noBudgetCampaigns.slice(0,4).join('، '))}`);
   document.getElementById(`coverageNote-${project.id}`).innerHTML = note.join(' — ');
 
-  const margin = daily.totals.cost>0 ? daily.totals.profit/daily.totals.cost*100 : null;
   const cards = [
     {label:'Cost اعلامی (بازه)', value: fmtMoney(daily.totals.cost)},
     {label:'Cost R واقعی (بازه)', value: fmtMoney(daily.totals.costReal)},
     {label:'سود بازه', value: fmtMoney(daily.totals.profit), accent:true},
-    {label:'حاشیه سود', value: margin!==null ? `${margin.toFixed(1)}٪` : '—'},
+    {label:'سشن (بازه)', value: fmtNum(daily.totals.sessions)},
     {label:'باقی‌مانده‌ی بودجه (کل)', value: fmtMoney(totals.remaining)}
   ];
   const kpiEl = document.getElementById(`kpis-${project.id}`);
