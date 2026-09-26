@@ -808,7 +808,7 @@ const ALL_PROJECTS = [
     group: 'talaeen',
     partTitle: 'وب',
     title: 'طلاین — وب',
-    subtitle: 'Web - Campaign (مرجع) × Cost - Yektanet — فقط کمپین‌های شامل web',
+    subtitle: 'Web - Campaign (مرجع) × Cost - Yektanet — کمپین‌های شامل web یا شروع‌شده با sl',
     spreadsheetId: '1r9f3Vdl6ldgQeL50tHX4TxjVP0H_UxYeYFKhGFp0yeQ',
     refSheet: 'Web - Campaign',
     costSheet: 'Cost - Yektanet',
@@ -826,7 +826,9 @@ const ALL_PROJECTS = [
     includeUnmatchedCost: true,
     ownDateFilter: true,
     defaultRangeDays: 30,
-    excludeCampaign: (key) => !key.includes('web'),
+    // The web funnel is named two ways: a "web" in the name, or the sl- prefix
+    // the panel's own campaigns use.
+    excludeCampaign: (key) => !(key.includes('web') || key.startsWith('sl')),
     // Three tabs that count the same Verified against a different dimension.
     // They carry no campaign column, so only the date filter reaches them.
     dimensionTables: [
@@ -1269,7 +1271,12 @@ function getCampaignOptionsSortedByCost(project){
   project.rawCost.forEach(r=>{ costByCampaign[r.campaign] = (costByCampaign[r.campaign]||0) + r.cost; });
   const labelByCampaign = {};
   project.rawRef.forEach(r=>{ if(!labelByCampaign[r.campaign]) labelByCampaign[r.campaign] = r.campaignLabel; });
-  const allKeys = new Set([...Object.keys(costByCampaign), ...Object.keys(labelByCampaign)]);
+  // A campaign the section can never show has no business in its filter: when
+  // only matched cost counts, the conversion sheet decides what exists here,
+  // so a campaign that appears solely in the cost sheet is left out.
+  const allKeys = project.includeUnmatchedCost
+    ? new Set([...Object.keys(costByCampaign), ...Object.keys(labelByCampaign)])
+    : new Set(Object.keys(labelByCampaign));
   return Array.from(allKeys).map(k=>({
     key: k, label: labelByCampaign[k] || k, cost: costByCampaign[k] || 0
   })).sort((a,b)=> b.cost - a.cost || a.label.localeCompare(b.label));
