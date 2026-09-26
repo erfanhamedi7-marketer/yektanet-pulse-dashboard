@@ -782,7 +782,7 @@ const ALL_PROJECTS = [
     group: 'talaeen',
     partTitle: 'نصب اپلیکیشن',
     title: 'طلاین — نصب اپلیکیشن',
-    subtitle: 'Adtrace (مرجع) × Cost - Yektanet',
+    subtitle: 'Adtrace (مرجع) × Cost - Yektanet — فقط کمپین‌های شامل cpi',
     spreadsheetId: '1r9f3Vdl6ldgQeL50tHX4TxjVP0H_UxYeYFKhGFp0yeQ',
     refSheet: 'Adtrace',
     costSheet: 'Cost - Yektanet',
@@ -800,6 +800,8 @@ const ALL_PROJECTS = [
     includeUnmatchedCost: true,
     ownDateFilter: true,
     defaultRangeDays: 30,
+    // The install campaigns name themselves: this page is only about them.
+    excludeCampaign: (key) => !key.includes('cpi'),
     theme: BRANDS.talaeen
   },
   {
@@ -807,7 +809,7 @@ const ALL_PROJECTS = [
     group: 'talaeen',
     partTitle: 'وب',
     title: 'طلاین — وب',
-    subtitle: 'Web - Campaign (مرجع) × Cost - Yektanet — بدون wheel / seo / _aghsat / _pishraft / branding',
+    subtitle: 'Web - Campaign (مرجع) × Cost - Yektanet — فقط کمپین‌های شامل web',
     spreadsheetId: '1r9f3Vdl6ldgQeL50tHX4TxjVP0H_UxYeYFKhGFp0yeQ',
     refSheet: 'Web - Campaign',
     costSheet: 'Cost - Yektanet',
@@ -825,7 +827,7 @@ const ALL_PROJECTS = [
     includeUnmatchedCost: true,
     ownDateFilter: true,
     defaultRangeDays: 30,
-    excludeCampaign: (key) => TALAEEN_EXCLUDED.some(term => key.includes(term)),
+    excludeCampaign: (key) => !key.includes('web'),
     // Three tabs that count the same Verified against a different dimension.
     // They carry no campaign column, so only the date filter reaches them.
     dimensionTables: [
