@@ -1207,6 +1207,7 @@ function groupByDateGeneric(joined){
   return {
     labels: keys.map(fmtDateLabel),
     cost: keys.map(k=>map[k].cost),
+    conversion: keys.map(k=>map[k].conversion),
     cpaSeries: keys.map(k=> map[k].conversion>0 ? (map[k].cost/map[k].conversion) : null)
   };
 }
@@ -2665,7 +2666,7 @@ function renderCoverageNote(project, joined, matchedCost, totalCostInSheet, tota
 function renderCostCpaChart(project, key, canvasId, joined, cpaLabel){
   const canvas = document.getElementById(canvasId);
   if(!canvas) return;
-  const {labels, cost, cpaSeries} = groupByDateGeneric(joined);
+  const {labels, cost, conversion, cpaSeries} = groupByDateGeneric(joined);
   if(chartInstances[key]){ chartInstances[key].destroy(); }
   const accent2Hex = project.theme.accent2;
   const inkHex = project.theme.ink || project.theme.accent;
@@ -2697,7 +2698,15 @@ function renderCostCpaChart(project, key, canvasId, joined, cpaLabel){
           displayColors:true, usePointStyle:true,
           titleFont:{family:"'IBM Plex Mono', monospace", size:11},
           bodyFont:{family:"'IBM Plex Mono', monospace", size:11.5},
-          callbacks:{ label: ctx => `${ctx.dataset.label}: ${fmtNum(ctx.parsed.y,0)}` }
+          callbacks:{
+            label: ctx => `${ctx.dataset.label}: ${fmtNum(ctx.parsed.y,0)}`,
+            // Cost and CPA are both made of the day's conversion count, so the
+            // hovered day states it rather than leaving it to be divided back
+            // out — without spending a third series on the chart.
+            afterBody: items => items.length
+              ? `${project.conversionLabel || 'کانورژن'}: ${fmtNum(conversion[items[0].dataIndex])}`
+              : ''
+          }
         }
       },
       scales:{
