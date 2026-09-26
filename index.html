@@ -795,6 +795,10 @@ const ALL_PROJECTS = [
     creativeCol: 'Creative',
     impressionsCol: 'Impression',
     clicksCol: 'Click',
+    // A day can carry cost with no conversion row, or a conversion row with no
+    // cost — both are real and both belong on the page, so the join keeps
+    // either side alone rather than only the days that matched.
+    includeUnmatchedCost: true,
     ownDateFilter: true,
     defaultRangeDays: 30,
     theme: BRANDS.talaeen
@@ -816,6 +820,10 @@ const ALL_PROJECTS = [
     hideSegmentAnalysis: true,
     impressionsCol: 'Impression',
     clicksCol: 'Click',
+    // A day can carry cost with no conversion row, or a conversion row with no
+    // cost — both are real and both belong on the page, so the join keeps
+    // either side alone rather than only the days that matched.
+    includeUnmatchedCost: true,
     ownDateFilter: true,
     defaultRangeDays: 30,
     excludeCampaign: (key) => TALAEEN_EXCLUDED.some(term => key.includes(term)),
@@ -844,6 +852,10 @@ const ALL_PROJECTS = [
     hideSegmentAnalysis: true,
     impressionsCol: 'Impression',
     clicksCol: 'Click',
+    // A day can carry cost with no conversion row, or a conversion row with no
+    // cost — both are real and both belong on the page, so the join keeps
+    // either side alone rather than only the days that matched.
+    includeUnmatchedCost: true,
     ownDateFilter: true,
     defaultRangeDays: 30,
     excludeCampaign: (key) => !key.includes('wheel-sp'),
