@@ -1310,7 +1310,9 @@ function yesterdayWithin(minDate, maxDate){
 
 // The Persian week opens on Saturday, so "this week" runs from the last
 // Saturday up to the newest day the sheet has. Anchoring on that day rather
-// than on today keeps the range non-empty when a sheet lags a few days.
+// than on today keeps the range non-empty when a sheet lags a few days — and
+// since the dashboard ends at yesterday, asking for it on a Saturday gives the
+// week that just finished rather than a range of zero days.
 function weekStartFor(yyyymmdd){
   const d = new Date(toInputDate(yyyymmdd));
   d.setDate(d.getDate() - ((d.getDay() + 1) % 7));   // Sat=6 -> 0 days back
@@ -2643,7 +2645,7 @@ function renderCoverageNote(project, joined, matchedCost, totalCostInSheet, tota
   if(d.excludedCost > 0) notes.push(`${fmtMoney(d.excludedCost)} هزینه‌ی کمپین‌های خارج از فیلتر این پروژه (کل بازه‌ی شیت)`);
   if(d.skippedRows > 0) notes.push(`<b>${fmtNum(d.skippedRows)}</b> ردیف بدون Date یا Campaign نادیده گرفته شد (${fmtMoney(d.skippedCost)})`);
   if(d.unreadableCost > 0) notes.push(`<b>${fmtNum(d.unreadableCost)}</b> سلول Cost با فرمت غیرقابل‌خوندن`);
-  if(d.futureRows > 0) notes.push(`<b>${fmtNum(d.futureRows)}</b> ردیف با تاریخ آینده نادیده گرفته شد`);
+  if(d.futureRows > 0) notes.push(`<b>${fmtNum(d.futureRows)}</b> ردیف مربوط به امروز یا بعد از اون نادیده گرفته شد (روز جاری هنوز کامل نیست)`);
   if(d.refNoCostCampaign > 0) notes.push(`<b>${fmtNum(d.refNoCostCampaign)}</b> ردیف کانورژن کنار گذاشته شد چون کمپینش توی شیت هزینه نیست`);
   // Cost in the range with nothing to join it to reads as an empty section;
   // say which side ran out and when, instead of showing zeroes.
@@ -3039,7 +3041,8 @@ async function loadProject(project){
         fetchSheetCached(project.spreadsheetId, project.budgetSheet)
       ]);
       const today = todayStr();
-      project.rawBlend = normalizeBlendRows(blendRows).filter(r=>!(/^\d{8}$/.test(r.date) && r.date > today));
+      // Same rule as the other sections: the day in progress isn't reported.
+      project.rawBlend = normalizeBlendRows(blendRows).filter(r=>!(/^\d{8}$/.test(r.date) && r.date >= today));
       project.rawBudget = normalizeBudgetRows(budgetRows);
       project.budgetByCampaign = {};
       project.rawBudget.forEach(r=>{ project.budgetByCampaign[r.campaign] = r; });
@@ -3098,14 +3101,17 @@ async function loadProject(project){
       diag.excludedCost = project.rawCost.reduce((s,r)=>s+r.cost,0) - keptCost.reduce((s,r)=>s+r.cost,0);
       project.rawCost = keptCost;
     }
-    // Sheets often carry pre-created rows for days that haven't happened yet.
-    // Left in, they push maxDate into the future — so "last 7 days" lands on
-    // empty days and the chart draws columns for days with nothing in them.
+    // Today and anything after it is dropped. Sheets carry pre-created rows for
+    // days that haven't happened yet, which would push maxDate forward and make
+    // "last 7 days" land on empty days; and today's own row is only as complete
+    // as the hour it was last filled, so a half-day of cost against a half-day
+    // of conversions makes every average lie. The dashboard therefore ends at
+    // yesterday, which is the last day that is actually finished.
     // Only well-formed YYYYMMDD dates are compared, so other date shapes stay.
     const today = todayStr();
-    const isFuture = d => /^\d{8}$/.test(d) && d > today;
+    const isUnfinished = d => /^\d{8}$/.test(d) && d >= today;
     const dropFuture = (rows, count) => {
-      const kept = rows.filter(r=>!isFuture(r.date));
+      const kept = rows.filter(r=>!isUnfinished(r.date));
       if(count) diag.futureRows += rows.length - kept.length;
       return kept;
     };
