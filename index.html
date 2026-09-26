@@ -782,7 +782,7 @@ const ALL_PROJECTS = [
     group: 'talaeen',
     partTitle: 'نصب اپلیکیشن',
     title: 'طلاین — نصب اپلیکیشن',
-    subtitle: 'Adtrace (مرجع) × Cost - Yektanet — فقط کمپین‌های شامل cpi',
+    subtitle: 'Adtrace (مرجع) × Cost - Yektanet — کمپین‌هایی که Adtrace گزارش کرده',
     spreadsheetId: '1r9f3Vdl6ldgQeL50tHX4TxjVP0H_UxYeYFKhGFp0yeQ',
     refSheet: 'Adtrace',
     costSheet: 'Cost - Yektanet',
@@ -794,14 +794,13 @@ const ALL_PROJECTS = [
     creativeCol: 'Creative',
     impressionsCol: 'Impression',
     clicksCol: 'Click',
-    // A day can carry cost with no conversion row, or a conversion row with no
-    // cost — both are real and both belong on the page, so the join keeps
-    // either side alone rather than only the days that matched.
-    includeUnmatchedCost: true,
+    // Adtrace decides what this page is about: cost joins onto the days and
+    // campaigns it reports, and nothing else. That is what keeps the web
+    // campaigns' spend off an install page without having to guess at the
+    // naming — the install campaigns are simply the ones Adtrace tracks.
+    // (The overview still reports the sheet's whole spend.)
     ownDateFilter: true,
     defaultRangeDays: 30,
-    // The install campaigns name themselves: this page is only about them.
-    excludeCampaign: (key) => !key.includes('cpi'),
     theme: BRANDS.talaeen
   },
   {
