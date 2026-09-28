@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Yektanet Pulse — Cost × KYC Blend</title>
+<title>Management Dashboard</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="alternate icon" href="/favicon-32.png" sizes="32x32" type="image/png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -278,6 +278,36 @@
     content:'';height:3px;width:26px;border-radius:2px;background:var(--accent-grad);flex-shrink:0;
   }
   .section-sub{font-size:12px;color:var(--text-muted);}
+
+  /* Descriptions under headings stay in the page (the renderers keep writing
+     them) but are not shown; a "?" beside the heading opens them in a popup
+     instead (see syncHints / showHint). */
+  .topbar .sub, .section-sub, .card-sub, .deep-subtext.intro{display:none !important;}
+  .hint{
+    display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;
+    width:18px;height:18px;border-radius:50%;margin-inline-start:8px;vertical-align:middle;
+    font-family:var(--font-ui);font-size:11px;font-weight:700;line-height:1;letter-spacing:0;
+    color:var(--text-muted);background:var(--surface-3);border:1px solid var(--border-strong);
+    cursor:help;user-select:none;-webkit-user-select:none;
+    transition:background .15s, color .15s, border-color .15s;
+  }
+  .section-title .hint{margin-inline-start:0;}   /* the title's own flex gap spaces it */
+  /* On touch screens the "?" is a thing to tap; iOS also needs the pointer
+     cursor before it will report the tap at all. A bigger target helps too. */
+  @media (hover:none){ .hint{cursor:pointer;width:22px;height:22px;font-size:12px;} }
+  .hint:hover, .hint:focus-visible, .hint.open{
+    outline:none;background:var(--accent-soft);color:var(--accent-ink);border-color:var(--accent-ink);
+  }
+  #hintPop{
+    position:fixed;top:0;left:0;z-index:300;max-width:min(360px, calc(100vw - 24px));
+    background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:14px;
+    box-shadow:var(--shadow-pop);padding:10px 14px;
+    font-family:var(--font-ui);font-size:12px;font-weight:400;line-height:1.9;text-align:right;
+    pointer-events:none;visibility:hidden;opacity:0;transform:translateY(4px);
+    transition:opacity .12s, transform .12s, visibility 0s linear .12s;
+  }
+  #hintPop.show{visibility:visible;opacity:1;transform:none;transition:opacity .12s, transform .12s;}
+  #hintPop b{font-family:var(--font-mono);font-weight:700;}
   .campaign-select{
     background:var(--surface);border:1px solid var(--border);border-radius:11px;
     padding:8px 11px;font-family:var(--font-ui);font-size:12.5px;color:var(--text);
@@ -639,7 +669,7 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-5 4 4 8-9"/><path d="M14 7h6v6"/></svg>
       </div>
       <div>
-        <h1>Marketing Pulse</h1>
+        <h1>Management Dashboard</h1>
         <div class="sub">داشبورد چندپروژه‌ای — هر سکشن، جوین Adtrace با شیت هزینه بر اساس Date + Campaign</div>
       </div>
     </div>
@@ -939,7 +969,7 @@ function snappSections(){
     group: 'snapp',
     ...(i === 0 ? {groupTitle: 'اسنپ'} : {}),
     partTitle: part.partTitle,
-    title: 'پروژه ' + part.title,
+    title: part.title,
     subtitle: 'Blend Data (روزانه) × Budgeting (بودجه هر کمپین)',
     logo: '/snapp-logo.svg',
     kind: 'budget',
@@ -963,7 +993,7 @@ const TALAEEN_EXCLUDED = ['wheel', 'seo', '_aghsat', '_pishraft', 'branding'];
 const ALL_PROJECTS = [
   {
     id: 'appliance-city',
-    title: 'پروژه شهر لوازم خانگی',
+    title: 'شهر لوازم خانگی',
     tabTitle: 'شهر لوازم خانگی',
     subtitle: 'Yektanet - Export — فقط کمپین‌های شامل -prf',
     logo: '/shahr-logo.svg',
@@ -1120,7 +1150,7 @@ const ALL_PROJECTS = [
   },
   {
     id: 'wepod',
-    title: 'پروژه ویپاد',
+    title: 'ویپاد',
     logo: '/wepod-logo.jpg',
     tabTitle: 'ویپاد',
     subtitle: 'Wepod - Metrix (مرجع) × Wepod - Yektanet',
@@ -1141,7 +1171,7 @@ const ALL_PROJECTS = [
   },
   {
     id: 'blue',
-    title: 'پروژه بلو',
+    title: 'بلو',
     tabTitle: 'بلو',
     subtitle: 'Adtrace (مرجع) × Yektanet',
     logo: '/blu-logo.png',
@@ -1163,7 +1193,7 @@ const ALL_PROJECTS = [
     id: 'blue-junior',
     // Hidden for now — flip this back to false (or delete the line) to bring it back.
     hidden: true,
-    title: 'پروژه بلو جونیور',
+    title: 'بلو جونیور',
     logo: '/blu-junior-logo.png',
     tabTitle: 'بلوجونیور',
     subtitle: 'Adtrace (مرجع) × Yektanet',
@@ -1184,7 +1214,7 @@ const ALL_PROJECTS = [
   },
   {
     id: 'bankino',
-    title: 'پروژه بانکینو',
+    title: 'بانکینو',
     logo: '/bankino-logo.jpg',
     tabTitle: 'بانکینو',
     subtitle: 'Bankino - Metrix (مرجع) × Bankino - Yektanet',
@@ -2442,7 +2472,7 @@ function renderSegmentIssues(project, joined){
   if(head){
     const t = computeSegmentCpa(project, joined, r=>r.adgroup);
     const installLabel = project.installsLabel || 'نصب';
-    head.innerHTML = `<div class="deep-subtext">
+    head.innerHTML = `<div class="deep-subtext intro">
       هزینه فقط در سطح کمپین موجوده، پس برای هر کمپین «هزینه به ازای ${escapeHtml(installLabel)}» حساب شده (هزینه‌ی کمپین ÷ ${escapeHtml(installLabel)} کمپین) و هزینه‌ی هر Adgroup / Creative = ${escapeHtml(installLabel)} خودش × همون عدد؛ بعد CPA = این هزینه ÷ ${escapeHtml(project.conversionLabel)} خودش.
       فقط مواردی میان که حجم ${escapeHtml(installLabel)}شون معنادار باشه${t ? ` (حداقل ${fmtNum(t.minInstalls)}؛ برای موارد بدون کانورژن حداقل ${fmtNum(t.minInstalls*2)})` : ''}، و CPA‌شون از میانگین پروژه بالاتر باشه — همه‌شون، به‌ترتیب گرون‌ترین${t && t.benchmark ? ` — میانگین CPA پروژه در همین بازه: ${fmtMoney(t.benchmark)}` : ''}.
       ${t && t.unpricedCampaigns ? `<br>${fmtNum(t.unpricedCampaigns)} کمپین چون توی این بازه ${escapeHtml(installLabel)} نداشته قابل قیمت‌گذاری نبوده و کنار گذاشته شده.` : ''}
@@ -2499,7 +2529,7 @@ function renderCampaignCpaTable(project, joined, elId){
   const cpaLabel = project.cpaLabel || 'CPA';
 
   const head = `
-    <div class="deep-subtext">
+    <div class="deep-subtext intro">
       ${fmtDateLabel(t.from)} تا ${fmtDateLabel(t.to)} (${fmtNum(t.dayCount)} روز) —
       میانگین ${escapeHtml(cpaLabel)} در همین بازه: <b>${t.benchmark!==null?fmtMoney(t.benchmark):'—'}</b>.
       ستون «نسبت به میانگین» اختلاف هر کمپین با همین عدده.
@@ -2685,7 +2715,7 @@ function renderSessionGaps(project){
   }).join('');
 
   el.innerHTML = headline
-    + `<div class="deep-subtext">سهم هر کمپین از اون ${Math.abs(r.overallPct).toFixed(1)}٪، برحسب واحد درصد. مجموع سهم همه‌ی کمپین‌ها دقیقاً همون اختلاف کلیه.</div>`
+    + `<div class="deep-subtext intro">سهم هر کمپین از اون ${Math.abs(r.overallPct).toFixed(1)}٪، برحسب واحد درصد. مجموع سهم همه‌ی کمپین‌ها دقیقاً همون اختلاف کلیه.</div>`
     + `<ul class="deep-list">${rows}</ul>`
     + (r.driverCount > r.drivers.length ? `<div class="deep-subtext" style="margin-top:8px;">${fmtNum(r.driverCount - r.drivers.length)} کمپین دیگه هم اختلاف کوچیک‌تری دارن.</div>` : '');
 }
@@ -3257,7 +3287,7 @@ function renderCreativeCpiTable(project, group, elId, segLabel){
     return;
   }
   const head = `
-    <div class="deep-subtext">
+    <div class="deep-subtext intro">
       هزینه فقط در سطح کمپین موجوده، پس هزینه‌ی هر روزِ هر کمپین به‌نسبت نصب بین ${escapeHtml(segLabel)}‌های همون روز پخش شده؛
       ${escapeHtml(cpaLabel)} هر ${escapeHtml(segLabel)} = هزینه‌ی تخصیصی ÷ نصب خودش.
       میانگین ${escapeHtml(cpaLabel)} این بخش در همین بازه: <b>${t.benchmark!==null?fmtMoney(t.benchmark):'—'}</b> —
@@ -3673,6 +3703,100 @@ function paintPageAccent(tab){
   document.documentElement.style.setProperty('--page-accent', th.accent || '#2563EB');
   document.documentElement.style.setProperty('--page-accent-ink', th.ink || th.accent || '#1D4ED8');
 }
+
+// ---- "?" hints ------------------------------------------------------------
+// The descriptions under headings are hidden (CSS) and read from a "?" beside
+// the heading instead. A heading's description is its sibling .sub /
+// .section-sub / .card-sub, or — for a sub-heading inside a card — the
+// .deep-subtext.intro its renderer writes into the block right after it.
+const HINT_TITLES = '.topbar h1, .section-title, .card-head h2, .deep-subhead';
+function hintSource(title){
+  if(title.matches('.deep-subhead')){
+    const next = title.nextElementSibling;
+    if(!next) return null;
+    return next.matches('.deep-subtext.intro') ? next : next.querySelector(':scope > .deep-subtext.intro');
+  }
+  const holder = title.parentElement;
+  return holder ? holder.querySelector(':scope > .sub, :scope > .section-sub, :scope > .card-sub') : null;
+}
+// Renderers rewrite blocks on every filter change, so the icons are kept in
+// step afterwards: a heading gains a "?" when it has a description and loses
+// it when the description is gone or empty (a range with no data, say).
+function syncHints(){
+  document.querySelectorAll(HINT_TITLES).forEach(title=>{
+    const src = hintSource(title);
+    const has = !!(src && src.textContent.trim());
+    const icon = title.querySelector(':scope > .hint');
+    if(has && !icon){
+      title.insertAdjacentHTML('beforeend', '<span class="hint" role="button" tabindex="0" aria-label="توضیحات">?</span>');
+    }else if(!has && icon){
+      icon.remove();
+    }
+  });
+  if(hintOpen && !document.body.contains(hintOpen)) hideHint();
+}
+
+const hintPop = document.createElement('div');
+hintPop.id = 'hintPop';
+hintPop.setAttribute('role', 'tooltip');
+document.body.appendChild(hintPop);
+let hintOpen = null;
+
+// The popup is read from the description at the moment it opens, so it always
+// shows what the current filters produced. It sits under the "?" (above it if
+// there is no room below) and is kept 12px inside the screen on both sides.
+function showHint(icon){
+  const src = hintSource(icon.parentElement);
+  if(!src || !src.textContent.trim()) return;
+  if(hintOpen && hintOpen !== icon) hintOpen.classList.remove('open');
+  hintOpen = icon;
+  icon.classList.add('open');
+  hintPop.innerHTML = src.innerHTML;
+  hintPop.classList.add('show');
+  const r = icon.getBoundingClientRect();
+  const pw = hintPop.offsetWidth, ph = hintPop.offsetHeight;
+  const vw = document.documentElement.clientWidth, vh = window.innerHeight;
+  const left = Math.max(12, Math.min(r.left + r.width / 2 - pw / 2, vw - pw - 12));
+  let top = r.bottom + 8;
+  if(top + ph > vh - 8 && r.top - ph - 8 >= 8) top = r.top - ph - 8;
+  hintPop.style.left = left + 'px';
+  hintPop.style.top = top + 'px';
+}
+function hideHint(){
+  if(hintOpen) hintOpen.classList.remove('open');
+  hintOpen = null;
+  hintPop.classList.remove('show');
+}
+const hintAt = el => el && el.closest ? el.closest('.hint') : null;
+// Mouse: open on hover, close on leaving unless the "?" was clicked (focused).
+// Touch: a tap focuses the "?" and opens it; a tap anywhere else closes it.
+document.addEventListener('mouseover', e=>{ const h = hintAt(e.target); if(h) showHint(h); });
+document.addEventListener('mouseout', e=>{
+  const h = hintAt(e.target);
+  if(h && !h.contains(e.relatedTarget) && document.activeElement !== h) hideHint();
+});
+document.addEventListener('focusin', e=>{ const h = hintAt(e.target); if(h) showHint(h); });
+document.addEventListener('focusout', e=>{ if(hintAt(e.target)) hideHint(); });
+document.addEventListener('click', e=>{ const h = hintAt(e.target); if(h) showHint(h); else hideHint(); });
+document.addEventListener('keydown', e=>{
+  const h = hintAt(e.target);
+  if(e.key === 'Escape') hideHint();
+  else if(h && (e.key === 'Enter' || e.key === ' ')){ e.preventDefault(); showHint(h); }
+});
+// iOS Safari only passes a tap up to the document from something that looks
+// clickable, so a tap elsewhere is caught at touchstart as well.
+document.addEventListener('touchstart', e=>{ if(!hintAt(e.target)) hideHint(); }, {passive:true});
+// The popup is pinned to the screen, not the page, so it goes when the page moves.
+window.addEventListener('scroll', hideHint, {passive:true});
+window.addEventListener('resize', hideHint);
+
+let hintSyncQueued = false;
+new MutationObserver(()=>{
+  if(hintSyncQueued) return;
+  hintSyncQueued = true;
+  requestAnimationFrame(()=>{ hintSyncQueued = false; syncHints(); });
+}).observe(document.querySelector('.wrap'), {childList:true, subtree:true});
+syncHints();
 
 // On a phone the tab rows are single lines that scroll sideways, so the chosen
 // tab is brought to the middle of its row rather than left off-screen. The
