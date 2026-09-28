@@ -148,13 +148,13 @@
      shown in short form instead (1.01B, 447.2M; see fitKpiValue), with the
      exact figure in its tooltip. */
   .kpi .value{
-    font-family:var(--font-mono);font-size:32px;font-weight:300;letter-spacing:-0.035em;
+    font-family:var(--font-mono);font-size:32px;font-weight:700;letter-spacing:-0.025em;
     color:var(--text);font-variant-numeric:tabular-nums;line-height:1.1;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   }
-  .kpi .value .v-short{display:none;}
-  .kpi .value.short .v-full{display:none;}
-  .kpi .value.short .v-short{display:inline;}
+  .kpi .value .v-short, .kpi .value .v-tight{display:none;}
+  .kpi .value.short .v-full, .kpi .value.tight .v-full{display:none;}
+  .kpi .value.short .v-short, .kpi .value.tight .v-tight{display:inline;}
   .kpi .value.accent{color:var(--accent-ink);}
   .kpi .value .unit{font-size:.36em;font-weight:500;color:var(--text-faint);letter-spacing:0;}
   .kpi .ctx{font-size:11.5px;color:var(--text-faint);margin-top:6px;}
@@ -3034,14 +3034,18 @@ function sparkline(series, opts){
 
 // Short form of a figure: 1.01B, 447.2M, 51.5K. Two decimals below 10, one
 // above, trailing zeros dropped.
-function fmtShort(n){
+// `tight` keeps three significant figures (972M, 12.7M, 1.01B) for a card
+// where even the one-decimal form does not fit.
+function fmtShort(n, tight){
   const units = [[1e9, 'B'], [1e6, 'M'], [1e3, 'K']];
   const a = Math.abs(n);
   let i = a >= 1e9 ? 0 : a >= 1e6 ? 1 : 2;
-  let str = (n / units[i][0]).toFixed(a / units[i][0] < 10 ? 2 : 1);
+  const scaled = a / units[i][0];
+  let str = (n / units[i][0]).toFixed(scaled < 10 ? 2 : (tight && scaled >= 100) ? 0 : 1);
   // 999,999 rounds to 1000.0K; that is 1M.
   if(Math.abs(Number(str)) >= 1000 && i > 0){ i--; str = (n / units[i][0]).toFixed(2); }
-  return str.replace(/\.?0+$/, '') + units[i][1];
+  // Trailing zeros go only after a decimal point: 1.50 -> 1.5, but 480 stays 480.
+  return (str.includes('.') ? str.replace(/\.?0+$/, '') : str) + units[i][1];
 }
 // A card's figure, with its short form alongside when it has one. Both are in
 // the page and a class on the value picks which shows, so the choice can be
@@ -3053,15 +3057,21 @@ function kpiValueHtml(value){
   const m = text.match(/^\s*(-?)([\d,]+(?:\.\d+)?)(\s*تومان)?\s*$/);
   const n = m ? Number(m[1] + m[2].replace(/,/g, '')) : NaN;
   if(!isFinite(n) || Math.abs(n) < 1e4) return full;
-  return `<span class="v-full">${full}</span><span class="v-short">${fmtShort(n)}${m[3] ? unit : ''}</span>`;
+  const tail = m[3] ? unit : '';
+  const short = fmtShort(n), tight = fmtShort(n, true);
+  return `<span class="v-full">${full}</span><span class="v-short">${short}${tail}</span>`
+       + (tight !== short ? `<span class="v-tight">${tight}${tail}</span>` : '');
 }
 // Full figure if it fits its card at the fixed size, short form if not.
 function fitKpiValue(v){
-  v.classList.remove('short');
+  v.classList.remove('short', 'tight');
   // A card in a hidden section measures zero; switchTab re-fits it the
   // moment the section is shown.
   if(!v.clientWidth || !v.querySelector('.v-short')) return;
-  if(v.scrollWidth > v.clientWidth + 1) v.classList.add('short');
+  const overflows = () => v.scrollWidth > v.clientWidth + 1;
+  if(!overflows()) return;
+  v.classList.add('short');
+  if(overflows() && v.querySelector('.v-tight')) v.classList.replace('short', 'tight');
 }
 function fitKpiValues(root){
   (root || document).querySelectorAll('.kpi .value').forEach(fitKpiValue);
