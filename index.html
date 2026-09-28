@@ -7,23 +7,27 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="alternate icon" href="/favicon-32.png" sizes="32x32" type="image/png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<meta name="theme-color" content="#F3F5F9">
+<meta name="theme-color" content="#F7F3EA">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
   :root{
-    /* Light surfaces: the page is a soft neutral, every panel is plain white. */
-    --bg:#F3F5F9;
+    /* Warm paper: the page is a cream wash, every panel is plain white, and
+       one card per page is near-black so the eye has somewhere to land. */
+    --bg:#F7F3EA;
     --bg-elev:#FFFFFF;
     --surface:#FFFFFF;
-    --surface-2:#F5F7FB;
-    --surface-3:#EDF1F7;
-    --border:#E1E6EF;
-    --border-soft:#EDF0F6;
-    --text:#111827;
-    --text-muted:#5A6577;
-    --text-faint:#7C8798;
+    --surface-2:#FAF7F0;
+    --surface-3:#F2ECE1;
+    --border:#EAE3D5;
+    --border-soft:#F2EDE3;
+    --text:#15171C;
+    --text-muted:#5E6270;
+    --text-faint:#8A8C99;
+    --nav-dark:#17181D;
+    --nav-ink:#F5F2EA;
+    --warm:#F5D13B;
     /* Per-project brand colors override these three on each section. */
     --accent:#2563EB;
     --accent-ink:#1D4ED8;          /* the brand color stepped dark enough for text */
@@ -36,24 +40,26 @@
     --negative-soft:rgba(198,32,38,0.09);
     --amber:#B45309;
     --amber-soft:rgba(180,83,9,0.12);
-    --radius:14px;
-    --radius-sm:10px;
+    --radius:24px;
+    --radius-sm:16px;
+    --radius-xs:12px;
     --font-ui:'Vazirmatn',system-ui,-apple-system,sans-serif;
     --font-mono:'IBM Plex Mono',ui-monospace,monospace;
-    --border-strong:#CED6E3;
-    --shadow-card:0 1px 2px rgba(16,24,40,.04), 0 10px 24px -18px rgba(16,24,40,.28);
-    --shadow-lift:0 2px 4px rgba(16,24,40,.05), 0 18px 34px -20px rgba(16,24,40,.34);
-    --shadow-pop:0 12px 32px -12px rgba(16,24,40,.24), 0 2px 6px rgba(16,24,40,.06);
+    --border-strong:#DCD2C0;
+    --shadow-card:0 1px 2px rgba(58,46,24,.04), 0 14px 30px -22px rgba(58,46,24,.26);
+    --shadow-lift:0 2px 4px rgba(58,46,24,.05), 0 22px 40px -22px rgba(58,46,24,.30);
+    --shadow-pop:0 16px 40px -14px rgba(58,46,24,.24), 0 2px 6px rgba(58,46,24,.07);
   }
   *{box-sizing:border-box;}
   html{background:var(--bg);color-scheme:light;}
   body{
     margin:0;
-    /* The wash follows the open project's colour (see paintPageAccent). */
+    /* Cream paper with a pale-yellow sunrise in the corner; the tint over it
+       follows the open project's colour (see paintPageAccent). */
     background:
-      radial-gradient(1000px 460px at 88% -12%, color-mix(in srgb, var(--page-accent, #2563EB) 12%, transparent), transparent 62%),
-      radial-gradient(760px 380px at 6% -6%, rgba(15,23,42,0.04), transparent 55%),
-      var(--bg);
+      radial-gradient(1000px 470px at 88% -12%, color-mix(in srgb, var(--page-accent, #F5D13B) 15%, transparent), transparent 62%),
+      radial-gradient(900px 460px at 12% -10%, rgba(245,209,59,.34), transparent 58%),
+      linear-gradient(180deg,#FCF8EF 0%, var(--bg) 42%, #F2EDE1 100%);
     background-attachment:fixed;
     transition:background .5s ease;
     color:var(--text);
@@ -70,7 +76,7 @@
   .topbar{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;margin-bottom:22px;flex-wrap:wrap;}
   .brand{display:flex;align-items:center;gap:12px;}
   .brand-mark{
-    width:38px;height:38px;border-radius:11px;flex-shrink:0;
+    width:40px;height:40px;border-radius:14px;flex-shrink:0;
     background:linear-gradient(135deg,#1E293B,#334155);
     display:flex;align-items:center;justify-content:center;
     box-shadow:0 6px 16px -8px rgba(15,23,42,.6);
@@ -94,7 +100,7 @@
   /* Coverage meter */
   .coverage-card{
     background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
-    padding:18px 22px;margin-bottom:22px;box-shadow:var(--shadow-card);
+    padding:20px 26px;margin-bottom:22px;box-shadow:var(--shadow-card);
   }
   .coverage-top{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:12px;}
   .coverage-top .title{font-size:13px;font-weight:700;color:var(--text);}
@@ -105,21 +111,23 @@
   .coverage-legend b{color:var(--text);font-family:var(--font-mono);font-weight:600;}
 
   /* KPI grid */
-  .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:14px;}
+  .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:16px;}
   .kpi{
     position:relative;background:var(--surface);border:1px solid var(--border);
-    border-radius:var(--radius);padding:15px 16px 12px;overflow:hidden;box-shadow:var(--shadow-card);
-    display:flex;flex-direction:column;gap:5px;min-height:126px;
+    border-radius:var(--radius);padding:16px 20px 14px;overflow:hidden;box-shadow:var(--shadow-card);
+    display:flex;flex-direction:column;gap:3px;min-height:162px;
     transition:transform .18s cubic-bezier(.2,.7,.3,1), box-shadow .18s, border-color .18s;
-  }
-  .kpi::before{
-    content:'';position:absolute;top:0;right:0;left:0;height:3px;background:var(--accent-grad);
   }
   /* A card lifting under the cursor is the cheapest way to say the surface is
      alive; it moves 2px, which reads as depth without becoming a bounce. */
   .kpi:hover{transform:translateY(-2px);box-shadow:var(--shadow-lift);border-color:var(--border-strong);}
-  .kpi .kpi-top{display:flex;align-items:center;justify-content:space-between;gap:8px;}
-  .kpi .label{font-size:12px;color:var(--text-muted);font-weight:600;display:flex;align-items:center;min-width:0;}
+  /* The change chip sits in the corner on its own line; the figure then gets
+     the whole width of the card, which is what makes it able to be this big. */
+  .kpi .kpi-top{display:flex;align-items:center;justify-content:flex-end;gap:8px;min-height:19px;}
+  .kpi .label{
+    font-size:12.5px;color:var(--text-muted);font-weight:600;display:flex;align-items:center;min-width:0;
+    margin-top:1px;
+  }
   .kpi-key{width:9px;height:9px;border-radius:3px;display:inline-block;margin-inline-end:7px;flex-shrink:0;}
   .kpi-delta{
     font-family:var(--font-mono);font-size:10.5px;font-weight:700;white-space:nowrap;flex-shrink:0;
@@ -130,25 +138,68 @@
   .kpi-sub{font-size:11px;color:var(--text-faint);font-family:var(--font-mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   /* The trend runs the width of the card and sits on its lower edge, so the
      figure above it reads as "this number, arrived at like this". */
-  .kpi-foot{margin-top:auto;margin-inline:-16px;margin-bottom:-12px;height:34px;}
-  .spark{display:block;width:100%;height:34px;opacity:.8;transition:opacity .18s;}
+  .kpi-foot{margin-top:auto;margin-inline:-20px;margin-bottom:-14px;height:36px;}
+  .spark{display:block;width:100%;height:36px;opacity:.8;transition:opacity .18s;}
   .kpi:hover .spark{opacity:1;}
-  .kpi .icon{width:28px;height:28px;border-radius:8px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;color:var(--accent-ink);flex-shrink:0;}
+  .kpi .icon{width:30px;height:30px;border-radius:10px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;color:var(--accent-ink);flex-shrink:0;}
   .kpi .icon svg{width:15px;height:15px;}
-  .kpi .value{font-family:var(--font-mono);font-size:26px;font-weight:700;letter-spacing:-0.03em;color:var(--text);font-variant-numeric:tabular-nums;line-height:1.25;}
+  /* Light and large, the way a headline figure is set on a poster. Toman
+     amounts run to ten digits, so the size steps down by length (see
+     kpiValueClass) rather than overflowing the card. */
+  .kpi .value{
+    font-family:var(--font-mono);font-size:40px;font-weight:300;letter-spacing:-0.045em;
+    color:var(--text);font-variant-numeric:tabular-nums;line-height:1.08;
+    white-space:nowrap;overflow:hidden;
+  }
+  .kpi .value.s2{font-size:31px;letter-spacing:-0.04em;}
+  .kpi .value.s3{font-size:25px;letter-spacing:-0.03em;}
+  .kpi .value.s4{font-size:21px;letter-spacing:-0.02em;}
+  .kpi .value.s5{font-size:18px;letter-spacing:-0.01em;}
   .kpi .value.accent{color:var(--accent-ink);}
-  .kpi .value .unit{font-size:.58em;font-weight:600;color:var(--text-faint);letter-spacing:0;}
+  .kpi .value .unit{font-size:.36em;font-weight:500;color:var(--text-faint);letter-spacing:0;}
   .kpi .ctx{font-size:11.5px;color:var(--text-faint);margin-top:6px;}
 
   /* Cards */
   .card{
     background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
-    padding:20px 22px;margin-bottom:14px;box-shadow:var(--shadow-card);
+    padding:24px 26px;margin-bottom:16px;box-shadow:var(--shadow-card);
     transition:box-shadow .2s, border-color .2s;
   }
   .card:hover{box-shadow:var(--shadow-lift);border-color:var(--border-strong);}
+  /* One card per page is inverted. It carries the reading-heavy analysis, so
+     the page has a dark anchor instead of an unbroken field of white panels.
+     It redefines the surface tokens rather than restating every rule, so the
+     tables and lists inside follow it without knowing they are on black. */
+  .card.dark{
+    --surface:#1B1D23;
+    --surface-2:#22252C;
+    --surface-3:#2A2D35;
+    --border:#2E3139;
+    --border-soft:#272A31;
+    --border-strong:#3B3F49;
+    --text:#F5F2EA;
+    --text-muted:#A6A49C;
+    --text-faint:#8B8980;
+    --positive:#62D69C;
+    --positive-soft:rgba(98,214,156,.14);
+    --negative:#FF8E80;
+    --negative-soft:rgba(255,142,128,.14);
+    background:#17191E;border-color:#23262D;color:var(--text);
+    box-shadow:0 28px 56px -32px rgba(23,20,14,.62), 0 2px 6px rgba(23,20,14,.10);
+  }
+  .card.dark:hover{border-color:#343945;box-shadow:0 32px 64px -30px rgba(23,20,14,.68);}
+  .card.dark .deep-subhead{border-inline-start-color:var(--warm);}
+  .card.dark .cpa-table-wrap{border-color:var(--border);}
+  .card.dark .cpa-table tbody tr:nth-child(even){background:rgba(255,255,255,.028);}
+  .card.dark .cpa-table thead th{background:#22252C;}
+  .card.dark .cpa-table tbody tr:hover{background:rgba(245,209,59,.10);}
+  .card.dark .filter-name:hover,.card.dark .copy-name:hover{color:var(--warm);border-bottom-color:var(--warm);}
+  .card.dark .filter-name.active{color:var(--warm);border-bottom-color:var(--warm);}
+  .card.dark tbody tr:hover{background:rgba(255,255,255,.04);}
+  .card.dark .badge.neutral{background:rgba(255,255,255,.08);}
+  .card.dark .deep-empty{background:rgba(255,255,255,.04);}
   .card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px;flex-wrap:wrap;}
-  .card h2{font-size:15px;font-weight:700;margin:0 0 3px;color:var(--text);letter-spacing:-0.01em;}
+  .card h2{font-size:16px;font-weight:700;margin:0 0 3px;color:var(--text);letter-spacing:-0.015em;}
   .card .card-sub{font-size:12px;color:var(--text-muted);max-width:70ch;line-height:1.7;}
   .legend-dots{display:flex;gap:14px;font-size:12px;color:var(--text-muted);flex-wrap:wrap;}
   .legend-dots span{display:flex;align-items:center;gap:6px;}
@@ -183,7 +234,7 @@
     background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
     position:relative;overflow:hidden;
   }
-  .sk-card{height:126px;}
+  .sk-card{height:162px;}
   .sk-chart{height:320px;}
   /* One sweep of light travelling across the placeholders — the page looks
      like it is working rather than stuck. */
@@ -213,16 +264,16 @@
 
   .filter-bar{
     display:flex;align-items:center;gap:12px;flex-wrap:wrap;
-    background:rgba(255,255,255,.92);border:1px solid var(--border);border-radius:var(--radius);
-    padding:12px 16px;margin-bottom:14px;box-shadow:var(--shadow-card);
+    background:rgba(255,255,255,.94);border:1px solid var(--border);border-radius:var(--radius);
+    padding:12px 18px;margin-bottom:14px;box-shadow:var(--shadow-card);
     -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
     position:sticky;top:var(--sticky-top, 60px);z-index:30;
   }
   .filter-group{display:flex;align-items:center;gap:8px;}
   .filter-group label{font-size:12px;color:var(--text-muted);font-weight:600;}
   .filter-bar input[type="date"]{
-    background:var(--surface);border:1px solid var(--border);border-radius:8px;
-    padding:7px 10px;font-family:var(--font-mono);font-size:12.5px;color:var(--text);
+    background:var(--surface);border:1px solid var(--border);border-radius:11px;
+    padding:8px 11px;font-family:var(--font-mono);font-size:12.5px;color:var(--text);
     color-scheme:light;
   }
   .filter-bar input[type="date"]:hover{border-color:var(--text-faint);}
@@ -241,7 +292,7 @@
   .section:not(:last-child){padding-bottom:24px;}
   .section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:12px;}
   .section-title{
-    font-size:19px;font-weight:800;margin:0 0 4px;color:var(--text);letter-spacing:-0.02em;
+    font-size:21px;font-weight:800;margin:0 0 4px;color:var(--text);letter-spacing:-0.025em;
     display:inline-flex;align-items:center;gap:9px;
   }
   .section-title::after{
@@ -249,8 +300,8 @@
   }
   .section-sub{font-size:12px;color:var(--text-muted);}
   .campaign-select{
-    background:var(--surface);border:1px solid var(--border);border-radius:8px;
-    padding:7px 10px;font-family:var(--font-ui);font-size:12.5px;color:var(--text);
+    background:var(--surface);border:1px solid var(--border);border-radius:11px;
+    padding:8px 11px;font-family:var(--font-ui);font-size:12.5px;color:var(--text);
     min-width:180px;color-scheme:light;
   }
   .campaign-select:focus{outline:none;border-color:var(--accent-ink);}
@@ -260,13 +311,13 @@
   }
   .coverage-note b{color:var(--text);font-family:var(--font-mono);}
   .error-inline{
-    grid-column:1/-1;background:var(--negative-soft);color:var(--negative);border-radius:8px;
+    grid-column:1/-1;background:var(--negative-soft);color:var(--negative);border-radius:var(--radius-xs);
     padding:12px 16px;font-size:13px;
   }
 
   .section-head-left{display:flex;align-items:center;gap:13px;}
   .section-logo{
-    width:46px;height:46px;border-radius:13px;object-fit:contain;padding:6px;
+    width:48px;height:48px;border-radius:16px;object-fit:contain;padding:6px;
     background:#fff;border:1px solid var(--border);flex-shrink:0;
     box-shadow:0 6px 18px -8px var(--accent), 0 1px 2px rgba(16,24,40,.06);
     transition:transform .2s cubic-bezier(.2,.7,.3,1), box-shadow .2s;
@@ -276,15 +327,15 @@
   .section-controls{display:flex;align-items:center;gap:10px;}
   .ms-dropdown{position:relative;}
   .ms-toggle{
-    background:var(--surface);border:1px solid var(--border);border-radius:8px;
-    padding:7px 12px;font-family:var(--font-ui);font-size:12.5px;font-weight:600;color:var(--text);
+    background:var(--surface);border:1px solid var(--border);border-radius:999px;
+    padding:8px 15px;font-family:var(--font-ui);font-size:12.5px;font-weight:600;color:var(--text);
     min-width:170px;text-align:right;cursor:pointer;box-shadow:var(--shadow-card);
   }
   .ms-toggle:hover{border-color:var(--accent-ink);}
   .ms-panel{
     position:absolute;top:calc(100% + 6px);left:0;z-index:60;min-width:280px;max-width:420px;
     max-height:320px;overflow-y:auto;background:var(--surface);border:1px solid var(--border);
-    border-radius:10px;padding:8px;box-shadow:var(--shadow-pop);
+    border-radius:18px;padding:10px;box-shadow:var(--shadow-pop);
   }
   .ms-search-wrap{position:sticky;top:-8px;background:var(--surface);padding:2px 2px 8px;z-index:2;}
   .ms-search{
@@ -313,57 +364,75 @@
 
   .section-filter-bar{margin-bottom:14px;}
 
+  /* The project switcher is one dark pill floating on the cream. The pill is
+     drawn by ::before rather than by the bar itself, because the bar has to
+     bleed to the window edges to hide content scrolling under it while the
+     pill stays inset. The buttons are position:relative, so they paint over
+     it. */
   .tab-bar{
-    display:flex;gap:8px;margin-bottom:18px;border-bottom:1px solid var(--border);flex-wrap:wrap;
-    /* Pinned to the top while scrolling; the side bleed keeps content from
-       showing through the wrap's own gutters as it scrolls underneath. */
+    display:flex;gap:3px;margin-bottom:18px;border-bottom:none;flex-wrap:wrap;align-items:stretch;
     position:sticky;top:0;z-index:70;
-    background:rgba(243,245,249,.94);
+    background:linear-gradient(180deg, var(--bg) 74%, rgba(247,243,234,.93));
     -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
-    padding-top:10px;padding-bottom:0;margin-inline:-24px;padding-inline:24px;
+    padding:12px 24px;margin-inline:-24px;
   }
+  .tab-bar::before{
+    content:'';position:absolute;inset:12px 24px;border-radius:28px;
+    background:var(--nav-dark);
+    box-shadow:0 20px 44px -26px rgba(23,20,14,.68), inset 0 1px 0 rgba(255,255,255,.055);
+  }
+  .tab-bar:empty::before{display:none;}
   .tab-btn{
     position:relative;display:flex;align-items:center;gap:8px;background:none;border:none;
-    padding:9px 4px 11px;margin-inline-end:18px;font-family:var(--font-ui);font-size:14px;font-weight:700;
-    color:var(--text-muted);cursor:pointer;margin-bottom:-1px;transition:color .18s;
+    padding:9px 15px;margin:0;border-radius:999px;
+    font-family:var(--font-ui);font-size:13.5px;font-weight:600;
+    color:rgba(245,242,234,.60);cursor:pointer;
+    transition:color .18s, background .18s, box-shadow .18s;
   }
-  /* The underline grows from the middle when a tab is chosen. */
+  /* The chosen project is the one lit pill, with its brand colour as a dot. */
   .tab-btn::after{
-    content:'';position:absolute;inset-inline:0;bottom:0;height:2.5px;border-radius:2px;
-    background:var(--tab-accent, var(--text));transform:scaleX(0);
-    transition:transform .22s cubic-bezier(.2,.7,.3,1);
+    content:'';width:0;height:6px;border-radius:99px;flex-shrink:0;
+    background:var(--tab-accent, var(--nav-dark));
+    transition:width .22s cubic-bezier(.2,.7,.3,1);
   }
-  .tab-btn.active::after{transform:scaleX(1);}
-  .tab-btn:hover::after{transform:scaleX(.35);}
-  .tab-btn.active:hover::after{transform:scaleX(1);}
-  .tab-btn img{width:22px;height:22px;border-radius:6px;object-fit:contain;background:#fff;flex-shrink:0;}
-  .tab-btn img.wide{width:auto;max-width:72px;border-radius:4px;}
-  .tab-btn:hover{color:var(--text);}
-  .tab-btn.active{color:var(--tab-ink, var(--text));}
+  .tab-btn.active::after{width:6px;}
+  .tab-btn img{width:22px;height:22px;border-radius:7px;object-fit:contain;background:#fff;padding:1px;flex-shrink:0;}
+  .tab-btn img.wide{width:auto;max-width:72px;border-radius:5px;}
+  .tab-btn:hover{color:var(--nav-ink);background:rgba(255,255,255,.07);}
+  .tab-btn.active{
+    background:#FFFFFF;color:#15171C;font-weight:700;
+    box-shadow:0 8px 18px -10px rgba(0,0,0,.55);
+  }
+  .tab-btn.active:hover{background:#FFFFFF;}
 
   .sub-tab-bar{
-    display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;
+    display:flex;gap:7px;flex-wrap:wrap;margin-bottom:18px;
     position:sticky;top:var(--tabbar-h, 54px);z-index:65;
-    background:rgba(243,245,249,.94);
+    background:linear-gradient(180deg, var(--bg) 78%, rgba(247,243,234,.94));
     -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
-    padding:10px 24px;margin-inline:-24px;
+    padding:10px 24px 12px;margin-inline:-24px;
   }
+  /* display:flex would otherwise beat the browser's own [hidden] rule and
+     leave an empty strip under the switcher on single-part tabs. */
+  .sub-tab-bar[hidden]{display:none;}
   .sub-tab-btn{
     background:var(--surface);border:1px solid var(--border);border-radius:999px;
-    padding:7px 16px;font-family:var(--font-ui);font-size:12.5px;font-weight:600;
-    color:var(--text-muted);cursor:pointer;transition:color .15s, border-color .15s, background .15s;
+    padding:8px 17px;font-family:var(--font-ui);font-size:12.5px;font-weight:600;
+    color:var(--text-muted);cursor:pointer;transition:color .15s, border-color .15s, background .15s, box-shadow .15s;
   }
-  .sub-tab-btn:hover{color:var(--text);border-color:var(--text-faint);}
+  .sub-tab-btn:hover{color:var(--text);border-color:var(--border-strong);box-shadow:var(--shadow-card);}
+  /* The part you are on is a dark pill, the same move as the switcher above. */
   .sub-tab-btn.active{
-    color:var(--tab-ink, var(--text));border-color:var(--tab-ink, var(--border));
-    background:var(--tab-soft, var(--surface-2));
+    color:var(--nav-ink);border-color:var(--nav-dark);background:var(--nav-dark);
+    box-shadow:0 10px 22px -14px rgba(23,20,14,.7);
   }
+  .sub-tab-btn.active:hover{color:var(--nav-ink);}
 
   .insight-text{font-size:13.5px;line-height:1.9;color:var(--text);margin:0 0 16px;}
   .insight-chips{display:flex;flex-wrap:wrap;gap:10px;}
   .insight-chip{
-    background:var(--surface-2);border:1px solid var(--border);border-radius:10px;
-    padding:10px 14px;min-width:150px;flex:1 1 150px;
+    background:var(--surface-2);border:1px solid var(--border);border-radius:16px;
+    padding:12px 16px;min-width:150px;flex:1 1 150px;
   }
   .insight-chip .ic-label{font-size:11px;color:var(--text-muted);margin-bottom:5px;}
   .insight-chip .ic-value{font-size:13px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -411,7 +480,7 @@
     padding:9px 10px;border-bottom:1px solid var(--border-soft);color:var(--text);
     white-space:nowrap;font-family:var(--font-mono);font-variant-numeric:tabular-nums;
   }
-  .cpa-table tbody tr:nth-child(even){background:#FBFCFE;}
+  .cpa-table tbody tr:nth-child(even){background:#FCFAF5;}
   .cpa-table tbody tr:hover{background:var(--accent-soft);}
   .cpa-table td.campaign{font-family:var(--font-ui);font-weight:700;white-space:normal;min-width:150px;}
   .filter-name{
@@ -442,12 +511,21 @@
   .cpa-table td.neg{color:var(--negative);font-weight:600;}
 
   @media (max-width:900px){
-    .kpis{grid-template-columns:repeat(2,1fr);}
+    /* renderKpiCards writes the column count as an inline style, which only an
+       !important rule can step over on a narrow screen. */
+    .kpis{grid-template-columns:repeat(2,minmax(0,1fr)) !important;}
     .wrap{padding:20px 16px 56px;}
     .tab-bar,.sub-tab-bar{margin-inline:-16px;padding-inline:16px;}
+    .tab-bar::before{inset:12px 16px;}
+    .kpi .value{font-size:33px;}
   }
   @media (max-width:560px){
-    .kpis{grid-template-columns:1fr;}
+    .kpis{grid-template-columns:repeat(2,minmax(0,1fr)) !important;}
+    .kpi{padding:14px 16px 12px;min-height:146px;}
+    .kpi-foot{margin-inline:-16px;margin-bottom:-12px;}
+    .kpi .value{font-size:30px;}
+    .wrap{padding:18px 14px 52px;}
+    .card{padding:18px 16px;}
   }
 </style>
 </head>
@@ -1867,7 +1945,7 @@ function renderSectionsShell(){
         <div class="chart-box"><canvas id="trendChart-${p.id}"></canvas></div>
       </div>`)}
       ${p.hideDeepAnalysis ? '' : `
-      <div class="card">
+      <div class="card dark">
         <div class="card-head">
           <div>
             <h2>تحلیل عمیق</h2>
@@ -2532,10 +2610,12 @@ function renderSessionsKpis(project, series){
   el.style.gridTemplateColumns = `repeat(${cards.length}, 1fr)`;
   el.innerHTML = cards.map(c=>`
     <div class="kpi">
-      <div class="kpi-top"><span class="label">${c.color?`<i class="kpi-key" style="background:${c.color}"></i>`:''}${escapeHtml(c.label)}</span></div>
-      <div class="value ${c.accent?'accent':''}">${c.value}</div>
+      <div class="kpi-top"></div>
+      <div class="value ${kpiValueClass(c.value)} ${c.accent?'accent':''}">${c.value}</div>
+      <div class="label">${c.color?`<i class="kpi-key" style="background:${c.color}"></i>`:''}${escapeHtml(c.label)}</div>
       <div class="kpi-sub">${escapeHtml(c.sub)}</div>
     </div>`).join('');
+  fitKpiValues(el);
 }
 
 function renderSessionsChart(project){
@@ -2806,8 +2886,34 @@ function sparkline(series, opts){
   </svg>`;
 }
 
+// A ten-digit Toman amount cannot be set at 40px inside a fifth-width card, so
+// the figure steps down through five sizes until it fits. The class below is
+// the first guess, made from the digit count while the card is still off
+// screen; fitKpiValue then measures the real box and settles it.
+const KPI_SIZES = ['', 's2', 's3', 's4', 's5'];
+function kpiValueClass(value){
+  const n = String(value).replace(/\s*تومان\s*$/, '').trim().length;
+  return n > 14 ? 's4' : n > 11 ? 's3' : n > 8 ? 's2' : '';
+}
+function fitKpiValue(v){
+  // A card in a hidden section measures zero — leave the guess, switchTab
+  // fits it the moment the section is shown.
+  if(!v.clientWidth) return;
+  let cur = '';
+  KPI_SIZES.forEach(c=>{ if(c) v.classList.remove(c); });
+  for(const c of KPI_SIZES.slice(1)){
+    if(v.scrollWidth <= v.clientWidth + 1) break;
+    if(cur) v.classList.remove(cur);
+    v.classList.add(c); cur = c;
+  }
+}
+function fitKpiValues(root){
+  (root || document).querySelectorAll('.kpi .value').forEach(fitKpiValue);
+}
+
 // Every section's cards go through here, so a card looks the same whichever
-// page it is on: label and change on top, the figure, then the trend.
+// page it is on: the change in the corner, the figure large, then its name
+// and the trend underneath.
 function renderKpiCards(project, cards){
   const el = document.getElementById(`kpis-${project.id}`);
   if(!el) return;
@@ -2826,12 +2932,14 @@ function renderKpiCards(project, cards){
       : '';
     return `
     <div class="kpi">
-      <div class="kpi-top"><span class="label">${c.key ? `<i class="kpi-key" style="background:${c.key}"></i>` : ''}${c.label}</span>${chip}</div>
-      <div class="value ${c.accent ? 'accent' : ''}">${String(c.value).replace(/\s*تومان$/, ' <span class="unit">تومان</span>')}</div>
+      <div class="kpi-top">${chip}</div>
+      <div class="value ${kpiValueClass(c.value)} ${c.accent ? 'accent' : ''}">${String(c.value).replace(/\s*تومان$/, ' <span class="unit">تومان</span>')}</div>
+      <div class="label">${c.key ? `<i class="kpi-key" style="background:${c.key}"></i>` : ''}${c.label}</div>
       ${c.sub ? `<div class="kpi-sub">${c.sub}</div>` : ''}
       <div class="kpi-foot">${sparkline(c.series, {color: c.accent ? 'var(--accent-ink)' : 'var(--text-faint)'})}</div>
     </div>`;
   }).join('');
+  fitKpiValues(el);
 }
 
 // Daily cost as columns with the cost per conversion as a line: the standard
@@ -3346,8 +3454,8 @@ let TABS = [];
 const activePart = {};   // { [tabId]: projectId }
 let activeTabId = null;
 
-// A tab wears its project's brand: the rule under the label is the brand color
-// itself, the label the darker ink so it stays readable on white.
+// A tab wears its project's brand: on the dark switcher the brand colour is
+// the dot beside the label, and the ink is used where a tab sits on white.
 function tabThemeStyle(t){
   const th = t.theme;
   return `--tab-accent:${th.accent}; --tab-ink:${th.ink || th.accent}; --tab-soft:${th.accentSoft};`;
@@ -3422,6 +3530,8 @@ function switchTab(tabId){
   const mainContentEl = document.getElementById('mainContent');
   mainContentEl.style.display = (shownProject && !shownProject.ownDateFilter) ? '' : 'none';
   syncStickyOffset();
+  // The section just became measurable, so its figures can be sized for real.
+  fitKpiValues();
 }
 
 async function init(){
@@ -3458,6 +3568,12 @@ async function init(){
   switchTab(TABS[0].id);
   syncStickyOffset();
   window.addEventListener('resize', syncStickyOffset);
+  // Cards get narrower as the window does, so the figures are re-fitted with it.
+  let fitTimer = null;
+  window.addEventListener('resize', ()=>{
+    clearTimeout(fitTimer);
+    fitTimer = setTimeout(()=>fitKpiValues(), 120);
+  });
   if(window.ResizeObserver){
     const ro = new ResizeObserver(syncStickyOffset);
     ro.observe(document.getElementById('tabBar'));
