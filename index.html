@@ -25,8 +25,6 @@
     --text:#15171C;
     --text-muted:#5E6270;
     --text-faint:#8A8C99;
-    --nav-dark:#17181D;
-    --nav-ink:#F5F2EA;
     --warm:#F5D13B;
     /* Per-project brand colors override these three on each section. */
     --accent:#2563EB;
@@ -77,11 +75,12 @@
   .brand{display:flex;align-items:center;gap:12px;}
   .brand-mark{
     width:40px;height:40px;border-radius:14px;flex-shrink:0;
-    background:linear-gradient(135deg,#1E293B,#334155);
+    background:linear-gradient(135deg,#FFFFFF,#F7F1E4);
+    border:1px solid #E7DECB;
     display:flex;align-items:center;justify-content:center;
-    box-shadow:0 6px 16px -8px rgba(15,23,42,.6);
+    box-shadow:0 6px 16px -10px rgba(58,46,24,.4);
   }
-  .brand-mark svg{width:18px;height:18px;color:#fff;}
+  .brand-mark svg{width:18px;height:18px;color:var(--text);}
   .topbar h1{font-size:19px;font-weight:800;margin:0;letter-spacing:-0.01em;}
   .topbar .sub{color:var(--text-muted);font-size:12.5px;margin-top:2px;}
   .topbar-right{display:flex;align-items:center;gap:10px;}
@@ -166,38 +165,17 @@
     transition:box-shadow .2s, border-color .2s;
   }
   .card:hover{box-shadow:var(--shadow-lift);border-color:var(--border-strong);}
-  /* One card per page is inverted. It carries the reading-heavy analysis, so
-     the page has a dark anchor instead of an unbroken field of white panels.
-     It redefines the surface tokens rather than restating every rule, so the
-     tables and lists inside follow it without knowing they are on black. */
-  .card.dark{
-    --surface:#1B1D23;
-    --surface-2:#22252C;
-    --surface-3:#2A2D35;
-    --border:#2E3139;
-    --border-soft:#272A31;
-    --border-strong:#3B3F49;
-    --text:#F5F2EA;
-    --text-muted:#A6A49C;
-    --text-faint:#8B8980;
-    --positive:#62D69C;
-    --positive-soft:rgba(98,214,156,.14);
-    --negative:#FF8E80;
-    --negative-soft:rgba(255,142,128,.14);
-    background:#17191E;border-color:#23262D;color:var(--text);
-    box-shadow:0 28px 56px -32px rgba(23,20,14,.62), 0 2px 6px rgba(23,20,14,.10);
+  /* The reading-heavy analysis card is set on warm paper rather than white,
+     so the page still has an anchor without going dark anywhere. */
+  .card.soft{
+    --surface:#FCFAF5;
+    --surface-2:#F7F2E8;
+    --surface-3:#F1EADC;
+    background:linear-gradient(180deg,#FDFBF7,#FAF6ED);
+    border-color:#EDE4D3;
   }
-  .card.dark:hover{border-color:#343945;box-shadow:0 32px 64px -30px rgba(23,20,14,.68);}
-  .card.dark .deep-subhead{border-inline-start-color:var(--warm);}
-  .card.dark .cpa-table-wrap{border-color:var(--border);}
-  .card.dark .cpa-table tbody tr:nth-child(even){background:rgba(255,255,255,.028);}
-  .card.dark .cpa-table thead th{background:#22252C;}
-  .card.dark .cpa-table tbody tr:hover{background:rgba(245,209,59,.10);}
-  .card.dark .filter-name:hover,.card.dark .copy-name:hover{color:var(--warm);border-bottom-color:var(--warm);}
-  .card.dark .filter-name.active{color:var(--warm);border-bottom-color:var(--warm);}
-  .card.dark tbody tr:hover{background:rgba(255,255,255,.04);}
-  .card.dark .badge.neutral{background:rgba(255,255,255,.08);}
-  .card.dark .deep-empty{background:rgba(255,255,255,.04);}
+  .card.soft .cpa-table tbody tr:nth-child(even){background:rgba(255,255,255,.62);}
+  .card.soft .cpa-table thead th{background:#F5F0E5;}
   .card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px;flex-wrap:wrap;}
   .card h2{font-size:16px;font-weight:700;margin:0 0 3px;color:var(--text);letter-spacing:-0.015em;}
   .card .card-sub{font-size:12px;color:var(--text-muted);max-width:70ch;line-height:1.7;}
@@ -364,11 +342,10 @@
 
   .section-filter-bar{margin-bottom:14px;}
 
-  /* The project switcher is one dark pill floating on the cream. The pill is
-     drawn by ::before rather than by the bar itself, because the bar has to
-     bleed to the window edges to hide content scrolling under it while the
-     pill stays inset. The buttons are position:relative, so they paint over
-     it. */
+  /* The project switcher is one pill floating on the cream. The pill is drawn
+     by ::before rather than by the bar itself, because the bar has to bleed to
+     the window edges to hide content scrolling under it while the pill stays
+     inset. The buttons are position:relative, so they paint over it. */
   .tab-bar{
     display:flex;gap:3px;margin-bottom:18px;border-bottom:none;flex-wrap:wrap;align-items:stretch;
     position:sticky;top:0;z-index:70;
@@ -378,30 +355,31 @@
   }
   .tab-bar::before{
     content:'';position:absolute;inset:12px 24px;border-radius:28px;
-    background:var(--nav-dark);
-    box-shadow:0 20px 44px -26px rgba(23,20,14,.68), inset 0 1px 0 rgba(255,255,255,.055);
+    background:linear-gradient(180deg,#F6F0E3,#F1EADB);
+    border:1px solid #E7DECB;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.7);
   }
   .tab-bar:empty::before{display:none;}
   .tab-btn{
     position:relative;display:flex;align-items:center;gap:8px;background:none;border:none;
     padding:9px 15px;margin:0;border-radius:999px;
     font-family:var(--font-ui);font-size:13.5px;font-weight:600;
-    color:rgba(245,242,234,.60);cursor:pointer;
+    color:var(--text-muted);cursor:pointer;
     transition:color .18s, background .18s, box-shadow .18s;
   }
-  /* The chosen project is the one lit pill, with its brand colour as a dot. */
+  /* The chosen project is the one white pill, with its brand colour as a dot. */
   .tab-btn::after{
     content:'';width:0;height:6px;border-radius:99px;flex-shrink:0;
-    background:var(--tab-accent, var(--nav-dark));
+    background:var(--tab-accent, var(--text));
     transition:width .22s cubic-bezier(.2,.7,.3,1);
   }
   .tab-btn.active::after{width:6px;}
   .tab-btn img{width:22px;height:22px;border-radius:7px;object-fit:contain;background:#fff;padding:1px;flex-shrink:0;}
   .tab-btn img.wide{width:auto;max-width:72px;border-radius:5px;}
-  .tab-btn:hover{color:var(--nav-ink);background:rgba(255,255,255,.07);}
+  .tab-btn:hover{color:var(--text);background:rgba(255,255,255,.72);}
   .tab-btn.active{
-    background:#FFFFFF;color:#15171C;font-weight:700;
-    box-shadow:0 8px 18px -10px rgba(0,0,0,.55);
+    background:#FFFFFF;color:var(--text);font-weight:700;
+    box-shadow:0 6px 16px -10px rgba(58,46,24,.45), 0 1px 2px rgba(58,46,24,.06);
   }
   .tab-btn.active:hover{background:#FFFFFF;}
 
@@ -421,12 +399,13 @@
     color:var(--text-muted);cursor:pointer;transition:color .15s, border-color .15s, background .15s, box-shadow .15s;
   }
   .sub-tab-btn:hover{color:var(--text);border-color:var(--border-strong);box-shadow:var(--shadow-card);}
-  /* The part you are on is a dark pill, the same move as the switcher above. */
+  /* The part you are on wears the project's own colour. */
   .sub-tab-btn.active{
-    color:var(--nav-ink);border-color:var(--nav-dark);background:var(--nav-dark);
-    box-shadow:0 10px 22px -14px rgba(23,20,14,.7);
+    color:var(--tab-ink, var(--accent-ink));border-color:var(--tab-ink, var(--accent-ink));
+    background:var(--tab-soft, var(--accent-soft));
+    box-shadow:none;
   }
-  .sub-tab-btn.active:hover{color:var(--nav-ink);}
+  .sub-tab-btn.active:hover{color:var(--tab-ink, var(--accent-ink));}
 
   .insight-text{font-size:13.5px;line-height:1.9;color:var(--text);margin:0 0 16px;}
   .insight-chips{display:flex;flex-wrap:wrap;gap:10px;}
@@ -1945,7 +1924,7 @@ function renderSectionsShell(){
         <div class="chart-box"><canvas id="trendChart-${p.id}"></canvas></div>
       </div>`)}
       ${p.hideDeepAnalysis ? '' : `
-      <div class="card dark">
+      <div class="card soft">
         <div class="card-head">
           <div>
             <h2>تحلیل عمیق</h2>
