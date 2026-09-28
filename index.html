@@ -282,7 +282,7 @@
   /* Descriptions under headings stay in the page (the renderers keep writing
      them) but are not shown; a "?" beside the heading opens them in a popup
      instead (see syncHints / showHint). */
-  .topbar .sub, .section-sub, .card-sub, .deep-subtext.intro{display:none !important;}
+  .topbar .sub, .section-sub, .card-sub, .deep-subtext.intro, .coverage-note{display:none !important;}
   .hint{
     display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;
     width:18px;height:18px;border-radius:50%;margin-inline-start:8px;vertical-align:middle;
@@ -308,6 +308,7 @@
   }
   #hintPop.show{visibility:visible;opacity:1;transform:none;transition:opacity .12s, transform .12s;}
   #hintPop b{font-family:var(--font-mono);font-weight:700;}
+  #hintPop .hint-sep{border:none;border-top:1px solid var(--border);margin:8px 0;}
   .campaign-select{
     background:var(--surface);border:1px solid var(--border);border-radius:11px;
     padding:8px 11px;font-family:var(--font-ui);font-size:12.5px;color:var(--text);
@@ -543,8 +544,9 @@
     /* Header: title and status on one line, the long description dropped. */
     .topbar{flex-wrap:nowrap;align-items:center;gap:10px;margin-bottom:10px;}
     .topbar .sub{display:none;}
-    .topbar h1{font-size:17px;}
-    .brand{gap:9px;min-width:0;}
+    /* The title keeps its one line; the sync pill beside it is what shortens. */
+    .topbar h1{font-size:17px;white-space:nowrap;}
+    .brand{gap:9px;min-width:0;flex-shrink:0;}
     .brand-mark{width:34px;height:34px;border-radius:12px;}
     .brand-mark svg{width:16px;height:16px;}
     .topbar-right{min-width:0;flex-shrink:1;}
@@ -3708,24 +3710,37 @@ function paintPageAccent(tab){
 // The descriptions under headings are hidden (CSS) and read from a "?" beside
 // the heading instead. A heading's description is its sibling .sub /
 // .section-sub / .card-sub, or — for a sub-heading inside a card — the
-// .deep-subtext.intro its renderer writes into the block right after it.
+// .deep-subtext.intro its renderer writes into the block right after it. A
+// section title also carries the section's coverage strip (how much of the
+// sheet's cost was matched), shown under its description.
 const HINT_TITLES = '.topbar h1, .section-title, .card-head h2, .deep-subhead';
-function hintSource(title){
+function hintSources(title){
   if(title.matches('.deep-subhead')){
     const next = title.nextElementSibling;
-    if(!next) return null;
-    return next.matches('.deep-subtext.intro') ? next : next.querySelector(':scope > .deep-subtext.intro');
+    if(!next) return [];
+    return [next.matches('.deep-subtext.intro') ? next : next.querySelector(':scope > .deep-subtext.intro')];
   }
   const holder = title.parentElement;
-  return holder ? holder.querySelector(':scope > .sub, :scope > .section-sub, :scope > .card-sub') : null;
+  const found = [holder && holder.querySelector(':scope > .sub, :scope > .section-sub, :scope > .card-sub')];
+  if(title.matches('.section-title')){
+    const section = title.closest('.section');
+    found.push(section && section.querySelector(':scope > .coverage-note'));
+  }
+  return found;
+}
+// The parts that have something in them, as the popup will show them.
+function hintHtml(title){
+  return hintSources(title)
+    .filter(el => el && el.textContent.trim())
+    .map(el => el.innerHTML)
+    .join('<hr class="hint-sep">');
 }
 // Renderers rewrite blocks on every filter change, so the icons are kept in
 // step afterwards: a heading gains a "?" when it has a description and loses
 // it when the description is gone or empty (a range with no data, say).
 function syncHints(){
   document.querySelectorAll(HINT_TITLES).forEach(title=>{
-    const src = hintSource(title);
-    const has = !!(src && src.textContent.trim());
+    const has = hintSources(title).some(el => el && el.textContent.trim());
     const icon = title.querySelector(':scope > .hint');
     if(has && !icon){
       title.insertAdjacentHTML('beforeend', '<span class="hint" role="button" tabindex="0" aria-label="توضیحات">?</span>');
@@ -3746,12 +3761,12 @@ let hintOpen = null;
 // shows what the current filters produced. It sits under the "?" (above it if
 // there is no room below) and is kept 12px inside the screen on both sides.
 function showHint(icon){
-  const src = hintSource(icon.parentElement);
-  if(!src || !src.textContent.trim()) return;
+  const html = hintHtml(icon.parentElement);
+  if(!html) return;
   if(hintOpen && hintOpen !== icon) hintOpen.classList.remove('open');
   hintOpen = icon;
   icon.classList.add('open');
-  hintPop.innerHTML = src.innerHTML;
+  hintPop.innerHTML = html;
   hintPop.classList.add('show');
   const r = icon.getBoundingClientRect();
   const pw = hintPop.offsetWidth, ph = hintPop.offsetHeight;
