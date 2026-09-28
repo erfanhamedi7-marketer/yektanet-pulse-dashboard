@@ -40,17 +40,22 @@
     --radius-sm:10px;
     --font-ui:'Vazirmatn',system-ui,-apple-system,sans-serif;
     --font-mono:'IBM Plex Mono',ui-monospace,monospace;
+    --border-strong:#CED6E3;
     --shadow-card:0 1px 2px rgba(16,24,40,.04), 0 10px 24px -18px rgba(16,24,40,.28);
+    --shadow-lift:0 2px 4px rgba(16,24,40,.05), 0 18px 34px -20px rgba(16,24,40,.34);
     --shadow-pop:0 12px 32px -12px rgba(16,24,40,.24), 0 2px 6px rgba(16,24,40,.06);
   }
   *{box-sizing:border-box;}
   html{background:var(--bg);color-scheme:light;}
   body{
     margin:0;
+    /* The wash follows the open project's colour (see paintPageAccent). */
     background:
-      radial-gradient(900px 420px at 12% -10%, rgba(37,99,235,0.05), transparent 60%),
-      radial-gradient(760px 380px at 100% 0%, rgba(15,23,42,0.035), transparent 55%),
+      radial-gradient(1000px 460px at 88% -12%, color-mix(in srgb, var(--page-accent, #2563EB) 12%, transparent), transparent 62%),
+      radial-gradient(760px 380px at 6% -6%, rgba(15,23,42,0.04), transparent 55%),
       var(--bg);
+    background-attachment:fixed;
+    transition:background .5s ease;
     color:var(--text);
     font-family:var(--font-ui);
     font-size:14px;
@@ -100,29 +105,48 @@
   .coverage-legend b{color:var(--text);font-family:var(--font-mono);font-weight:600;}
 
   /* KPI grid */
-  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px;}
+  .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:14px;}
   .kpi{
     position:relative;background:var(--surface);border:1px solid var(--border);
-    border-radius:var(--radius);padding:16px 18px;overflow:hidden;box-shadow:var(--shadow-card);
+    border-radius:var(--radius);padding:15px 16px 12px;overflow:hidden;box-shadow:var(--shadow-card);
+    display:flex;flex-direction:column;gap:5px;min-height:126px;
+    transition:transform .18s cubic-bezier(.2,.7,.3,1), box-shadow .18s, border-color .18s;
   }
   .kpi::before{
     content:'';position:absolute;top:0;right:0;left:0;height:3px;background:var(--accent-grad);
   }
-  .kpi .kpi-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
-  .kpi .label{font-size:12px;color:var(--text-muted);font-weight:600;display:flex;align-items:center;}
+  /* A card lifting under the cursor is the cheapest way to say the surface is
+     alive; it moves 2px, which reads as depth without becoming a bounce. */
+  .kpi:hover{transform:translateY(-2px);box-shadow:var(--shadow-lift);border-color:var(--border-strong);}
+  .kpi .kpi-top{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  .kpi .label{font-size:12px;color:var(--text-muted);font-weight:600;display:flex;align-items:center;min-width:0;}
   .kpi-key{width:9px;height:9px;border-radius:3px;display:inline-block;margin-inline-end:7px;flex-shrink:0;}
-  .kpi-sub{font-size:11px;color:var(--text-faint);font-family:var(--font-mono);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .kpi-delta{
+    font-family:var(--font-mono);font-size:10.5px;font-weight:700;white-space:nowrap;flex-shrink:0;
+    padding:2px 7px;border-radius:999px;background:var(--surface-3);color:var(--text-muted);
+  }
+  .kpi-delta.pos{background:var(--positive-soft);color:var(--positive);}
+  .kpi-delta.neg{background:var(--negative-soft);color:var(--negative);}
+  .kpi-sub{font-size:11px;color:var(--text-faint);font-family:var(--font-mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  /* The trend runs the width of the card and sits on its lower edge, so the
+     figure above it reads as "this number, arrived at like this". */
+  .kpi-foot{margin-top:auto;margin-inline:-16px;margin-bottom:-12px;height:34px;}
+  .spark{display:block;width:100%;height:34px;opacity:.8;transition:opacity .18s;}
+  .kpi:hover .spark{opacity:1;}
   .kpi .icon{width:28px;height:28px;border-radius:8px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;color:var(--accent-ink);flex-shrink:0;}
   .kpi .icon svg{width:15px;height:15px;}
-  .kpi .value{font-family:var(--font-mono);font-size:23px;font-weight:700;letter-spacing:-0.02em;color:var(--text);font-variant-numeric:tabular-nums;line-height:1.35;}
+  .kpi .value{font-family:var(--font-mono);font-size:26px;font-weight:700;letter-spacing:-0.03em;color:var(--text);font-variant-numeric:tabular-nums;line-height:1.25;}
   .kpi .value.accent{color:var(--accent-ink);}
+  .kpi .value .unit{font-size:.58em;font-weight:600;color:var(--text-faint);letter-spacing:0;}
   .kpi .ctx{font-size:11.5px;color:var(--text-faint);margin-top:6px;}
 
   /* Cards */
   .card{
     background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
     padding:20px 22px;margin-bottom:14px;box-shadow:var(--shadow-card);
+    transition:box-shadow .2s, border-color .2s;
   }
+  .card:hover{box-shadow:var(--shadow-lift);border-color:var(--border-strong);}
   .card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px;flex-wrap:wrap;}
   .card h2{font-size:15px;font-weight:700;margin:0 0 3px;color:var(--text);letter-spacing:-0.01em;}
   .card .card-sub{font-size:12px;color:var(--text-muted);max-width:70ch;line-height:1.7;}
@@ -152,6 +176,29 @@
   .badge.good{background:var(--positive-soft);color:var(--positive);}
   .badge.bad{background:var(--negative-soft);color:var(--negative);}
   .badge.neutral{background:var(--surface-3);color:var(--text-muted);}
+
+  .skeleton-wrap{display:flex;flex-direction:column;gap:14px;margin-bottom:18px;}
+  .sk-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;}
+  .sk{
+    background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+    position:relative;overflow:hidden;
+  }
+  .sk-card{height:126px;}
+  .sk-chart{height:320px;}
+  /* One sweep of light travelling across the placeholders — the page looks
+     like it is working rather than stuck. */
+  .sk::after{
+    content:'';position:absolute;inset:0;transform:translateX(-100%);
+    background:linear-gradient(90deg, transparent, rgba(16,24,40,.05), transparent);
+    animation:sheen 1.4s infinite;
+  }
+  @keyframes sheen{100%{transform:translateX(100%);}}
+  .sk-note{
+    display:flex;align-items:center;gap:10px;justify-content:center;
+    font-size:13px;color:var(--text-muted);padding:2px 0 6px;
+  }
+  .sk-note .spinner{width:16px;height:16px;border-width:2px;margin:0;}
+  @media (prefers-reduced-motion:reduce){ .sk::after{animation:none;} }
 
   .loading-state, .error-state{
     text-align:center;padding:80px 20px;background:var(--surface);border:1px solid var(--border);
@@ -193,7 +240,13 @@
   .section{margin-bottom:28px;}
   .section:not(:last-child){padding-bottom:24px;}
   .section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:12px;}
-  .section-title{font-size:18px;font-weight:800;margin:0 0 3px;color:var(--text);letter-spacing:-0.015em;}
+  .section-title{
+    font-size:19px;font-weight:800;margin:0 0 4px;color:var(--text);letter-spacing:-0.02em;
+    display:inline-flex;align-items:center;gap:9px;
+  }
+  .section-title::after{
+    content:'';height:3px;width:26px;border-radius:2px;background:var(--accent-grad);flex-shrink:0;
+  }
   .section-sub{font-size:12px;color:var(--text-muted);}
   .campaign-select{
     background:var(--surface);border:1px solid var(--border);border-radius:8px;
@@ -211,11 +264,14 @@
     padding:12px 16px;font-size:13px;
   }
 
-  .section-head-left{display:flex;align-items:center;gap:12px;}
+  .section-head-left{display:flex;align-items:center;gap:13px;}
   .section-logo{
-    width:44px;height:44px;border-radius:12px;object-fit:contain;padding:5px;
-    background:#fff;border:1px solid var(--border);box-shadow:var(--shadow-card);flex-shrink:0;
+    width:46px;height:46px;border-radius:13px;object-fit:contain;padding:6px;
+    background:#fff;border:1px solid var(--border);flex-shrink:0;
+    box-shadow:0 6px 18px -8px var(--accent), 0 1px 2px rgba(16,24,40,.06);
+    transition:transform .2s cubic-bezier(.2,.7,.3,1), box-shadow .2s;
   }
+  .section-head:hover .section-logo{transform:translateY(-1px) scale(1.02);box-shadow:0 10px 22px -8px var(--accent), 0 1px 2px rgba(16,24,40,.08);}
   .section-logo.wide{width:auto;max-width:132px;}
   .section-controls{display:flex;align-items:center;gap:10px;}
   .ms-dropdown{position:relative;}
@@ -267,15 +323,23 @@
     padding-top:10px;padding-bottom:0;margin-inline:-24px;padding-inline:24px;
   }
   .tab-btn{
-    display:flex;align-items:center;gap:8px;background:none;border:none;
-    padding:9px 4px;margin-inline-end:18px;font-family:var(--font-ui);font-size:14px;font-weight:700;
-    color:var(--text-muted);cursor:pointer;border-bottom:2.5px solid transparent;margin-bottom:-1px;
-    transition:color .15s, border-color .15s;
+    position:relative;display:flex;align-items:center;gap:8px;background:none;border:none;
+    padding:9px 4px 11px;margin-inline-end:18px;font-family:var(--font-ui);font-size:14px;font-weight:700;
+    color:var(--text-muted);cursor:pointer;margin-bottom:-1px;transition:color .18s;
   }
+  /* The underline grows from the middle when a tab is chosen. */
+  .tab-btn::after{
+    content:'';position:absolute;inset-inline:0;bottom:0;height:2.5px;border-radius:2px;
+    background:var(--tab-accent, var(--text));transform:scaleX(0);
+    transition:transform .22s cubic-bezier(.2,.7,.3,1);
+  }
+  .tab-btn.active::after{transform:scaleX(1);}
+  .tab-btn:hover::after{transform:scaleX(.35);}
+  .tab-btn.active:hover::after{transform:scaleX(1);}
   .tab-btn img{width:22px;height:22px;border-radius:6px;object-fit:contain;background:#fff;flex-shrink:0;}
   .tab-btn img.wide{width:auto;max-width:72px;border-radius:4px;}
   .tab-btn:hover{color:var(--text);}
-  .tab-btn.active{color:var(--tab-ink, var(--text));border-bottom-color:var(--tab-accent, var(--text));}
+  .tab-btn.active{color:var(--tab-ink, var(--text));}
 
   .sub-tab-bar{
     display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;
@@ -408,7 +472,16 @@
   <div id="subTabBar" class="sub-tab-bar" hidden></div>
 
   <div id="mainContent">
-    <div class="loading-state"><div class="spinner"></div>در حال خوندن شیت‌های همه‌ی پروژه‌ها...</div>
+    <!-- The shape of what is coming, so the first seconds don't read as an
+         empty page. Replaced wholesale once the sheets are in. -->
+    <div class="skeleton-wrap">
+      <div class="sk-row">
+        <div class="sk sk-card"></div><div class="sk sk-card"></div>
+        <div class="sk sk-card"></div><div class="sk sk-card"></div>
+      </div>
+      <div class="sk sk-chart"></div>
+      <div class="sk-note"><span class="spinner"></span>در حال خوندن شیت‌ها…</div>
+    </div>
   </div>
   <div id="resultsContent"></div>
 </div>
@@ -689,6 +762,7 @@ function snappSections(){
     partTitle: part.partTitle,
     title: 'پروژه ' + part.title,
     subtitle: 'Blend Data (روزانه) × Budgeting (بودجه هر کمپین)',
+    logo: '/snapp-logo.svg',
     kind: 'budget',
     spreadsheetId: part.spreadsheetId,
     blendSheet: 'Blend Data',
@@ -699,8 +773,7 @@ function snappSections(){
     ...(part.defaultCampaigns ? {defaultCampaigns: part.defaultCampaigns} : {}),
     ownDateFilter: true,
     defaultRangeDays: 30,
-    theme: BRANDS.snapp,
-    logo: '/snapp-logo.svg'
+    theme: BRANDS.snapp
   }));
 }
 
@@ -780,6 +853,7 @@ const ALL_PROJECTS = [
   {
     id: 'talaeen-app',
     group: 'talaeen',
+    logo: '/taline-logo.jpg',
     partTitle: 'نصب اپلیکیشن',
     title: 'طلاین — نصب اپلیکیشن',
     subtitle: 'Adtrace (مرجع) × Cost - Yektanet — کمپین‌هایی که Adtrace گزارش کرده',
@@ -806,6 +880,7 @@ const ALL_PROJECTS = [
   {
     id: 'talaeen-web',
     group: 'talaeen',
+    logo: '/taline-logo.jpg',
     partTitle: 'وب',
     title: 'طلاین — وب',
     subtitle: 'Web - Campaign (مرجع) × Cost - Yektanet — کمپین‌های شامل web یا شروع‌شده با sl',
@@ -841,6 +916,7 @@ const ALL_PROJECTS = [
   {
     id: 'talaeen-wheel',
     group: 'talaeen',
+    logo: '/taline-logo.jpg',
     partTitle: 'گردونه (ثبت‌نام)',
     title: 'طلاین — گردونه (ثبت‌نام)',
     subtitle: 'Web - Campaign (مرجع) × Cost - Yektanet — فقط کمپین‌های شامل wheel-sp',
@@ -1058,8 +1134,8 @@ function budgetCampaignFilter(project){
   if(!st || !st.subCampaigns || st.subCampaigns === 'ALL') return () => true;
   return key => st.subCampaigns.has(key);
 }
-function buildBudgetDaily(project){
-  const {from, to} = sectionRange(project);
+function buildBudgetDaily(project, window){
+  const {from, to} = window || sectionRange(project);
   const inRange = d => (!from || d >= from) && (!to || d <= to);
   const inName = budgetNameFilter(project);
   const inCampaign = budgetCampaignFilter(project);
@@ -1297,9 +1373,9 @@ function sectionRange(project){
   const st = projectState[project.id];
   return project.ownDateFilter ? {from: st.from, to: st.to} : {from: currentFrom, to: currentTo};
 }
-function computeSection(project){
+function computeSection(project, window){
   const st = projectState[project.id];
-  const {from, to} = sectionRange(project);
+  const {from, to} = window || sectionRange(project);
   const inRange = d => (!from || d >= from) && (!to || d <= to);
   const inCampaign = c => st.campaigns === 'ALL' || st.campaigns.has(c);
   const refFiltered = project.rawRef.filter(r=>inRange(r.date) && inCampaign(r.campaign));
@@ -2520,20 +2596,23 @@ function updateBudgetSection(project){
     note.push(`${fmtNum(project.noBudgetCampaigns.length)} کمپین هزینه دارن ولی ردیف بودجه ندارن (سودشون بدون سقف حساب شده): ${escapeHtml(project.noBudgetCampaigns.slice(0,4).join('، '))}`);
   document.getElementById(`coverageNote-${project.id}`).innerHTML = note.join(' — ');
 
+  // The window before this one, so each figure can say whether it moved.
+  const prevWin = previousWindow(project);
+  const prev = prevWin ? buildBudgetDaily(project, prevWin) : null;
+  const withDays = d => d ? {...d, days: prevWin.days} : null;
+
   const cards = [
-    {label:'Cost اعلامی (بازه)', value: fmtMoney(daily.totals.cost)},
-    {label:'Cost R واقعی (بازه)', value: fmtMoney(daily.totals.costReal)},
-    {label:'سود بازه', value: fmtMoney(daily.totals.profit), accent:true},
-    {label:'سشن (بازه)', value: fmtNum(daily.totals.sessions)},
+    {label:'Cost اعلامی (بازه)', value: fmtMoney(daily.totals.cost), series: daily.cost,
+     delta: prev ? withDays(deltaOf(daily.totals.cost, prev.totals.cost, 'none')) : null},
+    {label:'Cost R واقعی (بازه)', value: fmtMoney(daily.totals.costReal), series: daily.costReal,
+     delta: prev ? withDays(deltaOf(daily.totals.costReal, prev.totals.costReal, 'none')) : null},
+    {label:'سود بازه', value: fmtMoney(daily.totals.profit), accent:true, series: daily.profit,
+     delta: prev ? withDays(deltaOf(daily.totals.profit, prev.totals.profit, 'up')) : null},
+    {label:'سشن (بازه)', value: fmtNum(daily.totals.sessions), series: daily.sessions,
+     delta: prev ? withDays(deltaOf(daily.totals.sessions, prev.totals.sessions, 'up')) : null},
     {label:'باقی‌مانده‌ی بودجه (کل)', value: fmtMoney(totals.remaining)}
   ];
-  const kpiEl = document.getElementById(`kpis-${project.id}`);
-  kpiEl.style.gridTemplateColumns = `repeat(${cards.length}, 1fr)`;
-  kpiEl.innerHTML = cards.map(c=>`
-    <div class="kpi">
-      <div class="kpi-top"><span class="label">${c.label}</span></div>
-      <div class="value ${c.accent?'accent':''}">${c.value}</div>
-    </div>`).join('');
+  renderKpiCards(project, cards);
 
   // Declared cost, real cost and profit share one axis — all three are Toman,
   // and profit dips below zero once a campaign is past its budget.
@@ -2667,6 +2746,94 @@ function renderCoverageNote(project, joined, matchedCost, totalCostInSheet, tota
   document.getElementById(`coverageNote-${project.id}`).innerHTML = notes.join(' — ');
 }
 
+// The same number of days ending the day before the current range starts.
+// Comparing a range with the stretch right before it is the question people
+// actually ask of a dashboard — "is this better than it was?" — and it costs
+// one more pass over rows that are already in memory.
+function previousWindow(project){
+  const {from, to} = sectionRange(project);
+  if(!from || !to) return null;
+  const start = new Date(toInputDate(from)), end = new Date(toInputDate(to));
+  const days = Math.round((end - start) / 86400000) + 1;
+  if(days < 1) return null;
+  const prevEnd = new Date(start); prevEnd.setDate(prevEnd.getDate() - 1);
+  const prevStart = new Date(prevEnd); prevStart.setDate(prevStart.getDate() - (days - 1));
+  return {from: fromInputDate(localIso(prevStart)), to: fromInputDate(localIso(prevEnd)), days};
+}
+// A change is good or bad depending on the metric: spending more is neither,
+// a higher CPA is worse, more conversions is better. `good` says which way is
+// up so the colour doesn't have to be decided at each call site.
+function deltaOf(now, before, good){
+  if(before === null || before === undefined || !isFinite(before) || before === 0) return null;
+  if(now === null || now === undefined || !isFinite(now)) return null;
+  const pct = (now - before) / Math.abs(before) * 100;
+  if(!isFinite(pct)) return null;
+  return {pct, good};
+}
+
+// A sparkline is the cheapest way to say "and here is how it got there".
+// Drawn as inline SVG stretched to the card's width; nulls (a day with no CPA)
+// break the line rather than dragging it to zero.
+function sparkline(series, opts){
+  const pts = (series || []).map((v, i) => ({i, v: (v === null || v === undefined || !isFinite(v)) ? null : v}));
+  const real = pts.filter(p=>p.v !== null);
+  if(real.length < 2) return '';
+  const min = Math.min(...real.map(p=>p.v)), max = Math.max(...real.map(p=>p.v));
+  const span = max - min || Math.abs(max) || 1;
+  // Inset by 2 so the marker on the last point isn't sliced by the card edge.
+  const x = i => pts.length > 1 ? 2 + (i / (pts.length - 1)) * 96 : 50;
+  const y = v => 26 - ((v - min) / span) * 22;   // 2px of breathing room top and bottom
+  let d = '', open = false;
+  pts.forEach(p=>{
+    if(p.v === null){ open = false; return; }
+    d += `${open ? 'L' : 'M'}${x(p.i).toFixed(2)},${y(p.v).toFixed(2)} `;
+    open = true;
+  });
+  const last = real[real.length - 1];
+  const stroke = (opts && opts.color) || 'var(--accent-ink)';
+  const area = `M${x(real[0].i).toFixed(2)},28 ` + d.replace(/^M/, 'L') + `L${x(last.i).toFixed(2)},28 Z`;
+  const id = 'sp' + Math.random().toString(36).slice(2, 8);
+  return `<svg class="spark" viewBox="0 0 100 28" preserveAspectRatio="none" aria-hidden="true">
+    <defs><linearGradient id="${id}" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="${stroke}" stop-opacity=".22"/>
+      <stop offset="100%" stop-color="${stroke}" stop-opacity="0"/>
+    </linearGradient></defs>
+    <path d="${area}" fill="url(#${id})"/>
+    <path d="${d.trim()}" fill="none" stroke="${stroke}" stroke-width="1.6"
+          stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+    <circle cx="${x(last.i).toFixed(2)}" cy="${y(last.v).toFixed(2)}" r="2"
+            fill="${stroke}" stroke="var(--surface)" stroke-width="1.4" vector-effect="non-scaling-stroke"/>
+  </svg>`;
+}
+
+// Every section's cards go through here, so a card looks the same whichever
+// page it is on: label and change on top, the figure, then the trend.
+function renderKpiCards(project, cards){
+  const el = document.getElementById(`kpis-${project.id}`);
+  if(!el) return;
+  el.style.gridTemplateColumns = `repeat(${cards.length}, minmax(0, 1fr))`;
+  el.innerHTML = cards.map(c=>{
+    const d = c.delta;
+    const dir = d ? (d.pct > 0.5 ? 'up' : d.pct < -0.5 ? 'down' : 'flat') : null;
+    // Spending more is neither good nor bad — only metrics with a direction
+    // ('up' or 'down' is better) get a colour; the rest stay neutral.
+    const tone = !d || dir === 'flat' || d.good === 'none' ? 'flat'
+               : (d.good === 'up') === (dir === 'up') ? 'pos' : 'neg';
+    const chip = d
+      ? `<span class="kpi-delta ${tone}" title="نسبت به ${fmtNum(d.days || 0)} روز قبل از این بازه">
+           ${dir === 'flat' ? '≈' : dir === 'up' ? '▲' : '▼'} ${Math.abs(d.pct).toFixed(0)}٪
+         </span>`
+      : '';
+    return `
+    <div class="kpi">
+      <div class="kpi-top"><span class="label">${c.key ? `<i class="kpi-key" style="background:${c.key}"></i>` : ''}${c.label}</span>${chip}</div>
+      <div class="value ${c.accent ? 'accent' : ''}">${String(c.value).replace(/\s*تومان$/, ' <span class="unit">تومان</span>')}</div>
+      ${c.sub ? `<div class="kpi-sub">${c.sub}</div>` : ''}
+      <div class="kpi-foot">${sparkline(c.series, {color: c.accent ? 'var(--accent-ink)' : 'var(--text-faint)'})}</div>
+    </div>`;
+  }).join('');
+}
+
 // Daily cost as columns with the cost per conversion as a line: the standard
 // section chart, and the one the CPI page draws once per campaign group.
 function renderCostCpaChart(project, key, canvasId, joined, cpaLabel){
@@ -2687,7 +2854,17 @@ function renderCostCpaChart(project, key, canvasId, joined, cpaLabel){
          borderColor: inkHex, borderWidth:{top:1.5, right:0, bottom:0, left:0},
          borderRadius:4, borderSkipped:false, yAxisID:'y', order:2, maxBarThickness:22},
         {type:'line', label:cpaLabel, data:cpaSeries, borderColor: accent2Hex,
-         backgroundColor: hexToRgba(accent2Hex,0.07), fill:true, tension:.32, yAxisID:'y1',
+         // A wash that fades out downwards gives the line a body without
+         // competing with the columns it sits over.
+         backgroundColor: ctx => {
+           const area = ctx.chart.chartArea;
+           if(!area) return hexToRgba(accent2Hex, 0.07);
+           const g = ctx.chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
+           g.addColorStop(0, hexToRgba(accent2Hex, 0.16));
+           g.addColorStop(1, hexToRgba(accent2Hex, 0));
+           return g;
+         },
+         fill:true, tension:.32, yAxisID:'y1',
          pointRadius: labels.length > 24 ? 0 : 4, pointHoverRadius:5,
          pointBackgroundColor: accent2Hex, pointBorderColor:CHART_INK.pointRing, pointBorderWidth:2,
          borderWidth:2, order:1}
@@ -2916,24 +3093,36 @@ function updateCpiSection(project){
     return {group:g, rows, cost, installs, cpi: installs>0 ? cost/installs : null};
   });
 
+  const prevWin = previousWindow(project);
+  let prev = null;
+  if(prevWin){
+    const pj = computeSection(project, prevWin).joined;
+    const pc = pj.reduce((t,r)=>t+r.cost,0), pi = pj.reduce((t,r)=>t+r.conversion,0);
+    prev = {days: prevWin.days, cost: pc, installs: pi, cpi: pi>0 ? pc/pi : null, rows: pj};
+  }
+  const withDays = d => d ? {...d, days: prevWin.days} : null;
+  const overall = groupByDateGeneric(joined);
+
   const cards = [
-    {label:'هزینه کل', value: fmtMoney(totalCost)},
-    {label:'نصب کل', value: fmtNum(totalInstalls)},
-    {label:cpaLabel + ' کلی', value: totalInstalls>0 ? fmtMoney(totalCost/totalInstalls) : '—', accent:true}
+    {label:'هزینه کل', value: fmtMoney(totalCost), series: overall.cost,
+     delta: prev ? withDays(deltaOf(totalCost, prev.cost, 'none')) : null},
+    {label:'نصب کل', value: fmtNum(totalInstalls), series: overall.conversion,
+     delta: prev ? withDays(deltaOf(totalInstalls, prev.installs, 'up')) : null},
+    {label:cpaLabel + ' کلی', value: totalInstalls>0 ? fmtMoney(totalCost/totalInstalls) : '—', accent:true,
+     series: overall.cpaSeries,
+     delta: prev ? withDays(deltaOf(totalInstalls>0 ? totalCost/totalInstalls : null, prev.cpi, 'down')) : null}
   ];
   groups.filter(g=>g.group.id !== 'all').forEach(g=>{
+    const inGroup = cpiGroupFilter(g.group);
+    const pg = prev ? prev.rows.filter(r=>inGroup(r.campaign)) : [];
+    const pgCost = pg.reduce((t,r)=>t+r.cost,0), pgInst = pg.reduce((t,r)=>t+r.conversion,0);
     cards.push({label:`${cpaLabel} ${g.group.title}`,
                 value: g.cpi!==null ? fmtMoney(g.cpi) : '—',
-                sub: `${fmtMoney(g.cost)} هزینه · ${fmtNum(g.installs)} نصب`});
+                sub: `${fmtMoney(g.cost)} هزینه · ${fmtNum(g.installs)} نصب`,
+                series: groupByDateGeneric(g.rows).cpaSeries,
+                delta: prev ? withDays(deltaOf(g.cpi, pgInst>0 ? pgCost/pgInst : null, 'down')) : null});
   });
-  const kpiEl = document.getElementById(`kpis-${project.id}`);
-  kpiEl.style.gridTemplateColumns = `repeat(${cards.length}, 1fr)`;
-  kpiEl.innerHTML = cards.map(c=>`
-    <div class="kpi">
-      <div class="kpi-top"><span class="label">${c.label}</span></div>
-      <div class="value ${c.accent?'accent':''}">${c.value}</div>
-      ${c.sub ? `<div class="kpi-sub">${c.sub}</div>` : ''}
-    </div>`).join('');
+  renderKpiCards(project, cards);
 
   renderDimensionTables(project);
 
@@ -2961,26 +3150,45 @@ function updateSection(project){
 
   renderCoverageNote(project, joined, matchedCost, totalCostInSheet, totalCost);
 
+  // The stretch right before this one, for the change chips.
+  const prevWin = previousWindow(project);
+  const extrasTotal = (rows, col) => rows.reduce((t,r)=>t + ((r.extras && r.extras[col]) || 0), 0);
+  let prev = null;
+  if(prevWin){
+    const pj = computeSection(project, prevWin).joined;
+    prev = {
+      days: prevWin.days,
+      cost: pj.reduce((t,r)=>t+r.cost,0),
+      conversion: pj.reduce((t,r)=>t+r.conversion,0),
+      installs: pj.reduce((t,r)=>t+r.installs,0),
+      rows: pj
+    };
+    prev.cpa = prev.conversion > 0 ? prev.cost/prev.conversion : null;
+  }
+  const withDays = d => d ? {...d, days: prevWin.days} : null;
+  const daily = groupByDateGeneric(joined);
+
   const cards = [
-    {label:'هزینه کل', value: fmtMoney(totalCost)},
-    {label: project.conversionLabel + ' کل', value: fmtNum(totalConversion)}
+    {label:'هزینه کل', value: fmtMoney(totalCost), series: daily.cost,
+     delta: prev ? withDays(deltaOf(totalCost, prev.cost, 'none')) : null},
+    {label: project.conversionLabel + ' کل', value: fmtNum(totalConversion), series: daily.conversion,
+     delta: prev ? withDays(deltaOf(totalConversion, prev.conversion, 'up')) : null}
   ];
-  if(project.showInstalls) cards.push({label:(project.installsLabel || 'Installs') + ' کل', value: fmtNum(totalInstalls)});
-  cards.push({label:'CPA کلی', value: cpa!==null?fmtMoney(cpa):'—', accent:true});
+  if(project.showInstalls) cards.push({label:(project.installsLabel || 'Installs') + ' کل', value: fmtNum(totalInstalls),
+     delta: prev ? withDays(deltaOf(totalInstalls, prev.installs, 'up')) : null});
+  cards.push({label:'CPA کلی', value: cpa!==null?fmtMoney(cpa):'—', accent:true, series: daily.cpaSeries,
+     delta: prev ? withDays(deltaOf(cpa, prev.cpa, 'down')) : null});
   (project.costPerMetrics||[]).forEach(m=>{
-    const total = joined.reduce((s,r)=>s + ((r.extras && r.extras[m.col]) || 0), 0);
-    cards.push({label:`هزینه به ازای ${m.label || m.col}`, value: total>0 ? fmtMoney(totalCost/total) : '—',
-                sub: `${fmtNum(total)} ${m.label || m.col}`});
+    const total = extrasTotal(joined, m.col);
+    const prevTotal = prev ? extrasTotal(prev.rows, m.col) : 0;
+    const per = total>0 ? totalCost/total : null;
+    const prevPer = prev && prevTotal>0 ? prev.cost/prevTotal : null;
+    cards.push({label:`هزینه به ازای ${m.label || m.col}`, value: per!==null ? fmtMoney(per) : '—',
+                sub: `${fmtNum(total)} ${m.label || m.col}`,
+                delta: prev ? withDays(deltaOf(per, prevPer, 'down')) : null});
   });
 
-  const kpiEl = document.getElementById(`kpis-${project.id}`);
-  kpiEl.style.gridTemplateColumns = `repeat(${cards.length}, 1fr)`;
-  kpiEl.innerHTML = cards.map(c=>`
-    <div class="kpi">
-      <div class="kpi-top"><span class="label">${c.label}</span></div>
-      <div class="value ${c.accent?'accent':''}">${c.value}</div>
-      ${c.sub ? `<div class="kpi-sub">${c.sub}</div>` : ''}
-    </div>`).join('');
+  renderKpiCards(project, cards);
 
   renderCostCpaChart(project, project.id, `trendChart-${project.id}`, joined, 'CPA');
 
@@ -3184,10 +3392,19 @@ function syncStickyOffset(){
   document.documentElement.style.setProperty('--sticky-top', (barH + subH) + 'px');
 }
 
+// The page picks up a trace of whichever project is open — enough that
+// switching tabs feels like moving somewhere, not enough to tint the data.
+function paintPageAccent(tab){
+  const th = (tab && tab.theme) || {};
+  document.documentElement.style.setProperty('--page-accent', th.accent || '#2563EB');
+  document.documentElement.style.setProperty('--page-accent-ink', th.ink || th.accent || '#1D4ED8');
+}
+
 function switchTab(tabId){
   const tab = TABS.find(t=>t.id===tabId);
   if(!tab) return;
   activeTabId = tabId;
+  paintPageAccent(tab);
   if(!activePart[tabId] || !tab.parts.some(p=>p.id===activePart[tabId])) activePart[tabId] = tab.parts[0].id;
   const shownId = activePart[tabId];
 
