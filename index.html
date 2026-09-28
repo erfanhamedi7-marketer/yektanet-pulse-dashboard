@@ -143,18 +143,18 @@
   .kpi:hover .spark{opacity:1;}
   .kpi .icon{width:30px;height:30px;border-radius:10px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;color:var(--accent-ink);flex-shrink:0;}
   .kpi .icon svg{width:15px;height:15px;}
-  /* Light and large, the way a headline figure is set on a poster. Toman
-     amounts run to ten digits, so the size steps down by length (see
-     kpiValueClass) rather than overflowing the card. */
+  /* Every figure on the screen is set at one size — a card never grows or
+     shrinks its number to make it fit. A figure too long for its card is
+     shown in short form instead (1.01B, 447.2M; see fitKpiValue), with the
+     exact figure in its tooltip. */
   .kpi .value{
-    font-family:var(--font-mono);font-size:40px;font-weight:300;letter-spacing:-0.045em;
-    color:var(--text);font-variant-numeric:tabular-nums;line-height:1.08;
-    white-space:nowrap;overflow:hidden;
+    font-family:var(--font-mono);font-size:32px;font-weight:300;letter-spacing:-0.035em;
+    color:var(--text);font-variant-numeric:tabular-nums;line-height:1.1;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   }
-  .kpi .value.s2{font-size:31px;letter-spacing:-0.04em;}
-  .kpi .value.s3{font-size:25px;letter-spacing:-0.03em;}
-  .kpi .value.s4{font-size:21px;letter-spacing:-0.02em;}
-  .kpi .value.s5{font-size:18px;letter-spacing:-0.01em;}
+  .kpi .value .v-short{display:none;}
+  .kpi .value.short .v-full{display:none;}
+  .kpi .value.short .v-short{display:inline;}
   .kpi .value.accent{color:var(--accent-ink);}
   .kpi .value .unit{font-size:.36em;font-weight:500;color:var(--text-faint);letter-spacing:0;}
   .kpi .ctx{font-size:11.5px;color:var(--text-faint);margin-top:6px;}
@@ -497,7 +497,6 @@
        !important rule can step over on a narrow screen. */
     .kpis{grid-template-columns:repeat(2,minmax(0,1fr)) !important;}
     .wrap{padding-top:20px;padding-bottom:56px;}
-    .kpi .value{font-size:33px;}
   }
 
   /* ---- Phones --------------------------------------------------------------
@@ -586,16 +585,13 @@
     .coverage-note{font-size:11px;padding:9px 11px;margin-bottom:12px;}
 
     /* KPI cards: two a row; an odd one out takes the whole last row. */
-    .kpis{gap:10px;margin-bottom:12px;grid-auto-flow:row dense;}
-    .kpis > .kpi.span{grid-column:1 / -1;}
+    .kpis{gap:10px;margin-bottom:12px;}
+    /* An odd card out takes the whole last row rather than sit by a hole. */
+    .kpis > .kpi:last-child:nth-child(odd){grid-column:1 / -1;}
     .kpi{padding:13px 14px 11px;min-height:132px;border-radius:20px;}
     .kpi-foot{margin-inline:-14px;margin-bottom:-11px;height:30px;}
     .spark{height:30px;}
-    .kpi .value{font-size:28px;}
-    .kpi .value.s2{font-size:25px;}
-    .kpi .value.s3{font-size:22px;}
-    .kpi .value.s4{font-size:19px;}
-    .kpi .value.s5{font-size:17px;}
+    .kpi .value{font-size:26px;}
     .kpi .label{font-size:11.5px;}
     .kpi-sub{font-size:10.5px;}
     .kpi:hover{transform:none;}
@@ -2716,7 +2712,7 @@ function renderSessionsKpis(project, series){
   el.innerHTML = cards.map(c=>`
     <div class="kpi">
       <div class="kpi-top"></div>
-      <div class="value ${kpiValueClass(c.value)} ${c.accent?'accent':''}">${c.value}</div>
+      <div class="value ${c.accent?'accent':''}" title="${escapeHtml(String(c.value))}">${kpiValueHtml(c.value)}</div>
       <div class="label">${c.color?`<i class="kpi-key" style="background:${c.color}"></i>`:''}${escapeHtml(c.label)}</div>
       <div class="kpi-sub">${escapeHtml(c.sub)}</div>
     </div>`).join('');
@@ -3036,58 +3032,39 @@ function sparkline(series, opts){
   </svg>`;
 }
 
-// A ten-digit Toman amount cannot be set at 40px inside a fifth-width card, so
-// the figure steps down through five sizes until it fits. The class below is
-// the first guess, made from the digit count while the card is still off
-// screen; fitKpiValue then measures the real box and settles it.
-const KPI_SIZES = ['', 's2', 's3', 's4', 's5'];
-function kpiValueClass(value){
-  const n = String(value).replace(/\s*تومان\s*$/, '').trim().length;
-  return n > 14 ? 's4' : n > 11 ? 's3' : n > 8 ? 's2' : '';
+// Short form of a figure: 1.01B, 447.2M, 51.5K. Two decimals below 10, one
+// above, trailing zeros dropped.
+function fmtShort(n){
+  const units = [[1e9, 'B'], [1e6, 'M'], [1e3, 'K']];
+  const a = Math.abs(n);
+  let i = a >= 1e9 ? 0 : a >= 1e6 ? 1 : 2;
+  let str = (n / units[i][0]).toFixed(a / units[i][0] < 10 ? 2 : 1);
+  // 999,999 rounds to 1000.0K; that is 1M.
+  if(Math.abs(Number(str)) >= 1000 && i > 0){ i--; str = (n / units[i][0]).toFixed(2); }
+  return str.replace(/\.?0+$/, '') + units[i][1];
 }
-// Steps the figure down through `sizes` until it fits; says whether it did.
-function sizeKpiValue(v, sizes){
-  KPI_SIZES.forEach(c=>{ if(c) v.classList.remove(c); });
-  let cur = '';
-  for(const c of sizes.slice(1)){
-    if(v.scrollWidth <= v.clientWidth + 1) return true;
-    if(cur) v.classList.remove(cur);
-    v.classList.add(c); cur = c;
-  }
-  return v.scrollWidth <= v.clientWidth + 1;
+// A card's figure, with its short form alongside when it has one. Both are in
+// the page and a class on the value picks which shows, so the choice can be
+// made again whenever the card changes width.
+function kpiValueHtml(value){
+  const text = String(value);
+  const unit = ' <span class="unit">تومان</span>';
+  const full = text.replace(/\s*تومان$/, unit);
+  const m = text.match(/^\s*(-?)([\d,]+(?:\.\d+)?)(\s*تومان)?\s*$/);
+  const n = m ? Number(m[1] + m[2].replace(/,/g, '')) : NaN;
+  if(!isFinite(n) || Math.abs(n) < 1e4) return full;
+  return `<span class="v-full">${full}</span><span class="v-short">${fmtShort(n)}${m[3] ? unit : ''}</span>`;
 }
-// On a phone the cards sit two to a row, and a billion-Toman figure does not
-// fit half a phone at any size worth reading. Rather than shrink it further, a
-// card that cannot fit at the third step takes the whole row, and the rest
-// pair up around it (the grid packs densely). A half card left over at the end
-// takes the row too, so no card sits next to a hole.
-function fitKpiGrid(grid){
-  // A grid in a hidden section measures zero — leave the guess, switchTab
-  // fits it the moment the section is shown.
-  if(!grid.clientWidth) return;
-  const narrow = NARROW.matches;
-  const cards = [...grid.children].filter(c=>c.classList.contains('kpi'));
-  cards.forEach(c=>c.classList.remove('span'));
-  cards.forEach(c=>{
-    const v = c.querySelector('.value');
-    if(!v) return;
-    if(sizeKpiValue(v, narrow ? KPI_SIZES.slice(0, 3) : KPI_SIZES) || !narrow) return;
-    c.classList.add('span');
-    sizeKpiValue(v, KPI_SIZES);
-  });
-  if(!narrow) return;
-  const halves = cards.filter(c=>!c.classList.contains('span'));
-  if(halves.length % 2){
-    const last = halves[halves.length - 1];
-    last.classList.add('span');
-    const v = last.querySelector('.value');
-    if(v) sizeKpiValue(v, KPI_SIZES);
-  }
+// Full figure if it fits its card at the fixed size, short form if not.
+function fitKpiValue(v){
+  v.classList.remove('short');
+  // A card in a hidden section measures zero; switchTab re-fits it the
+  // moment the section is shown.
+  if(!v.clientWidth || !v.querySelector('.v-short')) return;
+  if(v.scrollWidth > v.clientWidth + 1) v.classList.add('short');
 }
 function fitKpiValues(root){
-  root = root || document;
-  const grids = root.matches && root.matches('.kpis') ? [root] : [...root.querySelectorAll('.kpis')];
-  grids.forEach(fitKpiGrid);
+  (root || document).querySelectorAll('.kpi .value').forEach(fitKpiValue);
 }
 
 // Every section's cards go through here, so a card looks the same whichever
@@ -3112,7 +3089,7 @@ function renderKpiCards(project, cards){
     return `
     <div class="kpi">
       <div class="kpi-top">${chip}</div>
-      <div class="value ${kpiValueClass(c.value)} ${c.accent ? 'accent' : ''}">${String(c.value).replace(/\s*تومان$/, ' <span class="unit">تومان</span>')}</div>
+      <div class="value ${c.accent ? 'accent' : ''}" title="${escapeHtml(String(c.value))}">${kpiValueHtml(c.value)}</div>
       <div class="label">${c.key ? `<i class="kpi-key" style="background:${c.key}"></i>` : ''}${c.label}</div>
       ${c.sub ? `<div class="kpi-sub">${c.sub}</div>` : ''}
       <div class="kpi-foot">${sparkline(c.series, {color: c.accent ? 'var(--accent-ink)' : 'var(--text-faint)'})}</div>
