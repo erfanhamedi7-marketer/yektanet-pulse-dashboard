@@ -853,9 +853,10 @@ const BRANDS = {
   bankino:  brandTheme('#FF8C22', '#C15300', BRAND_INK, 0.13),
   blue:     brandTheme('#3B82F6', '#286FE1', '#EF4444', 0.12),
   blueJr:   brandTheme('#0EA5E9', '#0079BA', '#A855F7', 0.12),
-  firouzeh: brandTheme('#14A3A0', '#00716F', BRAND_INK, 0.12),
-  tara:     brandTheme('#7B3FE4', '#5B22C2', BRAND_INK, 0.11),
-  technopay:brandTheme('#1E63F0', '#0F4AC4', BRAND_INK, 0.11)
+  firouzeh: brandTheme('#3EC1CF', '#00818E', BRAND_INK, 0.14),
+  // Tara's mark runs from its indigo into magenta; the magenta end draws the CPA line.
+  tara:     brandTheme('#312782', '#312782', '#E5007E', 0.10, ['#312782','#E5007E']),
+  technopay:brandTheme('#01B7CD', '#00788A', BRAND_INK, 0.13)
 };
 
 // rowFilter keeps a sheet row (both the conversion and the cost side) before
@@ -1042,11 +1043,12 @@ function snappSections(){
 function yektanetExportSections(){
   const parts = [
     {id:'firouzeh',  title:'فیروزه', spreadsheetId:'10hRbyK0f2x7jrzZ8vYgQA8GoG_xONdL73AwXAsPPYLI',
-     conversionCol:'Register', theme: BRANDS.firouzeh},
+     conversionCol:'Register', theme: BRANDS.firouzeh, logo:'/Firouzeh%20Logo.jpg'},
     {id:'tara',      title:'تارا',   spreadsheetId:'1OJcJVwBH2qBftWC9W1ddVgnPXfRuQdzYjYWbGWPqv5Q',
-     conversionCol:'Lead', theme: BRANDS.tara},
+     conversionCol:'Lead', theme: BRANDS.tara, logo:'/Tara%20-%20Logo.jpg'},
     {id:'technopay', title:'تکنوپی', spreadsheetId:'1izpnAk0BM49IMTsBv1HTuEUh5dCTT61ukMA-fklLOgk',
-     conversionCol:'Lead', costPer:[{col:'Validation'}], theme: BRANDS.technopay}
+     conversionCol:'Validation', costPer:[{col:'Lead'}], theme: BRANDS.technopay,
+     logo:'/Technopay%20Logo.jpg'}
   ];
   return parts.map(part => ({
     id: part.id,
