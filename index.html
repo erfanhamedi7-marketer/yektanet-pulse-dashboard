@@ -852,8 +852,17 @@ const BRANDS = {
   wepod:    brandTheme('#00B578', '#00864D', BRAND_INK, 0.12),
   bankino:  brandTheme('#FF8C22', '#C15300', BRAND_INK, 0.13),
   blue:     brandTheme('#3B82F6', '#286FE1', '#EF4444', 0.12),
-  blueJr:   brandTheme('#0EA5E9', '#0079BA', '#A855F7', 0.12)
+  blueJr:   brandTheme('#0EA5E9', '#0079BA', '#A855F7', 0.12),
+  firouzeh: brandTheme('#14A3A0', '#00716F', BRAND_INK, 0.12),
+  tara:     brandTheme('#7B3FE4', '#5B22C2', BRAND_INK, 0.11),
+  technopay:brandTheme('#1E63F0', '#0F4AC4', BRAND_INK, 0.11)
 };
+
+// rowFilter keeps a sheet row (both the conversion and the cost side) before
+// anything is read from it. Advertiser ID arrives as a number; compare text.
+function advertiserIs(id){
+  return row => cellText(row['Advertiser ID']) === String(id);
+}
 
 function arzplusSections(){
   const APP_PREFIX = 'inap';       // covers inapp- and the inap- spelling
@@ -864,7 +873,11 @@ function arzplusSections(){
       costSheet: 'Arzplus- Yektanet',   // the tab really has no space before the hyphen
       costPer: [{col:'Deposit'}, {col:'Purchase'}],
       theme: BRANDS.arzplus,
-      logo: '/Arzplus%20-Logo.png'
+      logo: '/Arzplus%20-Logo.png',
+      // The Yektanet tab carries every advertiser account; the web one is the
+      // only one whose rows fill the (Web) conversion columns.
+      webAdvertiserId: '65519',
+      webCostPer: [{col:'Deposit (Web)', label:'Deposit'}]
     },
     tochal: {
       spreadsheetId: '1VTHX_I9LBBYc0fpVBAUZm2Nn7ihtPqbpxLay_yDlUBE',
@@ -872,7 +885,9 @@ function arzplusSections(){
       costSheet: 'Tocal - Yektanet',
       // That tab has no Deposit column, so there is no cost-per-deposit to show.
       costPer: [{col:'Purchase'}],
-      theme: BRANDS.tochal
+      theme: BRANDS.tochal,
+      webAdvertiserId: '1287236',
+      webCostPer: [{col:'Deposit (Web)', label:'Deposit'}, {col:'Purchase (Web)', label:'Purchase'}]
     }
   };
   const parts = [
@@ -880,12 +895,16 @@ function arzplusSections(){
      app:'arzplus', prefix:APP_PREFIX, prefixLabel:'inapp / inap'},
     {id:'arzplus-cafe', partTitle:'ارزپلاس - کافه بازار', title:'ارزپلاس — کافه بازار',
      app:'arzplus', prefix:'yn-c',     prefixLabel:'yn-c'},
+    {id:'arzplus-web',  partTitle:'ارزپلاس - وب',         title:'ارزپلاس — وب',
+     app:'arzplus', web:true},
     {id:'tochal-app',   partTitle:'توچال - اپلیکیشن',    title:'توچال — اپلیکیشن',
      app:'tochal',  prefix:APP_PREFIX, prefixLabel:'inapp / inap'},
     {id:'tochal-cafe',  partTitle:'توچال - کافه بازار',   title:'توچال — کافه بازار',
-     app:'tochal',  prefix:'cafe-',    prefixLabel:'cafe-'}
+     app:'tochal',  prefix:'cafe-',    prefixLabel:'cafe-'},
+    {id:'tochal-web',   partTitle:'توچال - وب',          title:'توچال — وب',
+     app:'tochal',  web:true}
   ];
-  const sections = parts.map((part, i) => ({
+  const sections = parts.map((part, i) => part.web ? webSection(part, i) : ({
     id: part.id,
     group: 'arzplus',
     ...(i === 0 ? {groupTitle: 'ارزپلاس'} : {}),
@@ -914,6 +933,36 @@ function arzplusSections(){
     theme: apps[part.app].theme,
     ...(apps[part.app].logo ? {logo: apps[part.app].logo, logoWide: apps[part.app].logoWide} : {})
   }));
+  // The web parts read only the Yektanet tab: it is both the cost and the
+  // conversion sheet (KYC / Deposit / Purchase under their "(Web)" columns),
+  // narrowed to the web advertiser account's rows.
+  function webSection(part, i){
+    const app = apps[part.app];
+    return {
+      id: part.id,
+      group: 'arzplus',
+      ...(i === 0 ? {groupTitle: 'ارزپلاس'} : {}),
+      partTitle: part.partTitle,
+      title: part.title,
+      subtitle: `${app.costSheet} — فقط ردیف‌های Advertiser ID ${app.webAdvertiserId} (وب)`,
+      spreadsheetId: app.spreadsheetId,
+      refSheet: app.costSheet,
+      costSheet: app.costSheet,
+      rowFilter: advertiserIs(app.webAdvertiserId),
+      conversionCol: 'KYC (Web)',
+      conversionLabel: 'KYC',
+      showInstalls: false,
+      costPerMetrics: app.webCostPer,
+      impressionsCol: 'Impression',
+      clicksCol: 'Click',
+      // No Ad Group / Creative columns on this tab.
+      hideSegmentAnalysis: true,
+      ownDateFilter: true,
+      defaultRangeDays: 30,
+      theme: app.theme,
+      ...(app.logo ? {logo: app.logo, logoWide: app.logoWide} : {})
+    };
+  }
   sections.push(ramzarzSection());
   return sections;
 }
@@ -985,6 +1034,42 @@ function snappSections(){
     ownDateFilter: true,
     defaultRangeDays: 30,
     theme: BRANDS.snapp
+  }));
+}
+
+// Projects whose whole sheet is the one "Yektanet - Export" tab: cost,
+// sessions and the conversion side by side on each Date + Campaign row.
+function yektanetExportSections(){
+  const parts = [
+    {id:'firouzeh',  title:'فیروزه', spreadsheetId:'10hRbyK0f2x7jrzZ8vYgQA8GoG_xONdL73AwXAsPPYLI',
+     conversionCol:'Register', theme: BRANDS.firouzeh},
+    {id:'tara',      title:'تارا',   spreadsheetId:'1OJcJVwBH2qBftWC9W1ddVgnPXfRuQdzYjYWbGWPqv5Q',
+     conversionCol:'Lead', theme: BRANDS.tara},
+    {id:'technopay', title:'تکنوپی', spreadsheetId:'1izpnAk0BM49IMTsBv1HTuEUh5dCTT61ukMA-fklLOgk',
+     conversionCol:'Lead', costPer:[{col:'Validation'}], theme: BRANDS.technopay}
+  ];
+  return parts.map(part => ({
+    id: part.id,
+    title: part.title,
+    tabTitle: part.title,
+    subtitle: `Yektanet - Export — ${part.conversionCol}${part.costPer ? ' و ' + part.costPer.map(m=>m.col).join(' و ') : ''}`,
+    ...(part.logo ? {logo: part.logo} : {}),
+    spreadsheetId: part.spreadsheetId,
+    refSheet: 'Yektanet - Export',
+    costSheet: 'Yektanet - Export',
+    conversionCol: part.conversionCol,
+    conversionLabel: part.conversionCol,
+    showInstalls: true,
+    installsCol: 'Sessions',
+    installsLabel: 'Sessions',
+    ...(part.costPer ? {costPerMetrics: part.costPer} : {}),
+    impressionsCol: 'Impression',
+    clicksCol: 'Click',
+    // The export has no Adgroup/Creative columns.
+    hideSegmentAnalysis: true,
+    ownDateFilter: true,
+    defaultRangeDays: 30,
+    theme: part.theme
   }));
 }
 
@@ -1239,7 +1324,10 @@ const ALL_PROJECTS = [
     defaultRangeDays: 30,
     theme: BRANDS.bankino
   },
-  ...arzplusSections()
+  ...arzplusSections(),
+  // ---- Firouzeh, Tara, Technopay: one Yektanet export each, which is both the
+  // conversion and the cost sheet (like Shahr), every campaign counted ----
+  ...yektanetExportSections()
 ];
 
 // A hidden project is dropped here, before anything else sees it: no tab, no
@@ -3558,12 +3646,18 @@ async function loadProject(project){
     // different column names still add up.
     const refSheets = (Array.isArray(project.refSheet) ? project.refSheet : [project.refSheet])
       .map(entry => typeof entry === 'string' ? {sheet: entry, conversionCol: project.conversionCol} : entry);
-    const [refSheetRows, costRows, compareOrNull] = await Promise.all([
+    let [refSheetRows, costRows, compareOrNull] = await Promise.all([
       Promise.all(refSheets.map(r => fetchSheetCached(project.spreadsheetId, r.sheet))),
       fetchSheetCached(project.spreadsheetId, project.costSheet),
       cmp ? fetchSheetCached(project.spreadsheetId, cmp.sheet) : null
     ]);
     const compareRows = compareOrNull || [];
+    // A section that covers only some rows of a shared tab narrows both sides
+    // here; the cached sheet itself stays whole for the other sections.
+    if(project.rowFilter){
+      refSheetRows.forEach((rows, i)=>{ refSheetRows[i] = rows.filter(project.rowFilter); });
+      costRows = costRows.filter(project.rowFilter);
+    }
     // Dimension tabs are independent of the join, so they are fetched on their
     // own and kept beside it.
     const dimTables = project.dimensionTables || [];

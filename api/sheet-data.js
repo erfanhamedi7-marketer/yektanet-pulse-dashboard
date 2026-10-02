@@ -15,7 +15,10 @@ const ALLOWED_SPREADSHEETS = new Set([
   '1SUcOo8o0lwtSQH-HCtm8HipVqN52abbI-Ds77ZeotFg', // Snapp Bimeh
   '1VTHX_I9LBBYc0fpVBAUZm2Nn7ihtPqbpxLay_yDlUBE', // Tochal
   '18dU5hlkIxoqF000GjgkPlJ6EbBXU0b_TzP0DAMpiJzw', // Arzplus
-  '1fOn7G0qGS98KL-hU2oNZBqoacTkuasmkDZEQGXLKzD0'  // Ramzarz News
+  '1fOn7G0qGS98KL-hU2oNZBqoacTkuasmkDZEQGXLKzD0', // Ramzarz News
+  '10hRbyK0f2x7jrzZ8vYgQA8GoG_xONdL73AwXAsPPYLI', // Firouzeh
+  '1OJcJVwBH2qBftWC9W1ddVgnPXfRuQdzYjYWbGWPqv5Q', // Tara
+  '1izpnAk0BM49IMTsBv1HTuEUh5dCTT61ukMA-fklLOgk'  // Technopay
 ]);
 
 let cachedClient = null;
