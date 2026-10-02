@@ -1043,7 +1043,8 @@ function snappSections(){
 function yektanetExportSections(){
   const parts = [
     {id:'firouzeh',  title:'فیروزه', spreadsheetId:'10hRbyK0f2x7jrzZ8vYgQA8GoG_xONdL73AwXAsPPYLI',
-     conversionCol:'Register', theme: BRANDS.firouzeh, logo:'/Firouzeh%20Logo.jpg'},
+     conversionCol:'Register', theme: BRANDS.firouzeh, logo:'/Firouzeh%20Logo.jpg',
+     keep: key => key.includes('sahel'), keepLabel:'sahel'},
     {id:'tara',      title:'تارا',   spreadsheetId:'1OJcJVwBH2qBftWC9W1ddVgnPXfRuQdzYjYWbGWPqv5Q',
      conversionCol:'Lead', theme: BRANDS.tara, logo:'/Tara%20-%20Logo.jpg'},
     {id:'technopay', title:'تکنوپی', spreadsheetId:'1izpnAk0BM49IMTsBv1HTuEUh5dCTT61ukMA-fklLOgk',
@@ -1054,7 +1055,9 @@ function yektanetExportSections(){
     id: part.id,
     title: part.title,
     tabTitle: part.title,
-    subtitle: `Yektanet - Export — ${part.conversionCol}${part.costPer ? ' و ' + part.costPer.map(m=>m.col).join(' و ') : ''}`,
+    subtitle: `Yektanet - Export — ${part.conversionCol}${part.costPer ? ' و ' + part.costPer.map(m=>m.col).join(' و ') : ''}${part.keepLabel ? ' — فقط کمپین‌های شامل ' + part.keepLabel : ''}`,
+    // keep(campaign) narrows a project to some of its campaigns, cost included.
+    ...(part.keep ? {excludeCampaign: key => !part.keep(key)} : {}),
     ...(part.logo ? {logo: part.logo} : {}),
     spreadsheetId: part.spreadsheetId,
     refSheet: 'Yektanet - Export',
