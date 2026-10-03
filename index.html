@@ -1062,7 +1062,10 @@ function yektanetExportSections(){
      conversionCol:'Lead', theme: BRANDS.tara, logo:'/Tara%20-%20Logo.jpg'},
     {id:'technopay', title:'تکنوپی', spreadsheetId:'1izpnAk0BM49IMTsBv1HTuEUh5dCTT61ukMA-fklLOgk',
      conversionCol:'Validation', costPer:[{col:'Lead'}], theme: BRANDS.technopay,
-     logo:'/Technopay%20Logo.jpg'}
+     logo:'/Technopay%20Logo.jpg',
+     // GA4's own count of the same conversion, beside Yektanet's (which stays
+     // the one the dashboard prices).
+     compareConversion:{sheet:'GA4 - Export', col:'Validation', source:'GA4', ownSource:'یکتانت'}}
   ];
   return parts.map(part => ({
     id: part.id,
@@ -1081,6 +1084,7 @@ function yektanetExportSections(){
     installsCol: 'Sessions',
     installsLabel: 'Sessions',
     ...(part.costPer ? {costPerMetrics: part.costPer} : {}),
+    ...(part.compareConversion ? {compareConversion: part.compareConversion} : {}),
     impressionsCol: 'Impression',
     clicksCol: 'Click',
     // The export has no Adgroup/Creative columns.
@@ -1547,6 +1551,32 @@ function normalizeCompareRows(rows, sessionsCol){
     return {date, campaign, sessions: toNumber(r[sessionsCol])};
   }).filter(Boolean);
 }
+function normalizeCmpConvRows(rows, col){
+  return rows.map(r=>{
+    const date = normDate(r['Date']);
+    const campaign = normCampaign(r['Campaign']);
+    if(!date || !campaign) return null;
+    return {date, campaign, value: toNumber(r[col])};
+  }).filter(Boolean);
+}
+// The second source's conversions in a window, under the same campaign filter
+// as everything else on the section — the two counts compare like for like.
+function cmpConvRows(project, window){
+  const st = projectState[project.id];
+  const {from, to} = window || sectionRange(project);
+  return (project.rawCmpConv || []).filter(r=>(!from || r.date >= from) && (!to || r.date <= to)
+    && (st.campaigns === 'ALL' || st.campaigns.has(r.campaign)));
+}
+// How far the second source's count sits from the dashboard's own, as a share
+// of the dashboard's own: (GA4 − Yektanet) ÷ Yektanet.
+function cmpDiffPct(own, other){
+  return own > 0 ? (other - own) / own * 100 : null;
+}
+function fmtDiffPct(pct){
+  if(pct === null) return '—';
+  return (pct > 0 ? '+' : pct < 0 ? '−' : '') + Math.abs(pct).toFixed(0) + '٪';
+}
+
 function aggregateRef(rows){
   const map = {};
   rows.forEach(r=>{
@@ -2673,7 +2703,19 @@ function computeCampaignCpaTable(project, joined){
   }).filter(r=>r.cost>0 || r.conversion>0);
   rows.sort((a,b)=>b.cost-a.cost);
 
-  return {rows, extras, totalCost, totalConversion, benchmark, recentWindow,
+  // A second source's count of the conversion, per campaign, for comparison.
+  let cmp = null;
+  if(project.compareConversion){
+    const byC = {};
+    const window = {from: dates[0], to: dates[dates.length-1]};
+    cmpConvRows(project, window).forEach(r=>{ byC[r.campaign] = (byC[r.campaign] || 0) + r.value; });
+    rows.forEach(r=>{ r.cmp = byC[r.key] || 0; r.cmpDiff = cmpDiffPct(r.conversion, r.cmp); });
+    const total = Object.values(byC).reduce((a,b)=>a+b, 0);
+    const missing = Object.keys(byC).filter(k=>!byCampaign[k] && byC[k] > 0);
+    cmp = {...project.compareConversion, total, diff: cmpDiffPct(totalConversion, total),
+           missing: missing.length, missingTotal: missing.reduce((t,k)=>t+byC[k], 0)};
+  }
+  return {rows, extras, cmp, totalCost, totalConversion, benchmark, recentWindow,
           dayCount:dates.length, from:dates[0], to:dates[dates.length-1]};
 }
 
@@ -2691,6 +2733,10 @@ function renderCampaignCpaTable(project, joined, elId){
       ${fmtDateLabel(t.from)} تا ${fmtDateLabel(t.to)} (${fmtNum(t.dayCount)} روز) —
       میانگین ${escapeHtml(cpaLabel)} در همین بازه: <b>${t.benchmark!==null?fmtMoney(t.benchmark):'—'}</b>.
       ستون «نسبت به میانگین» اختلاف هر کمپین با همین عدده.
+      ${t.cmp ? `<br>${escapeHtml(t.cmp.col)} از ${escapeHtml(t.cmp.source)} کنار ${escapeHtml(t.cmp.col)} ${escapeHtml(t.cmp.ownSource)}؛
+        «اختلاف» = (${escapeHtml(t.cmp.source)} − ${escapeHtml(t.cmp.ownSource)}) ÷ ${escapeHtml(t.cmp.ownSource)}.
+        کل بازه: ${escapeHtml(t.cmp.ownSource)} <b>${fmtNum(t.totalConversion)}</b>، ${escapeHtml(t.cmp.source)} <b>${fmtNum(t.cmp.total)}</b> (<bdi dir="ltr">${fmtDiffPct(t.cmp.diff)}</bdi>).
+        ${t.cmp.missing ? `${fmtNum(t.cmp.missingTotal)} ${escapeHtml(t.cmp.col)} از ${escapeHtml(t.cmp.source)} مال ${fmtNum(t.cmp.missing)} کمپینیه که توی ${escapeHtml(t.cmp.ownSource)} نیست.` : ''}` : ''}
       ${t.extras.map(m=>`<br>${escapeHtml(m.name)}: تعداد، نرخ (${escapeHtml(m.name)} ÷ ${escapeHtml(label)}) و هزینه به ازای ${escapeHtml(m.name)}${
         m.since ? ` — فقط از ${fmtDateLabel(m.since)} که این ستون توی شیت پر شده؛ نرخ و هزینه‌اش هم فقط روی همین روزها حساب شده` : ''}.`).join('')}
     </div>`;
@@ -2716,6 +2762,9 @@ function renderCampaignCpaTable(project, joined, elId){
         ${cpaCell}
         ${recentCell}
         ${vsCell}
+        ${t.cmp ? `<td>${fmtNum(r.cmp)}</td>
+          <td class="${r.cmpDiff===null ? 'muted' : Math.abs(r.cmpDiff) >= 20 ? 'neg' : 'muted'}">${
+            r.cmpDiff===null ? '—' : `<bdi dir="ltr">${fmtDiffPct(r.cmpDiff)}</bdi>`}</td>` : ''}
         ${r.extra.map((e, i)=> !e.tracked
           ? `<td class="muted">—</td><td class="muted">—</td><td class="muted">—</td>`
           : `<td>${fmtNum(e.count)}</td>
@@ -2736,6 +2785,7 @@ function renderCampaignCpaTable(project, joined, elId){
             <th>کمپین</th><th>هزینه (تومان)</th><th>سهم هزینه</th><th>${escapeHtml(label)}</th>
             <th>${escapeHtml(cpaLabel)} کل بازه (تومان)</th><th>${escapeHtml(cpaLabel)} ${fmtNum(t.recentWindow)} روز اخیر</th>
             <th>نسبت به میانگین</th>
+            ${t.cmp ? `<th>${escapeHtml(t.cmp.col)} (${escapeHtml(t.cmp.source)})</th><th>اختلاف ${escapeHtml(t.cmp.source)} با ${escapeHtml(t.cmp.ownSource)}</th>` : ''}
             ${t.extras.map(m=>`<th>${escapeHtml(m.name)}</th><th>نرخ ${escapeHtml(m.name)}</th><th>هزینه به ازای ${escapeHtml(m.name)} (تومان)</th>`).join('')}
             <th>روز فعال</th>
           </tr>
@@ -3821,6 +3871,20 @@ function updateSection(project){
   cards.push({label:'CPA کلی', value: cpa!==null?fmtMoney(cpa):'—', accent:true, series: daily.cpaSeries,
      metric:{id:'cpa', label:'CPA', data:daily.cpaSeries},
      delta: prev ? withDays(deltaOf(cpa, prev.cpa, 'down')) : null});
+  const cc = project.compareConversion;
+  if(cc){
+    const rows = cmpConvRows(project);
+    const total = rows.reduce((t,r)=>t+r.value, 0);
+    const prevTotal = prevWin ? cmpConvRows(project, prevWin).reduce((t,r)=>t+r.value, 0) : null;
+    const byDate = {};
+    rows.forEach(r=>{ byDate[r.date] = (byDate[r.date] || 0) + r.value; });
+    const series = daily.dates.map(d => byDate[d] || 0);
+    const name = `${cc.col} (${cc.source})`;
+    cards.push({label: name + ' کل', value: fmtNum(total), series,
+      sub: `اختلاف با ${escapeHtml(cc.ownSource)}: <bdi dir="ltr">${fmtDiffPct(cmpDiffPct(totalConversion, total))}</bdi>`,
+      metric:{id:'cmpconv', label:name, data:series},
+      delta: prev ? withDays(deltaOf(total, prevTotal, 'up')) : null});
+  }
   (project.costPerMetrics||[]).forEach(m=>{
     const name = m.label || m.col;
     const now = costPerExtra(project, m, joined);
@@ -3903,6 +3967,10 @@ async function loadProject(project){
       cmp ? fetchSheetCached(project.spreadsheetId, cmp.sheet) : null
     ]);
     const compareRows = compareOrNull || [];
+    // A second source's count of the same conversion (GA4 beside Yektanet).
+    const cc = project.compareConversion;
+    project.rawCmpConv = cc
+      ? normalizeCmpConvRows(await fetchSheetCached(project.spreadsheetId, cc.sheet), cc.col) : [];
     // A section that covers only some rows of a shared tab narrows both sides
     // here; the cached sheet itself stays whole for the other sections.
     if(project.rowFilter){
@@ -3966,6 +4034,8 @@ async function loadProject(project){
     project.rawRef = dropFuture(project.rawRef, true);
     project.rawCost = dropFuture(project.rawCost, true);
     project.rawCompare = dropFuture(project.rawCompare, true);
+    if(project.excludeCampaign) project.rawCmpConv = project.rawCmpConv.filter(r=>!project.excludeCampaign(r.campaign, campaignCtx));
+    project.rawCmpConv = dropFuture(project.rawCmpConv, false);
     // allRef holds the same conversion rows before the campaign filter, so its
     // dropped rows are the ones already counted above.
     project.allRef = dropFuture(project.allRef, false);
