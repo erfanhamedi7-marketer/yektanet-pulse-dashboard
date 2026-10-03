@@ -1003,7 +1003,7 @@ function ramzarzSection(){
     installsCol: 'Total Installs',
     // Signup was added to the sheet later (from 2026-09-26): its cost counts
     // only from the first day the column carries a value.
-    costPerMetrics: [{col:'Signup', sinceFirst:true}],
+    costPerMetrics: [{col:'Signup', sinceFirst:true, campaignTable:true}],
     adgroupCol: 'Ad Group',
     creativeCol: 'Creative',
     impressionsCol: 'Impression',
@@ -2626,14 +2626,28 @@ function computeCampaignCpaTable(project, joined){
   const recentWindow = Math.min(7, dates.length);
   const recentFrom = dates[dates.length - recentWindow];
 
+  // Further conversions (Signup…) a project asks to see per campaign. Each is
+  // read only from the day its column was first filled in, so its rate and
+  // its cost are both measured over the days it was actually tracked.
+  const extras = (project.costPerMetrics||[]).filter(m=>m.campaignTable).map(m=>({
+    ...m, name: m.label || m.col, since: m.sinceFirst ? extraSinceDate(project, m.col) : null
+  }));
   const byCampaign = {};
   joined.forEach(r=>{
     const c = byCampaign[r.campaign] = byCampaign[r.campaign] ||
-      {label: r.campaignLabel || r.campaign, cost:0, conversion:0, days:new Set(), recentCost:0, recentConversion:0};
+      {label: r.campaignLabel || r.campaign, cost:0, conversion:0, days:new Set(), recentCost:0, recentConversion:0,
+       extra: extras.map(()=>({count:0, cost:0, conversion:0}))};
     c.cost += r.cost;
     c.conversion += r.conversion;
     if(r.cost > 0) c.days.add(r.date);
     if(r.date >= recentFrom){ c.recentCost += r.cost; c.recentConversion += r.conversion; }
+    extras.forEach((m, i)=>{
+      if(m.since && r.date < m.since) return;
+      const e = c.extra[i];
+      e.count += (r.extras && r.extras[m.col]) || 0;
+      e.cost += r.cost;
+      e.conversion += r.conversion;
+    });
   });
 
   const totalCost = joined.reduce((s,r)=>s+r.cost,0);
@@ -2648,12 +2662,18 @@ function computeCampaignCpaTable(project, joined){
       cpa,
       recentCpa: c.recentConversion>0 ? c.recentCost/c.recentConversion : null,
       recentCost: c.recentCost,
-      vsBenchmark: (benchmark && cpa!==null) ? (cpa-benchmark)/benchmark*100 : null
+      vsBenchmark: (benchmark && cpa!==null) ? (cpa-benchmark)/benchmark*100 : null,
+      extra: c.extra.map(e=>({
+        count: e.count,
+        rate: e.conversion>0 ? e.count/e.conversion*100 : null,
+        per: e.count>0 ? e.cost/e.count : null,
+        tracked: e.cost>0 || e.conversion>0
+      }))
     };
   }).filter(r=>r.cost>0 || r.conversion>0);
   rows.sort((a,b)=>b.cost-a.cost);
 
-  return {rows, totalCost, totalConversion, benchmark, recentWindow,
+  return {rows, extras, totalCost, totalConversion, benchmark, recentWindow,
           dayCount:dates.length, from:dates[0], to:dates[dates.length-1]};
 }
 
@@ -2671,6 +2691,8 @@ function renderCampaignCpaTable(project, joined, elId){
       ${fmtDateLabel(t.from)} تا ${fmtDateLabel(t.to)} (${fmtNum(t.dayCount)} روز) —
       میانگین ${escapeHtml(cpaLabel)} در همین بازه: <b>${t.benchmark!==null?fmtMoney(t.benchmark):'—'}</b>.
       ستون «نسبت به میانگین» اختلاف هر کمپین با همین عدده.
+      ${t.extras.map(m=>`<br>${escapeHtml(m.name)}: تعداد، نرخ (${escapeHtml(m.name)} ÷ ${escapeHtml(label)}) و هزینه به ازای ${escapeHtml(m.name)}${
+        m.since ? ` — فقط از ${fmtDateLabel(m.since)} که این ستون توی شیت پر شده؛ نرخ و هزینه‌اش هم فقط روی همین روزها حساب شده` : ''}.`).join('')}
     </div>`;
 
   const shown = t.rows.slice(0, CPA_TABLE_MAX_ROWS);
@@ -2694,6 +2716,11 @@ function renderCampaignCpaTable(project, joined, elId){
         ${cpaCell}
         ${recentCell}
         ${vsCell}
+        ${r.extra.map((e, i)=> !e.tracked
+          ? `<td class="muted">—</td><td class="muted">—</td><td class="muted">—</td>`
+          : `<td>${fmtNum(e.count)}</td>
+             <td class="muted">${e.rate!==null ? e.rate.toFixed(1)+'٪' : '—'}</td>
+             ${e.per!==null ? `<td>${fmtNum(e.per)}</td>` : `<td class="neg">بدون ${escapeHtml(t.extras[i].name)}</td>`}`).join('')}
         <td class="muted">${fmtNum(r.activeDays)}</td>
       </tr>`;
   }).join('');
@@ -2708,7 +2735,9 @@ function renderCampaignCpaTable(project, joined, elId){
           <tr>
             <th>کمپین</th><th>هزینه (تومان)</th><th>سهم هزینه</th><th>${escapeHtml(label)}</th>
             <th>${escapeHtml(cpaLabel)} کل بازه (تومان)</th><th>${escapeHtml(cpaLabel)} ${fmtNum(t.recentWindow)} روز اخیر</th>
-            <th>نسبت به میانگین</th><th>روز فعال</th>
+            <th>نسبت به میانگین</th>
+            ${t.extras.map(m=>`<th>${escapeHtml(m.name)}</th><th>نرخ ${escapeHtml(m.name)}</th><th>هزینه به ازای ${escapeHtml(m.name)} (تومان)</th>`).join('')}
+            <th>روز فعال</th>
           </tr>
         </thead>
         <tbody>${body}</tbody>
