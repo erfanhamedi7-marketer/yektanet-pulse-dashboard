@@ -121,6 +121,15 @@
   /* A card lifting under the cursor is the cheapest way to say the surface is
      alive; it moves 2px, which reads as depth without becoming a bounce. */
   .kpi:hover{transform:translateY(-2px);box-shadow:var(--shadow-lift);border-color:var(--border-strong);}
+  /* A card that switches its series on the chart: clickable, and while its
+     series is drawn it carries that series' colour along the top edge. */
+  .kpi.pickable{cursor:pointer;}
+  .kpi.pickable::before{
+    content:"";position:absolute;inset:0 0 auto 0;height:4px;background:var(--pick, transparent);
+    transition:background .18s;
+  }
+  .kpi.pickable.picked{border-color:var(--border-strong);}
+  .kpi.pickable:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px;}
   /* The change chip sits in the corner on its own line; the figure then gets
      the whole width of the card, which is what makes it able to be this big. */
   .kpi .kpi-top{display:flex;align-items:center;justify-content:flex-end;gap:8px;min-height:19px;}
@@ -185,6 +194,7 @@
   .legend-dots i{width:10px;height:10px;border-radius:3px;display:inline-block;flex-shrink:0;}
   .legend-dots i.bar{background:var(--accent-grad);}
   .legend-dots i.line{height:3px;border-radius:2px;background:var(--accent-2);}
+  .legend-dots i.ln{height:3px;border-radius:2px;}
   .chart-box{position:relative;height:320px;}
 
   /* Table */
@@ -978,7 +988,7 @@ function ramzarzSection(){
     group: 'arzplus',
     partTitle: 'رمزارز نیوز',
     title: 'رمزارز نیوز',
-    subtitle: 'Ramzarz - App Metrica (مرجع) × Ramzarz- Yektanet — فقط هزینه و هزینه به ازای نصب',
+    subtitle: 'Ramzarz - App Metrica (مرجع) × Ramzarz- Yektanet — هزینه، هزینه به ازای نصب و Signup',
     kind: 'cpi',
     spreadsheetId: '1fOn7G0qGS98KL-hU2oNZBqoacTkuasmkDZEQGXLKzD0',
     refSheet: 'Ramzarz - App Metrica',
@@ -991,6 +1001,9 @@ function ramzarzSection(){
     conversionLabel: 'نصب',
     cpaLabel: 'CPI',
     installsCol: 'Total Installs',
+    // Signup was added to the sheet later (from 2026-09-26): its cost counts
+    // only from the first day the column carries a value.
+    costPerMetrics: [{col:'Signup', sinceFirst:true}],
     adgroupCol: 'Ad Group',
     creativeCol: 'Creative',
     impressionsCol: 'Impression',
@@ -1587,16 +1600,45 @@ function buildJoinedRows(refMap, costMap, includeUnmatchedCost){
 function groupByDateGeneric(joined){
   const map = {};
   joined.forEach(r=>{
-    if(!map[r.date]) map[r.date] = {cost:0, conversion:0};
+    if(!map[r.date]) map[r.date] = {cost:0, conversion:0, installs:0, extras:{}};
     map[r.date].cost += r.cost; map[r.date].conversion += r.conversion;
+    map[r.date].installs += r.installs || 0;
+    addExtras(map[r.date].extras, r.extras);
   });
   const keys = Object.keys(map).sort();
   return {
+    dates: keys,
+    byDate: map,
     labels: keys.map(fmtDateLabel),
     cost: keys.map(k=>map[k].cost),
     conversion: keys.map(k=>map[k].conversion),
+    installs: keys.map(k=>map[k].installs),
     cpaSeries: keys.map(k=> map[k].conversion>0 ? (map[k].cost/map[k].conversion) : null)
   };
+}
+// A daily series laid onto another day list: a campaign group's CPI drawn
+// against the overall days, with a gap where the group had no row.
+function seriesOn(dates, daily, fn){
+  return dates.map(d => daily.byDate[d] ? fn(daily.byDate[d]) : null);
+}
+// Cost per an extra conversion column (Deposit, Signup…), per day and over the
+// range. With `since`, cost counts only from the first day the column was ever
+// filled in — before that day the sheet simply did not track it, and pricing
+// those days' spend against zero conversions would only inflate the figure.
+function extraSinceDate(project, col){
+  const dates = (project.allRef || project.rawRef || [])
+    .filter(r => r.extras && r.extras[col] > 0).map(r => r.date).sort();
+  return dates[0] || null;
+}
+function costPerExtra(project, m, joined){
+  const since = m.sinceFirst ? extraSinceDate(project, m.col) : null;
+  const rows = since ? joined.filter(r => r.date >= since) : joined;
+  const cost = rows.reduce((t,r)=>t+r.cost, 0);
+  const total = rows.reduce((t,r)=>t + ((r.extras && r.extras[m.col]) || 0), 0);
+  return {since, cost, total, per: total>0 ? cost/total : null};
+}
+function costPerExtraDaily(m){
+  return day => day.extras[m.col] > 0 ? day.cost / day.extras[m.col] : null;
 }
 
 // Sessions as Yektanet reports them vs. sessions as GA4 reports them, per day.
@@ -2074,13 +2116,14 @@ function cpiCards(p){
       <div class="card">
         <div class="card-head">
           <div>
-            <h2>هزینه و ${escapeHtml(cpaLabel)} بر حسب روز — ${escapeHtml(g.title)}</h2>
-            <div class="card-sub">${escapeHtml(g.sub || '')}</div>
+            <h2>${g.id === 'all' ? 'روند روزانه' : `هزینه و ${escapeHtml(cpaLabel)} بر حسب روز`} — ${escapeHtml(g.title)}</h2>
+            <div class="card-sub">${escapeHtml(g.sub || '')}${g.id === 'all' ? ' — روی کارت‌های بالا بزن تا متریکشون روی این نمودار بیاد یا بره (تا ۴ تا).' : ''}</div>
           </div>
+          ${g.id === 'all' ? `<div class="legend-dots" id="legend-cpiChart-${p.id}-${g.id}"></div>` : `
           <div class="legend-dots">
             <span><i class="bar"></i>هزینه</span>
             <span><i class="line"></i>${escapeHtml(cpaLabel)}</span>
-          </div>
+          </div>`}
         </div>
         <div class="chart-box"><canvas id="cpiChart-${p.id}-${g.id}"></canvas></div>
         ${g.campaignTable ? `
@@ -2136,14 +2179,10 @@ function renderSectionsShell(){
       <div class="card">
         <div class="card-head">
           <div>
-            <h2>هزینه‌ی اعلامی و سود بر حسب روز</h2>
-            <div class="card-sub">سود هر روز = بخشی از هزینه‌ی اعلامی که هنوز داخل بودجه‌ی کمپین بوده، منهای هزینه‌ی واقعی همان روز.</div>
+            <h2>روند روزانه</h2>
+            <div class="card-sub">سود هر روز = بخشی از هزینه‌ی اعلامی که هنوز داخل بودجه‌ی کمپین بوده، منهای هزینه‌ی واقعی همان روز. روی کارت‌های بالا بزن تا متریکشون روی نمودار بیاد یا بره (تا ۴ تا).</div>
           </div>
-          <div class="legend-dots">
-            <span><i class="bar"></i>Cost اعلامی</span>
-            <span><i style="background:#475569"></i>Cost R واقعی</span>
-            <span><i style="background:var(--accent-2)"></i>سود</span>
-          </div>
+          <div class="legend-dots" id="legend-budgetChart-${p.id}"></div>
         </div>
         <div class="chart-box"><canvas id="budgetChart-${p.id}"></canvas></div>
       </div>
@@ -2167,12 +2206,10 @@ function renderSectionsShell(){
       <div class="card">
         <div class="card-head">
           <div>
-            <h2>هزینه و CPA بر حسب روز</h2>
+            <h2>روند روزانه</h2>
+            <div class="card-sub">روی کارت‌های بالا بزن تا متریکشون روی نمودار بیاد یا بره (تا ۴ تا).</div>
           </div>
-          <div class="legend-dots">
-            <span><i class="bar"></i>هزینه</span>
-            <span><i class="line"></i>CPA</span>
-          </div>
+          <div class="legend-dots" id="legend-trendChart-${p.id}"></div>
         </div>
         <div class="chart-box"><canvas id="trendChart-${p.id}"></canvas></div>
       </div>`)}
@@ -2915,51 +2952,27 @@ function updateBudgetSection(project){
 
   const cards = [
     {label:'Cost اعلامی (بازه)', value: fmtMoney(daily.totals.cost), series: daily.cost,
+     metric:{id:'cost', label:'Cost اعلامی', data:daily.cost, bar:true, axis:'spend'},
      delta: prev ? withDays(deltaOf(daily.totals.cost, prev.totals.cost, 'none')) : null},
     {label:'Cost R واقعی (بازه)', value: fmtMoney(daily.totals.costReal), series: daily.costReal,
+     metric:{id:'costReal', label:'Cost R واقعی', data:daily.costReal, bar:true, axis:'spend'},
      delta: prev ? withDays(deltaOf(daily.totals.costReal, prev.totals.costReal, 'none')) : null},
     {label:'سود بازه', value: fmtMoney(daily.totals.profit), accent:true, series: daily.profit,
+     metric:{id:'profit', label:'سود', data:daily.profit, bar:true, axis:'spend'},
      delta: prev ? withDays(deltaOf(daily.totals.profit, prev.totals.profit, 'up')) : null},
     {label:'سشن (بازه)', value: fmtNum(daily.totals.sessions), series: daily.sessions,
+     metric:{id:'sessions', label:'سشن', data:daily.sessions},
      delta: prev ? withDays(deltaOf(daily.totals.sessions, prev.totals.sessions, 'up')) : null},
     {label:'باقی‌مانده‌ی بودجه (کل)', value: fmtMoney(totals.remaining)}
   ];
   renderKpiCards(project, cards);
 
-  // Declared cost, real cost and profit share one axis — all three are Toman,
-  // and profit dips below zero once a campaign is past its budget.
-  const key = project.id + ':budget';
-  if(chartInstances[key]) chartInstances[key].destroy();
-  const accentHex = project.theme.accent, accent2Hex = project.theme.accent2, realHex = '#475569';
-  chartInstances[key] = makeChart(document.getElementById(`budgetChart-${project.id}`), {
-    type:'bar',
-    data:{
-      labels: daily.labels,
-      datasets:[
-        {label:'Cost اعلامی', data:daily.cost, backgroundColor: hexToRgba(accentHex,0.8), hoverBackgroundColor: hexToRgba(accentHex,0.95), borderRadius:4, borderSkipped:false, maxBarThickness:18},
-        {label:'Cost R واقعی', data:daily.costReal, backgroundColor: hexToRgba(realHex,0.7), hoverBackgroundColor: hexToRgba(realHex,0.9), borderRadius:4, borderSkipped:false, maxBarThickness:18},
-        {label:'سود', data:daily.profit, backgroundColor: hexToRgba(accent2Hex,0.8), hoverBackgroundColor: hexToRgba(accent2Hex,0.95), borderRadius:4, borderSkipped:false, maxBarThickness:18}
-      ]
-    },
-    options:{
-      responsive:true, maintainAspectRatio:false,
-      interaction:{mode:'index', intersect:false},
-      plugins:{
-        legend:{display:false},
-        tooltip:{
-          backgroundColor:CHART_INK.tooltipBg, borderColor:CHART_INK.tooltipBorder, borderWidth:1,
-          titleColor:CHART_INK.tooltipTitle, bodyColor:CHART_INK.tooltipBody, padding:12, boxPadding:5, cornerRadius:10,
-          displayColors:true, usePointStyle:true,
-          titleFont:{family:"'IBM Plex Mono', monospace", size:11},
-          bodyFont:{family:"'IBM Plex Mono', monospace", size:11.5},
-          callbacks:{ label: ctx => `${ctx.dataset.label}: ${fmtNum(ctx.parsed.y,0)} تومان` }
-        }
-      },
-      scales:{
-        y:{grid:{color:CHART_INK.grid, drawTicks:false}, border:{display:false}, ticks:{font:{size:10}, color:CHART_INK.tick, padding:6, callback:axisNum}},
-        x:{grid:{display:false}, border:{display:false}, ticks:{font:{size:10}, color:CHART_INK.tick, maxRotation:45, minRotation:45, autoSkip:true, maxTicksLimit:12, callback:axisDay}}
-      }
-    }
+  // Declared cost, real cost and profit share one axis by default — all three
+  // are Toman, and profit dips below zero once a campaign is past its budget.
+  renderMetricChart(project, project.id + ':budget', `budgetChart-${project.id}`, {
+    labels: daily.labels,
+    metrics: cards.filter(c=>c.metric).map(c=>c.metric),
+    defaults: ['cost', 'costReal', 'profit']
   });
 
   // Per-campaign table
@@ -3227,8 +3240,9 @@ function renderKpiCards(project, cards){
            ${dir === 'flat' ? '≈' : dir === 'up' ? '▲' : '▼'} ${Math.abs(d.pct).toFixed(0)}٪
          </span>`
       : '';
+    const m = c.metric;
     return `
-    <div class="kpi">
+    <div class="kpi${m ? ' pickable' : ''}"${m ? ` data-metric="${m.id}" role="button" tabindex="0" title="نمایش روی نمودار"` : ''}>
       <div class="kpi-top">${chip}</div>
       <div class="value ${c.accent ? 'accent' : ''}" title="${escapeHtml(String(c.value))}">${kpiValueHtml(c.value)}</div>
       <div class="label">${c.key ? `<i class="kpi-key" style="background:${c.key}"></i>` : ''}${c.label}</div>
@@ -3237,6 +3251,168 @@ function renderKpiCards(project, cards){
     </div>`;
   }).join('');
   fitKpiValues(el);
+  // A card that carries a daily series is also the switch for that series on
+  // the chart below it (see renderMetricChart).
+  el.onclick = e => { const k = e.target.closest('.kpi.pickable'); if(k) toggleChartMetric(project, k.dataset.metric); };
+  el.onkeydown = e => {
+    if(e.key !== 'Enter' && e.key !== ' ') return;
+    const k = e.target.closest('.kpi.pickable');
+    if(k){ e.preventDefault(); toggleChartMetric(project, k.dataset.metric); }
+  };
+  paintChartPicks(project);
+}
+
+// ---------- Metric chart (cards pick what it draws) ----------
+// Like the scorecards above a Google Ads chart: each card with a daily series
+// can be put on the chart or taken off it, up to four at once, and the card
+// wears the colour its series is drawn in. Spend is drawn as columns, every
+// other metric as a line; each metric scales on its own axis, as in Google
+// Ads, except the spend columns, which share one so they compare directly
+// (declared cost against real cost and profit). The first two
+// axes are labelled, left and right; a third or fourth still scales on its
+// own but keeps its ticks hidden so the plot isn't squeezed.
+const CHART_MAX_METRICS = 4;
+function slotColors(project){
+  const t = project.theme;
+  const hue = hex => {
+    const h = hex.replace('#','');
+    const [r,g,b] = [0,2,4].map(i=>parseInt(h.substr(i,2),16)/255);
+    const mx = Math.max(r,g,b), mn = Math.min(r,g,b), d = mx - mn;
+    if(!d) return null;
+    const x = mx === r ? ((g-b)/d) % 6 : mx === g ? (b-r)/d + 2 : (r-g)/d + 4;
+    return (x * 60 + 360) % 360;
+  };
+  const taken = [t.accent, t.accent2].map(hue).filter(h=>h!==null);
+  const far = c => taken.every(h => { const d = Math.abs(hue(c) - h); return Math.min(d, 360-d) > 35; });
+  const pool = ['#2563EB', '#16A34A', '#9333EA', '#DC2626', '#0891B2', '#EA580C'].filter(far);
+  return [t.accent, t.accent2, pool[0], pool[1]];
+}
+function toggleChartMetric(project, id){
+  const st = projectState[project.id];
+  const ctx = project._chart;
+  if(!ctx || !ctx.metrics.some(m=>m.id===id)) return;
+  let sel = (st.chartPicks || ctx.defaults).filter(x => ctx.metrics.some(m=>m.id===x));
+  if(sel.includes(id)){
+    if(sel.length === 1) return;          // the chart always shows something
+    sel = sel.filter(x=>x!==id);
+  } else {
+    sel = [...sel, id];
+    if(sel.length > CHART_MAX_METRICS) sel = sel.slice(-CHART_MAX_METRICS);
+  }
+  st.chartPicks = sel;
+  drawMetricChart(project);
+  paintChartPicks(project);
+}
+function chartPicks(project){
+  const ctx = project._chart;
+  if(!ctx) return [];
+  const avail = id => ctx.metrics.some(m=>m.id===id);
+  const sel = (projectState[project.id].chartPicks || ctx.defaults).filter(avail);
+  return sel.length ? sel : ctx.defaults.filter(avail).slice(0, 1);
+}
+// The selected cards carry their series' colour along their top edge.
+function paintChartPicks(project){
+  const el = document.getElementById(`kpis-${project.id}`);
+  if(!el || !project._chart) return;
+  const sel = chartPicks(project), colors = slotColors(project);
+  el.querySelectorAll('.kpi.pickable').forEach(k=>{
+    const i = sel.indexOf(k.dataset.metric);
+    k.classList.toggle('picked', i >= 0);
+    k.setAttribute('aria-pressed', i >= 0 ? 'true' : 'false');
+    k.style.setProperty('--pick', i >= 0 ? colors[i] : 'transparent');
+  });
+}
+// The section hands over every metric it can draw (with its day series) and
+// which ones show by default; the cards decide the rest.
+function renderMetricChart(project, key, canvasId, chart){
+  project._chart = {key, canvasId, ...chart};
+  drawMetricChart(project);
+}
+function drawMetricChart(project){
+  const c = project._chart;
+  const canvas = document.getElementById(c.canvasId);
+  if(!canvas) return;
+  if(chartInstances[c.key]) chartInstances[c.key].destroy();
+  const sel = chartPicks(project);
+  const colors = slotColors(project);
+  const metrics = sel.map(id => c.metrics.find(m=>m.id===id));
+  const axisIds = [];
+  metrics.forEach(m=>{ const a = m.axis || m.id; if(!axisIds.includes(a)) axisIds.push(a); });
+  const many = c.labels.length > 24;
+  const datasets = metrics.map((m, i)=>{
+    const color = colors[i];
+    const yAxisID = 'ax' + axisIds.indexOf(m.axis || m.id);
+    if(m.bar) return {
+      type:'bar', label:m.label, data:m.data, yAxisID, order:2, maxBarThickness:22,
+      borderRadius:4, borderSkipped:false,
+      // The brand's own columns keep their gradient; other colours go flat.
+      backgroundColor: i === 0 ? (ctx=>barFill(ctx, project.theme, 0.78)) : hexToRgba(color, 0.72),
+      hoverBackgroundColor: i === 0 ? (ctx=>barFill(ctx, project.theme, 0.95)) : hexToRgba(color, 0.92),
+      borderColor: i === 0 ? (project.theme.ink || color) : color,
+      borderWidth:{top:1.5, right:0, bottom:0, left:0}
+    };
+    const solo = metrics.filter(x=>!x.bar).length === 1;
+    return {
+      type:'line', label:m.label, data:m.data, yAxisID, order:1, borderColor:color,
+      // One line gets the soft wash beneath it; several stay bare so they
+      // don't muddy each other.
+      backgroundColor: ctx => {
+        const area = ctx.chart.chartArea;
+        if(!solo || !area) return hexToRgba(color, 0.07);
+        const g = ctx.chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
+        g.addColorStop(0, hexToRgba(color, 0.16));
+        g.addColorStop(1, hexToRgba(color, 0));
+        return g;
+      },
+      fill: solo, tension:.32, borderWidth:2,
+      pointRadius: many ? 0 : 4, pointHoverRadius:5,
+      pointBackgroundColor: color, pointBorderColor:CHART_INK.pointRing, pointBorderWidth:2
+    };
+  });
+  const scales = {
+    x:{grid:{display:false}, border:{display:false}, ticks:{font:{size:10}, color:CHART_INK.tick, maxRotation:45, minRotation:45, autoSkip:true, maxTicksLimit:12, callback:axisDay}}
+  };
+  axisIds.forEach((a, i)=>{
+    const spendLike = metrics.some(m => (m.axis || m.id) === a && m.bar);
+    scales['ax' + i] = {
+      position: i === 1 ? 'right' : 'left',
+      display: i < 2,
+      beginAtZero: spendLike,
+      grid: i === 0 ? {color:CHART_INK.grid, drawTicks:false} : {display:false},
+      border:{display:false},
+      ticks:{font:{size:10}, color:CHART_INK.tick, padding:6, callback:axisNum}
+    };
+  });
+  const shown = new Set(sel);
+  chartInstances[c.key] = makeChart(canvas, {
+    type:'bar',
+    data:{labels:c.labels, datasets},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index', intersect:false},
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:CHART_INK.tooltipBg, borderColor:CHART_INK.tooltipBorder, borderWidth:1,
+          titleColor:CHART_INK.tooltipTitle, bodyColor:CHART_INK.tooltipBody, padding:12, boxPadding:5, cornerRadius:10,
+          displayColors:true, usePointStyle:true,
+          titleFont:{family:"'IBM Plex Mono', monospace", size:11},
+          bodyFont:{family:"'IBM Plex Mono', monospace", size:11.5},
+          callbacks:{
+            label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y === null ? '—' : fmtNum(ctx.parsed.y, 0)}`,
+            // The day's own conversion count rides along whenever it isn't
+            // already one of the drawn series.
+            afterBody: items => (items.length && c.tooltipExtra && !shown.has(c.tooltipExtra.id))
+              ? `${c.tooltipExtra.label}: ${fmtNum(c.tooltipExtra.data[items[0].dataIndex])}` : ''
+          }
+        }
+      },
+      scales
+    }
+  });
+  const legend = document.getElementById(`legend-${c.canvasId}`);
+  if(legend) legend.innerHTML = metrics.map((m, i)=>
+    `<span><i class="${m.bar ? '' : 'ln'}" style="background:${colors[i]}"></i>${escapeHtml(m.label)}</span>`).join('');
 }
 
 // Daily cost as columns with the cost per conversion as a line: the standard
@@ -3510,29 +3686,57 @@ function updateCpiSection(project){
 
   const cards = [
     {label:'هزینه کل', value: fmtMoney(totalCost), series: overall.cost,
+     metric:{id:'cost', label:'هزینه', data:overall.cost, bar:true, axis:'spend'},
      delta: prev ? withDays(deltaOf(totalCost, prev.cost, 'none')) : null},
     {label:'نصب کل', value: fmtNum(totalInstalls), series: overall.conversion,
+     metric:{id:'conv', label:'نصب', data:overall.conversion},
      delta: prev ? withDays(deltaOf(totalInstalls, prev.installs, 'up')) : null},
     {label:cpaLabel + ' کلی', value: totalInstalls>0 ? fmtMoney(totalCost/totalInstalls) : '—', accent:true,
      series: overall.cpaSeries,
+     metric:{id:'cpa', label:cpaLabel, data:overall.cpaSeries},
      delta: prev ? withDays(deltaOf(totalInstalls>0 ? totalCost/totalInstalls : null, prev.cpi, 'down')) : null}
   ];
   groups.filter(g=>g.group.id !== 'all').forEach(g=>{
     const inGroup = cpiGroupFilter(g.group);
     const pg = prev ? prev.rows.filter(r=>inGroup(r.campaign)) : [];
     const pgCost = pg.reduce((t,r)=>t+r.cost,0), pgInst = pg.reduce((t,r)=>t+r.conversion,0);
+    const gd = groupByDateGeneric(g.rows);
     cards.push({label:`${cpaLabel} ${g.group.title}`,
                 value: g.cpi!==null ? fmtMoney(g.cpi) : '—',
                 sub: `${fmtMoney(g.cost)} هزینه · ${fmtNum(g.installs)} نصب`,
-                series: groupByDateGeneric(g.rows).cpaSeries,
+                series: gd.cpaSeries,
+                metric:{id:'cpa-' + g.group.id, label:`${cpaLabel} ${g.group.title}`,
+                        data: seriesOn(overall.dates, gd, day => day.conversion>0 ? day.cost/day.conversion : null)},
                 delta: prev ? withDays(deltaOf(g.cpi, pgInst>0 ? pgCost/pgInst : null, 'down')) : null});
+  });
+  // Further conversions the sheet reports (Signup), priced like elsewhere.
+  (project.costPerMetrics||[]).forEach(m=>{
+    const name = m.label || m.col;
+    const now = costPerExtra(project, m, joined);
+    const before = prev ? costPerExtra(project, m, prev.rows) : null;
+    const series = seriesOn(overall.dates, overall, costPerExtraDaily(m));
+    const {from} = sectionRange(project);
+    const partial = now.since && from && from < now.since;
+    cards.push({label:`هزینه به ازای ${name}`, value: now.per!==null ? fmtMoney(now.per) : '—',
+                sub: `${fmtNum(now.total)} ${name}` + (partial ? ` · از ${fmtDateLabel(now.since)}` : ''),
+                series,
+                metric:{id:'per-' + m.col, label:`هزینه به ازای ${name}`, data:series},
+                delta: prev && before.since && !(prevWin.from < before.since) ? withDays(deltaOf(now.per, before.per, 'down')) : null});
   });
   renderKpiCards(project, cards);
 
   renderDimensionTables(project);
 
+  // The overall chart follows the cards; each campaign group keeps its own
+  // cost / CPI chart.
+  renderMetricChart(project, `${project.id}-all`, `cpiChart-${project.id}-all`, {
+    labels: overall.labels,
+    metrics: cards.filter(c=>c.metric).map(c=>c.metric),
+    defaults: ['cost', 'cpa'],
+    tooltipExtra: {id:'conv', label:'نصب', data:overall.conversion}
+  });
   groups.forEach(g=>{
-    renderCostCpaChart(project, `${project.id}-${g.group.id}`,
+    if(g.group.id !== 'all') renderCostCpaChart(project, `${project.id}-${g.group.id}`,
                        `cpiChart-${project.id}-${g.group.id}`, g.rows, cpaLabel);
     if(g.group.campaignTable){
       renderCampaignCpaTable(project, g.rows, `cpiCampaigns-${project.id}-${g.group.id}`);
@@ -3557,7 +3761,6 @@ function updateSection(project){
 
   // The stretch right before this one, for the change chips.
   const prevWin = previousWindow(project);
-  const extrasTotal = (rows, col) => rows.reduce((t,r)=>t + ((r.extras && r.extras[col]) || 0), 0);
   let prev = null;
   if(prevWin){
     const pj = computeSection(project, prevWin).joined;
@@ -3573,29 +3776,41 @@ function updateSection(project){
   const withDays = d => d ? {...d, days: prevWin.days} : null;
   const daily = groupByDateGeneric(joined);
 
+  const convLabel = project.conversionLabel || 'کانورژن';
+  const installsLabel = project.installsLabel || 'Installs';
   const cards = [
     {label:'هزینه کل', value: fmtMoney(totalCost), series: daily.cost,
+     metric:{id:'cost', label:'هزینه', data:daily.cost, bar:true, axis:'spend'},
      delta: prev ? withDays(deltaOf(totalCost, prev.cost, 'none')) : null},
-    {label: project.conversionLabel + ' کل', value: fmtNum(totalConversion), series: daily.conversion,
+    {label: convLabel + ' کل', value: fmtNum(totalConversion), series: daily.conversion,
+     metric:{id:'conv', label:convLabel, data:daily.conversion},
      delta: prev ? withDays(deltaOf(totalConversion, prev.conversion, 'up')) : null}
   ];
-  if(project.showInstalls) cards.push({label:(project.installsLabel || 'Installs') + ' کل', value: fmtNum(totalInstalls),
+  if(project.showInstalls) cards.push({label:installsLabel + ' کل', value: fmtNum(totalInstalls), series: daily.installs,
+     metric:{id:'installs', label:installsLabel, data:daily.installs},
      delta: prev ? withDays(deltaOf(totalInstalls, prev.installs, 'up')) : null});
   cards.push({label:'CPA کلی', value: cpa!==null?fmtMoney(cpa):'—', accent:true, series: daily.cpaSeries,
+     metric:{id:'cpa', label:'CPA', data:daily.cpaSeries},
      delta: prev ? withDays(deltaOf(cpa, prev.cpa, 'down')) : null});
   (project.costPerMetrics||[]).forEach(m=>{
-    const total = extrasTotal(joined, m.col);
-    const prevTotal = prev ? extrasTotal(prev.rows, m.col) : 0;
-    const per = total>0 ? totalCost/total : null;
-    const prevPer = prev && prevTotal>0 ? prev.cost/prevTotal : null;
-    cards.push({label:`هزینه به ازای ${m.label || m.col}`, value: per!==null ? fmtMoney(per) : '—',
-                sub: `${fmtNum(total)} ${m.label || m.col}`,
-                delta: prev ? withDays(deltaOf(per, prevPer, 'down')) : null});
+    const name = m.label || m.col;
+    const now = costPerExtra(project, m, joined);
+    const before = prev ? costPerExtra(project, m, prev.rows) : null;
+    const series = seriesOn(daily.dates, daily, costPerExtraDaily(m));
+    cards.push({label:`هزینه به ازای ${name}`, value: now.per!==null ? fmtMoney(now.per) : '—',
+                sub: `${fmtNum(now.total)} ${name}`, series,
+                metric:{id:'per-' + m.col, label:`هزینه به ازای ${name}`, data:series},
+                delta: prev ? withDays(deltaOf(now.per, before.per, 'down')) : null});
   });
 
   renderKpiCards(project, cards);
 
-  renderCostCpaChart(project, project.id, `trendChart-${project.id}`, joined, 'CPA');
+  renderMetricChart(project, project.id, `trendChart-${project.id}`, {
+    labels: daily.labels,
+    metrics: cards.filter(c=>c.metric).map(c=>c.metric),
+    defaults: ['cost', 'cpa'],
+    tooltipExtra: {id:'conv', label:convLabel, data:daily.conversion}
+  });
 
   renderCampaignCpaTable(project, joined);
   renderDimensionTables(project);
