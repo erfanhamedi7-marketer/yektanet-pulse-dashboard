@@ -1283,6 +1283,8 @@ const ALL_PROJECTS = [
     // Exclude any campaign starting with "bj" except "bj-inapp-cpi" — applied
     // to the raw data before anything else (KPIs, chart, deep analysis).
     excludeCampaign: (key) => key.startsWith('bj') && key !== 'bj-inapp-cpi',
+    // Every day's spend counts, even on a day the campaign has no Adtrace row.
+    includeUnmatchedCost: true,
     theme: BRANDS.blue
   },
   {
