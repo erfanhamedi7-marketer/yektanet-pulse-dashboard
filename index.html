@@ -904,23 +904,32 @@ function arzplusSections(){
       spreadsheetId: '18dU5hlkIxoqF000GjgkPlJ6EbBXU0b_TzP0DAMpiJzw',
       refSheet: 'Arzplus - App Metrica',
       costSheet: 'Arzplus- Yektanet',   // the tab really has no space before the hyphen
-      costPer: [{col:'Deposit'}, {col:'Purchase'}],
+      // Purchase is the conversion these sections are judged on; KYC and
+      // Deposit stay beside it as cost-per cards.
+      conversion: 'Purchase',
+      costPer: [{col:'KYC'}, {col:'Deposit'}],
       theme: BRANDS.arzplus,
       logo: '/Arzplus%20-Logo.png',
       // The Yektanet tab carries every advertiser account; the web one is the
       // only one whose rows fill the (Web) conversion columns.
       webAdvertiserId: '65519',
-      webCostPer: [{col:'Deposit (Web)', label:'Deposit'}]
+      // The web columns stop at Deposit — there is no Purchase (Web) — so
+      // Deposit is the web part's conversion.
+      webConversion: {col:'Deposit (Web)', label:'Deposit'},
+      webCostPer: [{col:'KYC (Web)', label:'KYC'}]
     },
     tochal: {
       spreadsheetId: '1VTHX_I9LBBYc0fpVBAUZm2Nn7ihtPqbpxLay_yDlUBE',
       refSheet: 'Tocal - App Metrica',
       costSheet: 'Tocal - Yektanet',
-      // That tab has no Deposit column, so there is no cost-per-deposit to show.
-      costPer: [{col:'Purchase'}],
+      // Purchase as the conversion; that tab has no Deposit column, so KYC is
+      // the only other step to price.
+      conversion: 'Purchase',
+      costPer: [{col:'KYC'}],
       theme: BRANDS.tochal,
       webAdvertiserId: '1287236',
-      webCostPer: [{col:'Deposit (Web)', label:'Deposit'}, {col:'Purchase (Web)', label:'Purchase'}]
+      webConversion: {col:'Purchase (Web)', label:'Purchase'},
+      webCostPer: [{col:'KYC (Web)', label:'KYC'}, {col:'Deposit (Web)', label:'Deposit'}]
     }
   };
   const parts = [
@@ -953,8 +962,8 @@ function arzplusSections(){
     // A part may take several prefixes (Arzplus's Cafe Bazaar campaigns are
     // named both yn-c… and cb-…).
     excludeCampaign: (key) => ![].concat(part.prefix).some(pre => key.startsWith(pre)),
-    conversionCol: 'KYC',
-    conversionLabel: 'KYC',
+    conversionCol: apps[part.app].conversion,
+    conversionLabel: apps[part.app].conversion,
     showInstalls: true,
     installsCol: 'Total Installs',
     installsLabel: 'Install',
@@ -984,8 +993,8 @@ function arzplusSections(){
       refSheet: app.costSheet,
       costSheet: app.costSheet,
       rowFilter: advertiserIs(app.webAdvertiserId),
-      conversionCol: 'KYC (Web)',
-      conversionLabel: 'KYC',
+      conversionCol: app.webConversion.col,
+      conversionLabel: app.webConversion.label,
       showInstalls: false,
       costPerMetrics: app.webCostPer,
       impressionsCol: 'Impression',
