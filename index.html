@@ -1918,27 +1918,82 @@ function setOwnPreset(project, days, btn){
 // A section carries one multi-select per filter slot. Most have a single one
 // (the campaign); the budget sections filter by Campaign Name and, inside it,
 // by the campaign itself, so they have two.
+// Each list shows only what the section's other filters leave in play (see
+// slotScope); `universe` is every option the sheet has, which is what a
+// selection is kept against, so narrowing the view never narrows the choice.
 function filterSlots(project){
   const slots = [{
     key:'main', stateKey:'campaigns', suffix:'',
     unit: project.filterUnit || 'کمپین',
     allLabel: project.filterAllLabel || 'همه کمپین‌ها',
-    options: () => project.campaignOptions || []
+    universe: () => project.campaignOptions || []
   }];
   if(project.kind === 'budget'){
     slots.push({
       key:'sub', stateKey:'subCampaigns', suffix:'2',
       unit:'کمپین', allLabel:'همه کمپین‌ها',
-      options: () => project.subCampaignOptions || []
+      universe: () => project.subCampaignOptions || []
     });
   }
+  slots.forEach(slot=>{ slot.options = () => scopedOptions(project, slot); });
   return slots;
+}
+// What the other filters leave for this list: a Map of option key -> the
+// figure to show beside it (undefined keeps the option's own), or null when
+// nothing narrows it.
+//  - Campaign lists follow the date range: a campaign with no row in the
+//    range drops out, and the figure beside each one is its spend in the range.
+//  - The budget sections' two lists follow each other: picking Campaign Names
+//    leaves only their campaigns, picking campaigns only their names.
+function slotScope(project, slot){
+  const st = projectState[project.id];
+  if(!st) return null;
+  if(project.kind === 'budget'){
+    const pairs = [...(project.rawBudget || []), ...(project.rawBlend || [])]
+      .map(r => [normCampaign(r.campaignName), r.campaign]);
+    const other = slot.key === 'main' ? st.subCampaigns : st.campaigns;
+    if(!other || other === 'ALL') return null;
+    const scope = new Map();
+    pairs.forEach(([name, camp])=>{
+      if(slot.key === 'main' && other.has(camp)) scope.set(name, undefined);
+      if(slot.key === 'sub' && other.has(name)) scope.set(camp, undefined);
+    });
+    return scope;
+  }
+  const {from, to} = sectionRange(project);
+  if(!from && !to) return null;
+  const inRange = d => (!from || d >= from) && (!to || d <= to);
+  const scope = new Map();
+  (project.rawRef || []).forEach(r=>{ if(inRange(r.date) && !scope.has(r.campaign)) scope.set(r.campaign, 0); });
+  (project.rawCost || []).forEach(r=>{
+    if(!inRange(r.date)) return;
+    if(scope.has(r.campaign)) scope.set(r.campaign, scope.get(r.campaign) + r.cost);
+    else if(project.includeUnmatchedCost) scope.set(r.campaign, r.cost);
+  });
+  return scope;
+}
+function scopedOptions(project, slot){
+  const all = slot.universe();
+  const scope = slotScope(project, slot);
+  if(!scope) return all;
+  const sel = slotState(project, slot);
+  // A hand-picked few stay listed even out of scope, so they can be unticked.
+  // A selection that holds most of the list ("all but these") is about what
+  // was left out, so its inactive members drop out of view like the rest.
+  const handPicked = sel !== 'ALL' && sel.size <= all.length / 2;
+  const picked = k => handPicked && sel.has(k);
+  return all.filter(o => scope.has(o.key) || picked(o.key))
+    .map(o => {
+      const v = scope.get(o.key);
+      return v === undefined && scope.has(o.key) ? o : {...o, cost: v || 0};
+    })
+    .sort((a,b)=> b.cost - a.cost || a.label.localeCompare(b.label));
 }
 function slotState(project, slot){ return projectState[project.id][slot.stateKey]; }
 
 function campaignButtonLabel(project, slot){
   const sel = slotState(project, slot);
-  const opts = slot.options();
+  const opts = slot.universe();
   if(sel === 'ALL' || sel.size === opts.length) return slot.allLabel;
   if(sel.size === 0) return 'هیچ‌کدوم';
   if(sel.size === 1){
@@ -2009,8 +2064,9 @@ function applySlotSearch(project, slot){
 function renderCampaignDropdown(project, slot){
   if(!slot) return filterSlots(project).forEach(sl=>renderCampaignDropdown(project, sl));
   const opts = slot.options();
+  const universe = slot.universe();
   const sel = slotState(project, slot);
-  const allSelected = sel === 'ALL' || sel.size === opts.length;
+  const allSelected = sel === 'ALL' || sel.size === universe.length;
   const panel = document.getElementById(`msPanel${slot.suffix}-${project.id}`);
   if(!panel) return;
   const searchId = `msSearch${slot.suffix}-${project.id}`;
@@ -2071,10 +2127,10 @@ function renderCampaignDropdown(project, slot){
         cur = new Set(matchKeys);
       } else {
         cur = slotState(project, slot);
-        cur = cur === 'ALL' ? new Set(opts.map(o=>o.key)) : new Set(cur);
+        cur = cur === 'ALL' ? new Set(universe.map(o=>o.key)) : new Set(cur);
         matchKeys.forEach(k=>cur.delete(k));
       }
-      projectState[project.id][slot.stateKey] = cur.size === opts.length ? 'ALL' : cur;
+      projectState[project.id][slot.stateKey] = cur.size === universe.length ? 'ALL' : cur;
     }
     renderCampaignDropdown(project, slot);
     updateSection(project);
@@ -2082,9 +2138,9 @@ function renderCampaignDropdown(project, slot){
   panel.querySelectorAll(`.ms-item${slot.suffix}-${project.id}`).forEach(cb=>{
     cb.addEventListener('change', ()=>{
       let cur = projectState[project.id][slot.stateKey];
-      if(cur === 'ALL') cur = new Set(opts.map(o=>o.key));
+      if(cur === 'ALL') cur = new Set(universe.map(o=>o.key));
       if(cb.checked) cur.add(cb.value); else cur.delete(cb.value);
-      if(cur.size === opts.length) cur = 'ALL';
+      if(cur.size === universe.length) cur = 'ALL';
       projectState[project.id][slot.stateKey] = cur;
       renderCampaignDropdown(project, slot);
       updateSection(project);
@@ -3845,6 +3901,8 @@ function updateCpiSection(project){
 }
 
 function updateSection(project){
+  // Every filter change lands here, so the filter lists catch up with it too.
+  if(projectState[project.id]) renderCampaignDropdown(project);
   if(project.kind === 'budget') return updateBudgetSection(project);
   if(project.kind === 'cpi') return updateCpiSection(project);
   if(project.error) return;
