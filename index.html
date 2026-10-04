@@ -187,6 +187,18 @@
   .card.soft .cpa-table{--stripe:#FEFDFA;}
   .card.soft .cpa-table thead th{background:#F5F0E5;}
   .card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px;flex-wrap:wrap;}
+  .card.collapsed .card-body{display:none;}
+  .card.collapsed .card-head{margin-bottom:0;}
+  .collapse-toggle{
+    display:inline-flex;align-items:center;gap:6px;flex-shrink:0;cursor:pointer;
+    font-family:inherit;font-size:12.5px;font-weight:600;color:var(--accent-ink);
+    background:var(--accent-soft);border:1px solid transparent;border-radius:999px;padding:6px 14px;
+    transition:border-color .15s;
+  }
+  .collapse-toggle:hover{border-color:var(--accent-ink);}
+  .collapse-toggle i{font-style:normal;display:inline-block;transition:transform .18s;}
+  .card:not(.collapsed) .collapse-toggle i{transform:rotate(180deg);}
+  .card.collapsed .collapse-toggle .ct-close, .card:not(.collapsed) .collapse-toggle .ct-open{display:none;}
   .card h2{font-size:16px;font-weight:700;margin:0 0 3px;color:var(--text);letter-spacing:-0.015em;}
   .card .card-sub{font-size:12px;color:var(--text-muted);max-width:70ch;line-height:1.7;}
   .legend-dots{display:flex;gap:14px;font-size:12px;color:var(--text-muted);flex-wrap:wrap;}
@@ -1234,6 +1246,8 @@ const ALL_PROJECTS = [
     // The web funnel is named two ways: a "web" in the name, or the sl- prefix
     // the panel's own campaigns use.
     excludeCampaign: (key) => !(key.includes('web') || key.startsWith('sl')),
+    // KYC as the cost sheet reports it, beside Verified from the web sheet.
+    costExtraCols: [{col:'KYC', label:'KYC'}],
     // Three tabs that count the same Verified against a different dimension.
     // They carry no campaign column, so only the date filter reaches them.
     dimensionTables: [
@@ -1394,7 +1408,7 @@ function addExtras(target, extras){
   Object.entries(extras||{}).forEach(([k,v])=>{ target[k] = (target[k]||0) + v; });
   return target;
 }
-function normalizeCostRows(rows, impressionsCol, clicksCol, diag){
+function normalizeCostRows(rows, impressionsCol, clicksCol, diag, extraCols){
   impressionsCol = impressionsCol || 'Impressions';
   clicksCol = clicksCol || 'Clicks';
   return rows.map(r=>{
@@ -1411,7 +1425,8 @@ function normalizeCostRows(rows, impressionsCol, clicksCol, diag){
     // Cell had something in it but we read 0 — an unsupported number format.
     if(diag && rawCost && !/^[0-]*$/.test(latinizeDigits(rawCost).replace(/\D/g,'')||'0') && cost===0) diag.unreadableCost++;
     return {date, campaign, campaignLabel: cellText(r['Campaign']),
-            cost, impressions: toNumber(r[impressionsCol]), clicks: toNumber(r[clicksCol])};
+            cost, impressions: toNumber(r[impressionsCol]), clicks: toNumber(r[clicksCol]),
+            extras: (extraCols||[]).reduce((acc,col)=>{ acc[col] = toNumber(r[col]); return acc; }, {})};
   }).filter(Boolean);
 }
 // ---------- Budget/profit sections ----------
@@ -1600,8 +1615,9 @@ function aggregateCost(rows){
   const map = {};
   rows.forEach(r=>{
     const key = r.date + '||' + r.campaign;
-    if(!map[key]) map[key] = {date:r.date, campaign:r.campaign, campaignLabel:r.campaignLabel, cost:0, impressions:0, clicks:0};
+    if(!map[key]) map[key] = {date:r.date, campaign:r.campaign, campaignLabel:r.campaignLabel, cost:0, impressions:0, clicks:0, extras:{}};
     map[key].cost += r.cost;
+    addExtras(map[key].extras, r.extras);
     map[key].impressions += r.impressions;
     map[key].clicks += r.clicks;
   });
@@ -1629,6 +1645,8 @@ function buildJoinedRows(refMap, costMap, includeUnmatchedCost){
       installs: base ? base.installs : 0,
       conversion,
       extras: base ? base.extras : {},
+      // Further columns read from the cost sheet itself (KYC on Talaeen's).
+      costExtras: costRow ? costRow.extras : {},
       cost, cpa: conversion>0 ? (cost/conversion) : null
     });
   });
@@ -1638,10 +1656,11 @@ function buildJoinedRows(refMap, costMap, includeUnmatchedCost){
 function groupByDateGeneric(joined){
   const map = {};
   joined.forEach(r=>{
-    if(!map[r.date]) map[r.date] = {cost:0, conversion:0, installs:0, extras:{}};
+    if(!map[r.date]) map[r.date] = {cost:0, conversion:0, installs:0, extras:{}, costExtras:{}};
     map[r.date].cost += r.cost; map[r.date].conversion += r.conversion;
     map[r.date].installs += r.installs || 0;
     addExtras(map[r.date].extras, r.extras);
+    addExtras(map[r.date].costExtras, r.costExtras);
   });
   const keys = Object.keys(map).sort();
   return {
@@ -2192,6 +2211,15 @@ document.addEventListener('click', (e)=>{
 document.addEventListener('click', ()=>{
   document.querySelectorAll('.ms-panel').forEach(p=>p.hidden = true);
 });
+// A card that starts folded (the Source / Term / Content tables) opens and
+// closes from the button in its header.
+document.addEventListener('click', (e)=>{
+  const btn = e.target.closest('.collapse-toggle');
+  if(!btn) return;
+  const card = btn.closest('.card.collapsible');
+  const open = card.classList.toggle('collapsed') === false;
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+});
 
 // ---------- Section shell + rendering ----------
 function sectionThemeStyle(project){
@@ -2333,16 +2361,21 @@ function renderSectionsShell(){
         <div id="segmentCreative-${p.id}"></div>`}
       </div>`}
       ${(p.dimensionTables||[]).length ? `
-      <div class="card">
+      <div class="card collapsible collapsed" id="dimCard-${p.id}">
         <div class="card-head">
           <div>
             <h2>${escapeHtml(p.dimensionTables[0].metricCol)} به تفکیک ${p.dimensionTables.map(d=>escapeHtml(d.dimCol)).join(' / ')}</h2>
             <div class="card-sub">هر جدول از تب خودش خونده می‌شه و فقط فیلتر تاریخ این بخش روش اثر داره — این تب‌ها ستون کمپین ندارن، پس فیلتر کمپین شاملشون نمی‌شه.</div>
           </div>
+          <button type="button" class="collapse-toggle" aria-expanded="false" aria-controls="dimBody-${p.id}">
+            <span class="ct-open">نمایش</span><span class="ct-close">بستن</span><i aria-hidden="true">▾</i>
+          </button>
         </div>
+        <div class="card-body" id="dimBody-${p.id}">
         ${p.dimensionTables.map((d,i)=>`
         <div class="deep-subhead">${escapeHtml(d.dimCol)}</div>
         <div id="dimTable-${p.id}-${i}"></div>`).join('')}
+        </div>
       </div>` : ''}
       ${p.sessionsCompare ? `
       <div class="card">
@@ -2744,6 +2777,7 @@ function computeCampaignCpaTable(project, joined){
        extra: extras.map(()=>({count:0, cost:0, conversion:0}))};
     c.cost += r.cost;
     c.conversion += r.conversion;
+    c.costExtras = addExtras(c.costExtras || {}, r.costExtras);
     if(r.cost > 0) c.days.add(r.date);
     if(r.date >= recentFrom){ c.recentCost += r.cost; c.recentConversion += r.conversion; }
     extras.forEach((m, i)=>{
@@ -2768,6 +2802,10 @@ function computeCampaignCpaTable(project, joined){
       recentCpa: c.recentConversion>0 ? c.recentCost/c.recentConversion : null,
       recentCost: c.recentCost,
       vsBenchmark: (benchmark && cpa!==null) ? (cpa-benchmark)/benchmark*100 : null,
+      costExtra: (project.costExtraCols||[]).map(m=>{
+        const n = (c.costExtras || {})[m.col] || 0;
+        return {count: n, per: n > 0 ? c.cost / n : null};
+      }),
       extra: c.extra.map(e=>({
         count: e.count,
         rate: e.conversion>0 ? e.count/e.conversion*100 : null,
@@ -2837,6 +2875,8 @@ function renderCampaignCpaTable(project, joined, elId){
         ${cpaCell}
         ${recentCell}
         ${vsCell}
+        ${r.costExtra.map((e, i)=>`<td>${fmtNum(e.count)}</td>${e.per!==null ? `<td>${fmtNum(e.per)}</td>`
+          : `<td class="${r.cost>0 ? 'neg' : 'muted'}">${r.cost>0 ? `بدون ${escapeHtml(project.costExtraCols[i].label || project.costExtraCols[i].col)}` : '—'}</td>`}`).join('')}
         ${t.cmp ? `<td>${fmtNum(r.cmp)}</td>
           <td class="${r.cmpDiff===null ? 'muted' : Math.abs(r.cmpDiff) >= 20 ? 'neg' : 'muted'}">${
             r.cmpDiff===null ? '—' : `<bdi dir="ltr">${fmtDiffPct(r.cmpDiff)}</bdi>`}</td>` : ''}
@@ -2860,6 +2900,7 @@ function renderCampaignCpaTable(project, joined, elId){
             <th>کمپین</th><th>هزینه (تومان)</th><th>سهم هزینه</th><th>${escapeHtml(label)}</th>
             <th>${escapeHtml(cpaLabel)} کل بازه (تومان)</th><th>${escapeHtml(cpaLabel)} ${fmtNum(t.recentWindow)} روز اخیر</th>
             <th>نسبت به میانگین</th>
+            ${(project.costExtraCols||[]).map(m=>`<th>${escapeHtml(m.label || m.col)}</th><th>هزینه به ازای ${escapeHtml(m.label || m.col)} (تومان)</th>`).join('')}
             ${t.cmp ? `<th>${escapeHtml(t.cmp.col)} (${escapeHtml(t.cmp.source)})</th><th>اختلاف ${escapeHtml(t.cmp.source)} با ${escapeHtml(t.cmp.ownSource)}</th>` : ''}
             ${t.extras.map(m=>`<th>${escapeHtml(m.name)}</th><th>نرخ ${escapeHtml(m.name)}</th><th>هزینه به ازای ${escapeHtml(m.name)} (تومان)</th>`).join('')}
             <th>روز فعال</th>
@@ -3947,6 +3988,19 @@ function updateSection(project){
   cards.push({label:'CPA کلی', value: cpa!==null?fmtMoney(cpa):'—', accent:true, series: daily.cpaSeries,
      metric:{id:'cpa', label:'CPA', data:daily.cpaSeries},
      delta: prev ? withDays(deltaOf(cpa, prev.cpa, 'down')) : null});
+  // Counts the cost sheet itself carries (KYC on Talaeen's), with their cost per.
+  const costExtraTotal = (rows, col) => rows.reduce((t,r)=>t + ((r.costExtras && r.costExtras[col]) || 0), 0);
+  (project.costExtraCols||[]).forEach(m=>{
+    const name = m.label || m.col;
+    const total = costExtraTotal(joined, m.col);
+    const prevTotal = prev ? costExtraTotal(prev.rows, m.col) : null;
+    const series = daily.dates.map(d => daily.byDate[d].costExtras[m.col] || 0);
+    const per = total > 0 ? totalCost / total : null;
+    cards.push({label: name + ' کل', value: fmtNum(total), series,
+      sub: `هزینه به ازای ${escapeHtml(name)}: ${per!==null ? fmtMoney(per) : '—'}`,
+      metric:{id:'cx-' + m.col, label:name, data:series},
+      delta: prev ? withDays(deltaOf(total, prevTotal, 'up')) : null});
+  });
   const cc = project.compareConversion;
   if(cc){
     const rows = cmpConvRows(project);
@@ -4071,7 +4125,8 @@ async function loadProject(project){
     // every campaign, another only some).
     project.rawRef = refBySheet.flatMap((rows, i) =>
       refSheets[i].keep ? rows.filter(r=>refSheets[i].keep(r.campaign)) : rows);
-    project.rawCost = normalizeCostRows(costRows, project.impressionsCol, project.clicksCol, diag);
+    project.rawCost = normalizeCostRows(costRows, project.impressionsCol, project.clicksCol, diag,
+                                        (project.costExtraCols||[]).map(m=>m.col));
     // The session comparison works off daily totals of each tab as-is, so it
     // keeps the rows the project's campaign filter removes from everything else.
     project.rawCompare = cmp ? normalizeCompareRows(compareRows, cmp.sessionsCol) : [];
