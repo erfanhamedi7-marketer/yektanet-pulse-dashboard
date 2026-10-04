@@ -358,6 +358,7 @@
   .section-logo.wide{width:auto;max-width:132px;}
   .section-controls{display:flex;align-items:center;gap:10px;}
   .ms-dropdown{position:relative;}
+  .dim-filter{display:inline-block;margin:2px 0 10px;}
   .ms-toggle{
     background:var(--surface);border:1px solid var(--border);border-radius:999px;
     padding:8px 15px;font-family:var(--font-ui);font-size:12.5px;font-weight:600;color:var(--text);
@@ -636,6 +637,7 @@
     .section-sub{font-size:11.5px;line-height:1.7;}
     .section-controls{flex-wrap:wrap;gap:8px;width:100%;}
     .ms-dropdown{flex:1 1 100%;min-width:0;}
+    .dim-filter{display:block;}
     .ms-toggle{
       width:100%;min-width:0;padding:9px 14px;
       overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
@@ -2376,6 +2378,10 @@ function renderSectionsShell(){
         <div class="card-body" id="dimBody-${p.id}">
         ${p.dimensionTables.map((d,i)=>`
         <div class="deep-subhead">${escapeHtml(d.dimCol)}</div>
+        <div class="dim-filter ms-dropdown" id="dimFilter-${p.id}-${i}">
+          <button type="button" class="ms-toggle" id="dimToggle-${p.id}-${i}">همه‌ی ${escapeHtml(d.dimCol)}‌ها ▾</button>
+          <div class="ms-panel" id="dimPanel-${p.id}-${i}" hidden></div>
+        </div>
         <div id="dimTable-${p.id}-${i}"></div>`).join('')}
         </div>
       </div>` : ''}
@@ -2730,6 +2736,12 @@ function renderSegmentCpaTable(project, joined, keyFn, elId, segLabel, copyValue
         ? `<td class="${r.vsBenchmark>0?'neg':'pos'}">${r.vsBenchmark>0?'▲':'▼'} ${Math.abs(r.vsBenchmark).toFixed(0)}٪</td>`
         : `<td class="muted">—</td>`}
     </tr>`).join('');
+  // The listed rows only (those above the project's average), added up: their
+  // combined CPA against the same average.
+  const s = t.rows.reduce((a, r)=>({installs:a.installs + r.installs, share:a.share + r.installShare,
+    cost:a.cost + r.cost, conversion:a.conversion + r.conversion}), {installs:0, share:0, cost:0, conversion:0});
+  const sCpa = s.conversion > 0 ? s.cost / s.conversion : null;
+  const sVs = (sCpa !== null && t.benchmark) ? (sCpa - t.benchmark) / t.benchmark * 100 : null;
   el.innerHTML = `
     <div class="cpa-table-wrap">
       <table class="cpa-table">
@@ -2740,6 +2752,18 @@ function renderSegmentCpaTable(project, joined, keyFn, elId, segLabel, copyValue
           </tr>
         </thead>
         <tbody>${body}</tbody>
+        <tfoot>
+          <tr>
+            <td class="campaign">مجموع ${fmtNum(t.rows.length)} ${escapeHtml(segLabel)} بالا</td>
+            <td class="muted">—</td>
+            <td>${fmtNum(s.installs)}</td>
+            <td class="muted">${s.share.toFixed(0)}٪</td>
+            <td>${fmtNum(s.cost)}</td>
+            <td>${fmtNum(s.conversion)}</td>
+            <td>${sCpa !== null ? fmtNum(sCpa) : '—'}</td>
+            ${sVs !== null ? `<td class="${sVs>0?'neg':'pos'}">${sVs>0?'▲':'▼'} ${Math.abs(sVs).toFixed(0)}٪</td>` : '<td class="muted">—</td>'}
+          </tr>
+        </tfoot>
       </table>
     </div>
     ${t.belowAverageCount > 0 ? `<div class="deep-subtext" style="margin-top:8px;">${fmtNum(t.belowAverageCount)} مورد دیگه حجم کافی دارن ولی CPA‌شون از میانگین بهتره و نمایش داده نشدن.</div>` : ''}`;
@@ -2802,6 +2826,7 @@ function computeCampaignCpaTable(project, joined){
       share: totalCost>0 ? c.cost/totalCost*100 : 0,
       cpa,
       recentCpa: c.recentConversion>0 ? c.recentCost/c.recentConversion : null,
+      recentConversion: c.recentConversion,
       recentCost: c.recentCost,
       vsBenchmark: (benchmark && cpa!==null) ? (cpa-benchmark)/benchmark*100 : null,
       costExtra: (project.costExtraCols||[]).map(m=>{
@@ -2809,7 +2834,7 @@ function computeCampaignCpaTable(project, joined){
         return {count: n, per: n > 0 ? c.cost / n : null};
       }),
       extra: c.extra.map(e=>({
-        count: e.count,
+        count: e.count, cost: e.cost, conversion: e.conversion,
         rate: e.conversion>0 ? e.count/e.conversion*100 : null,
         per: e.count>0 ? e.cost/e.count : null,
         tracked: e.cost>0 || e.conversion>0
@@ -2894,6 +2919,40 @@ function renderCampaignCpaTable(project, joined, elId){
   const more = t.rows.length > shown.length
     ? `<div class="deep-subtext" style="margin-top:8px;">${fmtNum(t.rows.length - shown.length)} کمپین دیگه با هزینه‌ی کمتر نمایش داده نشدن.</div>` : '';
 
+  // The total row covers every campaign in the range, including the ones past
+  // the shown rows. Counts and costs add up; every rate is the combined one
+  // (total cost ÷ total conversions), not an average of the rows' rates.
+  const sumOf = (list, f) => list.reduce((a, r) => a + (f(r) || 0), 0);
+  const all = t.rows;
+  const tCost = sumOf(all, r=>r.cost), tConv = sumOf(all, r=>r.conversion);
+  const tRecentCost = sumOf(all, r=>r.recentCost);
+  const tRecentConv = sumOf(all, r=>r.recentConversion);
+  const foot = `
+        <tfoot>
+          <tr>
+            <td class="campaign">مجموع${all.length > shown.length ? ` همه‌ی ${fmtNum(all.length)} کمپین` : ` (${fmtNum(all.length)} کمپین)`}</td>
+            <td>${fmtNum(tCost)}</td>
+            <td class="muted">100٪</td>
+            <td>${fmtNum(tConv)}</td>
+            <td>${tConv > 0 ? fmtNum(tCost / tConv) : '—'}</td>
+            <td>${tRecentConv > 0 ? fmtNum(tRecentCost / tRecentConv) : '—'}</td>
+            <td class="muted">—</td>
+            ${(project.costExtraCols||[]).map((m, i)=>{
+              const n = sumOf(all, r=>r.costExtra[i].count);
+              return `<td>${fmtNum(n)}</td><td>${n > 0 ? fmtNum(tCost / n) : '—'}</td>`;
+            }).join('')}
+            ${t.cmp ? (()=>{
+              const n = sumOf(all, r=>r.cmp), d = cmpDiffPct(tConv, n);
+              return `<td>${fmtNum(n)}</td><td class="muted">${d===null ? '—' : `<bdi dir="ltr">${fmtDiffPct(d)}</bdi>`}</td>`;
+            })() : ''}
+            ${t.extras.map((m, i)=>{
+              const n = sumOf(all, r=>r.extra[i].count), c = sumOf(all, r=>r.extra[i].cost), v = sumOf(all, r=>r.extra[i].conversion);
+              return `<td>${fmtNum(n)}</td><td class="muted">${v > 0 ? (n / v * 100).toFixed(1) + '٪' : '—'}</td><td>${n > 0 ? fmtNum(c / n) : '—'}</td>`;
+            }).join('')}
+            <td class="muted">${fmtNum(t.dayCount)} روز</td>
+          </tr>
+        </tfoot>`;
+
   el.innerHTML = head + `
     <div class="cpa-table-wrap">
       <table class="cpa-table">
@@ -2908,7 +2967,7 @@ function renderCampaignCpaTable(project, joined, elId){
             <th>روز فعال</th>
           </tr>
         </thead>
-        <tbody>${body}</tbody>
+        <tbody>${body}</tbody>${foot}
       </table>
     </div>` + more;
 }
@@ -3794,6 +3853,17 @@ function renderCreativeCpiTable(project, group, elId, segLabel){
           </tr>
         </thead>
         <tbody>${body}</tbody>
+        <tfoot>
+          <tr>
+            <td class="campaign">مجموع (${fmtNum(t.rows.length)} ${escapeHtml(segLabel)})</td>
+            <td>${fmtNum(t.rows.reduce((a,r)=>a+r.installs,0))}</td>
+            <td class="muted">${t.rows.reduce((a,r)=>a+r.installShare,0).toFixed(1)}٪</td>
+            <td>${fmtNum(t.rows.reduce((a,r)=>a+r.cost,0))}</td>
+            <td>${t.benchmark!==null ? fmtNum(t.benchmark) : '—'}</td>
+            <td class="muted">—</td>
+            <td class="muted">${fmtNum(new Set(t.rows.flatMap(r=>r.campaigns)).size)} کمپین</td>
+          </tr>
+        </tfoot>
       </table>
     </div>`;
 }
@@ -3801,13 +3871,36 @@ function renderCreativeCpiTable(project, group, elId, segLabel){
 // A dimension tab totalled over the section's date range: the dimension and
 // its metric, biggest first. Nothing is attributed or derived here — these are
 // the sheet's own numbers added up, which is why the table can stay this bare.
+// Each dimension table has a filter of its own: which of its values to show.
+// The three tabs share no column, so one table's filter can't reach another.
+function dimSelection(project, index){
+  const st = projectState[project.id];
+  st.dimSel = st.dimSel || {};
+  return st.dimSel[index] || 'ALL';
+}
+// The values the date range leaves, each with its metric total, biggest first
+// — the list the table's filter offers.
+function dimOptions(project, index){
+  const rows = (project.rawDims || [])[index] || [];
+  const {from, to} = sectionRange(project);
+  const inRange = d => (!from || d >= from) && (!to || d <= to);
+  const by = {};
+  rows.forEach(r=>{ if(inRange(r.date)) by[r.label] = (by[r.label] || 0) + r.value; });
+  const sel = dimSelection(project, index);
+  // A hand-picked value stays listed even when the range has none of it.
+  if(sel !== 'ALL') sel.forEach(v=>{ if(!(v in by)) by[v] = 0; });
+  return Object.entries(by).map(([label, value])=>({label, value}))
+    .sort((a,b)=> b.value - a.value || a.label.localeCompare(b.label));
+}
 function computeDimensionTable(project, index){
   const rows = (project.rawDims || [])[index] || [];
   const {from, to} = sectionRange(project);
   const inRange = d => (!from || d >= from) && (!to || d <= to);
+  const sel = dimSelection(project, index);
+  const picked = l => sel === 'ALL' || sel.has(l);
   const byLabel = {};
   let total = 0, days = new Set();
-  rows.filter(r=>inRange(r.date)).forEach(r=>{
+  rows.filter(r=>inRange(r.date) && picked(r.label)).forEach(r=>{
     byLabel[r.label] = (byLabel[r.label] || 0) + r.value;
     total += r.value;
     days.add(r.date);
@@ -3817,10 +3910,82 @@ function computeDimensionTable(project, index){
   return {rows: out, total, dayCount: days.size, hasData: rows.length > 0};
 }
 
-function renderDimensionTable(project, index){
+function renderDimFilter(project, index){
+  const cfg = project.dimensionTables[index];
+  const panel = document.getElementById(`dimPanel-${project.id}-${index}`);
+  const toggle = document.getElementById(`dimToggle-${project.id}-${index}`);
+  if(!panel || !toggle) return;
+  const st = projectState[project.id];
+  st.dimQuery = st.dimQuery || {};
+  const q = st.dimQuery[index] || '';
+  const opts = dimOptions(project, index);
+  const sel = dimSelection(project, index);
+  const isOn = l => sel === 'ALL' || sel.has(l);
+  const allLabel = `همه‌ی ${cfg.dimCol}‌ها`;
+  toggle.textContent = (sel === 'ALL' ? allLabel
+    : sel.size === 0 ? 'هیچ‌کدوم'
+    : sel.size === 1 ? [...sel][0]
+    : `${fmtNum(sel.size)} ${cfg.dimCol} انتخاب شده`) + ' ▾';
+  const hit = o => !q || searchKey(o.label).includes(searchKey(q));
+  const shown = opts.filter(hit);
+  const allOn = shown.length > 0 && shown.every(o=>isOn(o.label));
+  const searchId = `dimSearch-${project.id}-${index}`;
+  const hadFocus = document.activeElement && document.activeElement.id === searchId;
+  panel.innerHTML = `
+    <div class="ms-search-wrap">
+      <input type="search" class="ms-search" id="${searchId}" placeholder="جست‌وجوی ${escapeHtml(cfg.dimCol)}…" value="${escapeHtml(q)}" autocomplete="off">
+    </div>
+    <label class="ms-option ms-option-all">
+      <input type="checkbox" data-dim-all ${allOn ? 'checked' : ''} ${shown.length ? '' : 'disabled'}>
+      <span>${q ? `همه‌ی ${fmtNum(shown.length)} نتیجه‌ی «${escapeHtml(q.trim())}»` : escapeHtml(allLabel)}</span>
+    </label>
+    <div class="ms-divider"></div>
+    ${shown.map(o=>`
+      <label class="ms-option">
+        <input type="checkbox" data-dim-val="${escapeHtml(o.label)}" ${isOn(o.label) ? 'checked' : ''}>
+        <span class="ms-option-label">${escapeHtml(o.label)}</span>
+        <span class="ms-option-cost">${fmtNum(o.value)}</span>
+      </label>`).join('')}
+    ${shown.length ? '' : '<div class="ms-empty">چیزی پیدا نشد</div>'}`;
+  const search = document.getElementById(searchId);
+  if(hadFocus){ search.focus(); try{ search.setSelectionRange(q.length, q.length); }catch(err){} }
+  search.oninput = ()=>{ st.dimQuery[index] = search.value; renderDimFilter(project, index); };
+  search.onkeydown = e=>{ if(e.key === 'Escape'){ e.stopPropagation(); st.dimQuery[index] = ''; renderDimFilter(project, index); } };
+  const commit = next => {
+    st.dimSel[index] = (next !== 'ALL' && opts.every(o=>next.has(o.label)) && !q) ? 'ALL' : next;
+    renderDimFilter(project, index);
+    renderDimensionTable(project, index, true);
+  };
+  panel.onchange = e=>{
+    const cb = e.target;
+    const cur = sel === 'ALL' ? new Set(opts.map(o=>o.label)) : new Set(sel);
+    if(cb.hasAttribute('data-dim-all')){
+      // Without a search this row is everything; with one, it is the matches.
+      if(!q) return commit(cb.checked ? 'ALL' : new Set());
+      // As in the campaign filter: ticking it shows exactly the matches,
+      // unticking drops them and leaves the rest of the choice alone.
+      if(cb.checked) return commit(new Set(shown.map(o=>o.label)));
+      shown.forEach(o=>cur.delete(o.label));
+      return commit(cur);
+    }
+    const v = cb.getAttribute('data-dim-val');
+    if(cb.checked) cur.add(v); else cur.delete(v);
+    commit(cur);
+  };
+  panel.onclick = e=>e.stopPropagation();
+  toggle.onclick = e=>{
+    e.stopPropagation();
+    const open = !panel.hidden;
+    document.querySelectorAll('.ms-panel').forEach(p=>p.hidden = true);
+    panel.hidden = open;
+    if(!panel.hidden) search.focus();
+  };
+}
+function renderDimensionTable(project, index, skipFilter){
   const cfg = (project.dimensionTables || [])[index];
   const el = document.getElementById(`dimTable-${project.id}-${index}`);
   if(!cfg || !el) return;
+  if(!skipFilter) renderDimFilter(project, index);
   const t = computeDimensionTable(project, index);
   if(!t.rows.length){
     el.innerHTML = `<div class="deep-empty">${t.hasData
