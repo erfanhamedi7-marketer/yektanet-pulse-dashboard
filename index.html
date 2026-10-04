@@ -925,7 +925,7 @@ function arzplusSections(){
     {id:'arzplus-app',  partTitle:'ارزپلاس - اپلیکیشن',  title:'ارزپلاس — اپلیکیشن',
      app:'arzplus', prefix:APP_PREFIX, prefixLabel:'inapp / inap'},
     {id:'arzplus-cafe', partTitle:'ارزپلاس - کافه بازار', title:'ارزپلاس — کافه بازار',
-     app:'arzplus', prefix:'yn-c',     prefixLabel:'yn-c'},
+     app:'arzplus', prefix:['yn-c', 'cb-'], prefixLabel:'yn-c / cb-'},
     {id:'arzplus-web',  partTitle:'ارزپلاس - وب',         title:'ارزپلاس — وب',
      app:'arzplus', web:true},
     {id:'tochal-app',   partTitle:'توچال - اپلیکیشن',    title:'توچال — اپلیکیشن',
@@ -948,7 +948,9 @@ function arzplusSections(){
     // Network is ignored: the same campaigns keep being reported under the
     // supply partner's name once Yektanet's own label stops.
     refCampaignsFromCost: true,
-    excludeCampaign: (key) => !key.startsWith(part.prefix),
+    // A part may take several prefixes (Arzplus's Cafe Bazaar campaigns are
+    // named both yn-c… and cb-…).
+    excludeCampaign: (key) => ![].concat(part.prefix).some(pre => key.startsWith(pre)),
     conversionCol: 'KYC',
     conversionLabel: 'KYC',
     showInstalls: true,
