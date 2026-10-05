@@ -3002,7 +3002,12 @@ function renderCampaignCpaTable(project, joined, elId){
         m.since ? ` — فقط از ${fmtDateLabel(m.since)} که این ستون توی شیت پر شده؛ نرخ و هزینه‌اش هم فقط روی همین روزها حساب شده` : ''}.`).join('')}
     </div>`;
 
-  const shown = t.rows.slice(0, CPA_TABLE_MAX_ROWS);
+  // Past the first rows, the rest of the campaigns open from a button below.
+  const tableId = elId || `cpaTable-${project.id}`;
+  const st = projectState[project.id];
+  st.cpaShowAll = st.cpaShowAll || {};
+  const showAll = !!st.cpaShowAll[tableId];
+  const shown = showAll ? t.rows : t.rows.slice(0, CPA_TABLE_MAX_ROWS);
   const body = shown.map(r=>{
     const cpaCell = r.cpa!==null
       ? `<td>${fmtNum(r.cpa)}</td>`
@@ -3037,8 +3042,10 @@ function renderCampaignCpaTable(project, joined, elId){
       </tr>`;
   }).join('');
 
-  const more = t.rows.length > shown.length
-    ? `<div class="deep-subtext" style="margin-top:8px;">${fmtNum(t.rows.length - shown.length)} کمپین دیگه با هزینه‌ی کمتر نمایش داده نشدن.</div>` : '';
+  const more = t.rows.length > CPA_TABLE_MAX_ROWS
+    ? `<button type="button" class="seg-more cpa-more">${showAll
+        ? `فقط ${fmtNum(CPA_TABLE_MAX_ROWS)} کمپین اول`
+        : `نمایش همه‌ی ${fmtNum(t.rows.length)} کمپین (${fmtNum(t.rows.length - CPA_TABLE_MAX_ROWS)} تای دیگه)`}</button>` : '';
 
   // The total row covers every campaign in the range, including the ones past
   // the shown rows. Counts and costs add up; every rate is the combined one
@@ -3091,6 +3098,8 @@ function renderCampaignCpaTable(project, joined, elId){
         <tbody>${body}</tbody>${foot}
       </table>
     </div>` + more;
+  const btn = el.querySelector('.cpa-more');
+  if(btn) btn.onclick = ()=>{ st.cpaShowAll[tableId] = !showAll; renderCampaignCpaTable(project, joined, elId); };
 }
 
 function renderCostDrivers(project, joined){
