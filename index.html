@@ -359,6 +359,11 @@
   .section-controls{display:flex;align-items:center;gap:10px;}
   .ms-dropdown{position:relative;}
   .dim-filter{display:inline-block;margin:2px 0 10px;}
+  .seg-more{
+    margin-top:10px;cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:600;
+    color:var(--accent-ink);background:var(--accent-soft);border:1px solid transparent;border-radius:999px;padding:6px 14px;
+  }
+  .seg-more:hover{border-color:var(--accent-ink);}
   .ms-toggle{
     background:var(--surface);border:1px solid var(--border);border-radius:999px;
     padding:8px 15px;font-family:var(--font-ui);font-size:12.5px;font-weight:600;color:var(--text);
@@ -2366,7 +2371,7 @@ function renderSectionsShell(){
         <div id="cpaDrivers-${p.id}"></div>
 
         ${p.hideSegmentAnalysis ? '' : `
-        <div class="deep-subhead">گرون‌ترین Adgroup‌ها و Creative‌ها بر اساس CPA</div>
+        <div class="deep-subhead">CPA Adgroup‌ها و Creative‌ها</div>
         <div id="segmentIntro-${p.id}"></div>
         <div class="deep-subtext" style="margin:10px 0 4px;font-weight:700;color:var(--text);">Adgroup</div>
         <div id="segmentAdgroup-${p.id}"></div>
@@ -2598,6 +2603,8 @@ function computeLatestCpaChange(joined){
 // its rows are left out rather than guessed at.
 const SEG_MIN_INSTALLS = 5;           // an absolute floor for a meaningful CPA
 const SEG_MIN_INSTALL_SHARE = 0.001; // and at least 0.1% of the section's installs
+const SEG_MIN_COST_SHARE = 0.001;    // and of its spend
+const SEG_TABLE_ROWS = 25;           // rows shown before "show all"
 function computeSegmentCpa(project, joined, keyFn){
   const st = projectState[project.id];
   const {from, to} = sectionRange(project);
@@ -2645,23 +2652,16 @@ function computeSegmentCpa(project, joined, keyFn){
     vsBenchmark: (benchmark && seg.conversion>0) ? ((seg.cost/seg.conversion)-benchmark)/benchmark*100 : null
   }));
 
-  // Enough install volume for a CPA to mean something. "Spent and never
-  // converted" leads the table, so it needs twice that volume behind it.
-  const hasVolume = r => r.installs >= (r.conversion>0 ? minInstalls : minInstalls*2);
-  // Everything costing more than the section's own average, most expensive
-  // first; a segment that spent without converting has no CPA to compare and
-  // belongs at the top. The rest are counted, not listed.
-  const withVolume = rows.filter(hasVolume);
-  const aboveAverage = withVolume.filter(r => r.cpa === null || (benchmark !== null && r.cpa > benchmark))
-    .sort((a,b)=>{
-      if(a.cpa===null && b.cpa===null) return b.cost - a.cost;
-      if(a.cpa===null) return -1;
-      if(b.cpa===null) return 1;
-      return b.cpa - a.cpa;
-    });
+  // Every ad group / creative with enough installs and enough spend behind
+  // it for its CPA to mean something — cheap or expensive alike — biggest
+  // spend first. The "vs average" column says which side each one is on.
+  const pricedCost = rows.reduce((t,r)=>t+r.cost, 0);
+  const minCost = pricedCost * SEG_MIN_COST_SHARE;
+  const significant = rows.filter(r => r.installs >= minInstalls && r.cost >= minCost)
+    .sort((a,b)=> b.cost - a.cost);
+  return {rows: significant, benchmark, totalCost, minInstalls, minCost, unpricedCampaigns,
+          candidateCount: rows.length, smallCount: rows.length - significant.length};
 
-  return {rows: aboveAverage, benchmark, totalCost, minInstalls, unpricedCampaigns,
-          candidateCount: rows.length, belowAverageCount: withVolume.length - aboveAverage.length};
 }
 
 // Ad group and creative names are long ids people paste into the panel, and
@@ -2727,12 +2727,17 @@ function renderSegmentCpaTable(project, joined, keyFn, elId, segLabel, copyValue
   const t = computeSegmentCpa(project, joined, keyFn);
   if(!t){ el.innerHTML = `<div class="deep-empty">برای این بازه دیتای کافی برای محاسبه‌ی CPA ${escapeHtml(segLabel)} نیست.</div>`; return; }
   if(!t.rows.length){
-    el.innerHTML = `<div class="deep-empty">هیچ ${escapeHtml(segLabel)} ای با حجم کافی (حداقل ${fmtNum(t.minInstalls)}) CPA بالاتر از میانگین پروژه${t.benchmark!==null?` (${fmtMoney(t.benchmark)})`:''} نداشت.</div>`;
+    el.innerHTML = `<div class="deep-empty">هیچ ${escapeHtml(segLabel)} ای با حجم کافی (حداقل ${fmtNum(t.minInstalls)} ${escapeHtml(project.installsLabel || 'نصب')} و ${fmtMoney(t.minCost)} هزینه) توی این بازه نبود.</div>`;
     return;
   }
   const label = project.conversionLabel;
   const installLabel = project.installsLabel || 'نصب';
-  const body = t.rows.map(r=>`
+  // The long tail folds away behind a button; the total row still covers it.
+  const st = projectState[project.id];
+  st.segShowAll = st.segShowAll || {};
+  const showAll = !!st.segShowAll[elId];
+  const listed = showAll ? t.rows : t.rows.slice(0, SEG_TABLE_ROWS);
+  const body = listed.map(r=>`
     <tr>
       <td class="campaign">${copyableName(r.label, copyValueFn ? copyValueFn(r.label) : undefined)}</td>
       <td class="muted">${copyableName(r.campaign)}</td>
@@ -2745,8 +2750,8 @@ function renderSegmentCpaTable(project, joined, keyFn, elId, segLabel, copyValue
         ? `<td class="${r.vsBenchmark>0?'neg':'pos'}">${r.vsBenchmark>0?'▲':'▼'} ${Math.abs(r.vsBenchmark).toFixed(0)}٪</td>`
         : `<td class="muted">—</td>`}
     </tr>`).join('');
-  // The listed rows only (those above the project's average), added up: their
-  // combined CPA against the same average.
+  // Every qualifying row (shown or folded away), added up: their combined CPA
+  // against the project's average.
   const s = t.rows.reduce((a, r)=>({installs:a.installs + r.installs, share:a.share + r.installShare,
     cost:a.cost + r.cost, conversion:a.conversion + r.conversion}), {installs:0, share:0, cost:0, conversion:0});
   const sCpa = s.conversion > 0 ? s.cost / s.conversion : null;
@@ -2763,7 +2768,7 @@ function renderSegmentCpaTable(project, joined, keyFn, elId, segLabel, copyValue
         <tbody>${body}</tbody>
         <tfoot>
           <tr>
-            <td class="campaign">مجموع ${fmtNum(t.rows.length)} ${escapeHtml(segLabel)} بالا</td>
+            <td class="campaign">مجموع ${fmtNum(t.rows.length)} ${escapeHtml(segLabel)}</td>
             <td class="muted">—</td>
             <td>${fmtNum(s.installs)}</td>
             <td class="muted">${s.share.toFixed(0)}٪</td>
@@ -2775,7 +2780,12 @@ function renderSegmentCpaTable(project, joined, keyFn, elId, segLabel, copyValue
         </tfoot>
       </table>
     </div>
-    ${t.belowAverageCount > 0 ? `<div class="deep-subtext" style="margin-top:8px;">${fmtNum(t.belowAverageCount)} مورد دیگه حجم کافی دارن ولی CPA‌شون از میانگین بهتره و نمایش داده نشدن.</div>` : ''}`;
+    ${t.rows.length > SEG_TABLE_ROWS ? `<button type="button" class="seg-more" data-seg="${escapeHtml(elId)}">${showAll
+      ? `فقط ${fmtNum(SEG_TABLE_ROWS)} تای اول`
+      : `نمایش همه‌ی ${fmtNum(t.rows.length)} ${escapeHtml(segLabel)} (${fmtNum(t.rows.length - SEG_TABLE_ROWS)} تای دیگه)`}</button>` : ''}
+    ${t.smallCount > 0 ? `<div class="deep-subtext" style="margin-top:8px;">${fmtNum(t.smallCount)} ${escapeHtml(segLabel)} دیگه حجم ${escapeHtml(installLabel)} یا هزینه‌ی کمتری داشتن و نیومدن.</div>` : ''}`;
+  const more = el.querySelector('.seg-more');
+  if(more) more.onclick = ()=>{ st.segShowAll[elId] = !showAll; renderSegmentCpaTable(project, joined, keyFn, elId, segLabel, copyValueFn); };
 }
 
 function renderSegmentIssues(project, joined){
@@ -2785,7 +2795,7 @@ function renderSegmentIssues(project, joined){
     const installLabel = project.installsLabel || 'نصب';
     head.innerHTML = `<div class="deep-subtext intro">
       هزینه فقط در سطح کمپین موجوده، پس برای هر کمپین «هزینه به ازای ${escapeHtml(installLabel)}» حساب شده (هزینه‌ی کمپین ÷ ${escapeHtml(installLabel)} کمپین) و هزینه‌ی هر Adgroup / Creative = ${escapeHtml(installLabel)} خودش × همون عدد؛ بعد CPA = این هزینه ÷ ${escapeHtml(project.conversionLabel)} خودش.
-      فقط مواردی میان که حجم ${escapeHtml(installLabel)}شون معنادار باشه${t ? ` (حداقل ${fmtNum(t.minInstalls)}؛ برای موارد بدون کانورژن حداقل ${fmtNum(t.minInstalls*2)})` : ''}، و CPA‌شون از میانگین پروژه بالاتر باشه — همه‌شون، به‌ترتیب گرون‌ترین${t && t.benchmark ? ` — میانگین CPA پروژه در همین بازه: ${fmtMoney(t.benchmark)}` : ''}.
+      همه‌ی مواردی میان که ${escapeHtml(installLabel)} و هزینه‌ی قابل‌توجهی داشتن${t ? ` (حداقل ${fmtNum(t.minInstalls)} ${escapeHtml(installLabel)} و ${fmtMoney(t.minCost)} هزینه)` : ''} — چه CPA‌شون بالا باشه چه پایین — به‌ترتیب بیشترین هزینه؛ ستون «نسبت به میانگین» نشون می‌ده کدوم گرون‌تر و کدوم ارزون‌تر از میانگینه${t && t.benchmark ? ` (میانگین CPA پروژه در همین بازه: ${fmtMoney(t.benchmark)})` : ''}.
       ${t && t.unpricedCampaigns ? `<br>${fmtNum(t.unpricedCampaigns)} کمپین چون توی این بازه ${escapeHtml(installLabel)} نداشته قابل قیمت‌گذاری نبوده و کنار گذاشته شده.` : ''}
     </div>`;
   }
