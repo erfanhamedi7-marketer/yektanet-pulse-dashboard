@@ -359,6 +359,15 @@
   .section-controls{display:flex;align-items:center;gap:10px;}
   .ms-dropdown{position:relative;}
   .dim-filter{display:inline-block;margin:2px 0 10px;}
+  .seg-chips{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 12px;}
+  .seg-chips[hidden]{display:none;}
+  .seg-chips-label{font-size:12px;color:var(--text-muted);font-weight:600;}
+  .seg-chip{
+    display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text);
+    background:var(--accent-soft);border:1px solid var(--accent-ink);border-radius:999px;padding:4px 6px 4px 12px;
+  }
+  .seg-chip b{font-weight:700;}
+  .seg-chip-x{border:none;background:none;cursor:pointer;color:var(--accent-ink);font-size:12px;padding:0 6px;line-height:1;}
   .seg-more{
     margin-top:10px;cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:600;
     color:var(--accent-ink);background:var(--accent-soft);border:1px solid transparent;border-radius:999px;padding:6px 14px;
@@ -1800,13 +1809,98 @@ function sectionRange(project){
   const st = projectState[project.id];
   return project.ownDateFilter ? {from: st.from, to: st.to} : {from: currentFrom, to: currentTo};
 }
+// ---------- Ad group / creative filter ----------
+// Picked by clicking a name in the Ad group / Creative tables. Those live only
+// on the conversion side, so filtering to one also needs its share of the
+// spend: each campaign's cost for a day is split by that day's installs, the
+// same way the tables price an ad group or a creative.
+const SEG_DIMS = [{key:'adgroup', label:'Adgroup'}, {key:'creative', label:'Creative'}];
+function segSel(project){
+  const st = projectState[project.id];
+  st.segSel = st.segSel || {adgroup:'ALL', creative:'ALL'};
+  return st.segSel;
+}
+function segActive(project){
+  const sel = segSel(project);
+  return sel.adgroup !== 'ALL' || sel.creative !== 'ALL';
+}
+function segKeep(project){
+  const sel = segSel(project);
+  return r => (sel.adgroup === 'ALL' || sel.adgroup.has(r.adgroup))
+           && (sel.creative === 'ALL' || sel.creative.has(r.creative));
+}
+// Narrow a range's conversion and cost rows to the picked ad groups /
+// creatives: conversion rows simply filter, cost rows keep the picked share
+// of each campaign-day.
+function applySegFilter(project, refRows, costRows){
+  if(!segActive(project)) return {refRows, costRows};
+  const keep = segKeep(project);
+  const dayKey = r => r.date + '||' + r.campaign;
+  const all = {}, picked = {};
+  refRows.forEach(r=>{ all[dayKey(r)] = (all[dayKey(r)] || 0) + r.installs; });
+  const segRows = refRows.filter(keep);
+  segRows.forEach(r=>{ picked[dayKey(r)] = (picked[dayKey(r)] || 0) + r.installs; });
+  const scale = (obj, k) => obj ? Object.fromEntries(Object.entries(obj).map(([c,v])=>[c, v*k])) : obj;
+  const segCost = costRows.map(r=>{
+    const a = all[dayKey(r)] || 0, b = picked[dayKey(r)] || 0;
+    const share = a > 0 ? b / a : 0;
+    return share > 0 ? {...r, cost: r.cost*share, impressions: r.impressions*share, clicks: r.clicks*share,
+                        extras: scale(r.extras, share)} : null;
+  }).filter(Boolean);
+  return {refRows: segRows, costRows: segCost};
+}
+// The active ad group / creative picks, as chips above the cards; each one's
+// ✕ drops it.
+function renderSegChips(project){
+  const el = document.getElementById(`segChips-${project.id}`);
+  if(!el) return;
+  const sel = segSel(project);
+  const chips = [];
+  SEG_DIMS.forEach(d=>{
+    if(sel[d.key] === 'ALL') return;
+    sel[d.key].forEach(v=>chips.push(`<span class="seg-chip">${escapeHtml(d.label)}: <b>${escapeHtml(v)}</b>
+      <button type="button" class="seg-chip-x" data-project="${escapeHtml(project.id)}" data-dim="${d.key}" data-key="${escapeHtml(v)}" aria-label="حذف فیلتر">✕</button></span>`));
+  });
+  el.hidden = !chips.length;
+  el.innerHTML = chips.length ? `<span class="seg-chips-label">فیلتر:</span>${chips.join('')}` : '';
+}
+// An ad group / creative name in a table: clicking it narrows the section to
+// it, clicking it again (while it is the only one picked) clears it.
+function segFilterName(project, dim, key, label){
+  const sel = segSel(project)[dim];
+  const isOnly = sel !== 'ALL' && sel.size === 1 && sel.has(key);
+  return `<button type="button" class="filter-name${isOnly?' active':''}"
+    data-project="${escapeHtml(project.id)}" data-seg="${dim}" data-key="${escapeHtml(key)}"
+    title="${isOnly ? 'کلیک کن تا فیلتر برداشته بشه' : 'کلیک کن تا داشبورد روی همین فیلتر بشه'}"
+    >${escapeHtml(label == null ? key : label)}</button>`;
+}
+document.addEventListener('click', (e)=>{
+  const btn = e.target.closest('.filter-name[data-seg], .seg-chip-x');
+  if(!btn) return;
+  const project = PROJECTS.find(p=>p.id === btn.dataset.project);
+  if(!project) return;
+  const dim = btn.dataset.seg || btn.dataset.dim;
+  const sel = segSel(project);
+  const cur = sel[dim];
+  if(btn.classList.contains('seg-chip-x')){
+    const next = new Set(cur === 'ALL' ? [] : cur);
+    next.delete(btn.dataset.key);
+    sel[dim] = next.size ? next : 'ALL';
+  } else {
+    const isOnly = cur !== 'ALL' && cur.size === 1 && cur.has(btn.dataset.key);
+    sel[dim] = isOnly ? 'ALL' : new Set([btn.dataset.key]);
+  }
+  updateSection(project);
+});
+
 function computeSection(project, window){
   const st = projectState[project.id];
   const {from, to} = window || sectionRange(project);
   const inRange = d => (!from || d >= from) && (!to || d <= to);
   const inCampaign = c => st.campaigns === 'ALL' || st.campaigns.has(c);
-  const refFiltered = project.rawRef.filter(r=>inRange(r.date) && inCampaign(r.campaign));
-  const costFiltered = project.rawCost.filter(r=>inRange(r.date) && inCampaign(r.campaign));
+  const {refRows: refFiltered, costRows: costFiltered} = applySegFilter(project,
+    project.rawRef.filter(r=>inRange(r.date) && inCampaign(r.campaign)),
+    project.rawCost.filter(r=>inRange(r.date) && inCampaign(r.campaign)));
   const refMap = aggregateRef(refFiltered);
   const costMap = aggregateCost(costFiltered);
   return buildJoinedRows(refMap, costMap, project.includeUnmatchedCost);
@@ -2215,7 +2309,7 @@ function filterableName(project, slotKey, key, label){
 }
 document.addEventListener('click', (e)=>{
   const btn = e.target.closest('.filter-name');
-  if(!btn) return;
+  if(!btn || btn.dataset.seg) return;
   const project = PROJECTS.find(p=>p.id === btn.dataset.project);
   if(!project) return;
   const slot = filterSlots(project).find(s=>s.key === btn.dataset.slot);
@@ -2314,6 +2408,7 @@ function renderSectionsShell(){
         </div>
       </div>` : ''}
       <div class="coverage-note" id="coverageNote-${p.id}"></div>
+      <div class="seg-chips" id="segChips-${p.id}" hidden></div>
       <div class="kpis" id="kpis-${p.id}"></div>
       ${p.kind === 'cpi' ? cpiCards(p) : (p.kind === 'budget' ? `
       <div class="card">
@@ -2610,7 +2705,7 @@ function computeSegmentCpa(project, joined, keyFn){
   const {from, to} = sectionRange(project);
   const inRange = d => (!from || d >= from) && (!to || d <= to);
   const inCampaign = c => st.campaigns === 'ALL' || st.campaigns.has(c);
-  const refRows = project.rawRef.filter(r=>inRange(r.date) && inCampaign(r.campaign));
+  const refRows = project.rawRef.filter(r=>inRange(r.date) && inCampaign(r.campaign)).filter(segKeep(project));
   if(!refRows.length) return null;
 
   // Per campaign over the whole range: what the sheet spent, and what it bought.
@@ -2632,7 +2727,7 @@ function computeSegmentCpa(project, joined, keyFn){
     refRows.filter(r=>r.campaign===key).forEach(r=>{
       const segKey = key + '||' + keyFn(r);
       const seg = segments[segKey] = segments[segKey] ||
-        {label: keyFn(r), campaign: c.label, cost:0, conversion:0, installs:0, costPerInstall};
+        {label: keyFn(r), campaign: c.label, campaignKey: key, cost:0, conversion:0, installs:0, costPerInstall};
       seg.installs += r.installs;
       seg.conversion += r.conversion;
       seg.cost += r.installs * costPerInstall;
@@ -2730,6 +2825,7 @@ document.addEventListener('click', async (e)=>{
 function renderSegmentCpaTable(project, joined, keyFn, elId, segLabel, copyValueFn){
   const el = document.getElementById(elId);
   if(!el) return;
+  const segDim = segLabel === 'Creative' ? 'creative' : 'adgroup';
   const t = computeSegmentCpa(project, joined, keyFn);
   if(!t){ el.innerHTML = `<div class="deep-empty">برای این بازه دیتای کافی برای محاسبه‌ی CPA ${escapeHtml(segLabel)} نیست.</div>`; return; }
   if(!t.rows.length){
@@ -2745,8 +2841,8 @@ function renderSegmentCpaTable(project, joined, keyFn, elId, segLabel, copyValue
   const listed = showAll ? t.rows : t.rows.slice(0, SEG_TABLE_ROWS);
   const body = listed.map(r=>`
     <tr>
-      <td class="campaign">${copyableName(r.label, copyValueFn ? copyValueFn(r.label) : undefined)}</td>
-      <td class="muted">${copyableName(r.campaign)}</td>
+      <td class="campaign">${segFilterName(project, segDim, r.label)}${copyIcon(copyValueFn ? copyValueFn(r.label) : r.label)}</td>
+      <td class="muted">${filterableName(project, 'main', r.campaignKey, r.campaign)}${copyIcon(r.campaign)}</td>
       <td>${fmtNum(r.installs)}</td>
       <td class="muted">${r.installShare.toFixed(0)}٪</td>
       <td>${fmtNum(r.cost)}</td>
@@ -3784,7 +3880,8 @@ function computeCreativeCpi(project, group, keyFn){
   const inGroup = cpiGroupFilter(group);
   const keep = r => inRange(r.date) && inCampaign(r.campaign) && inGroup(r.campaign);
 
-  const refRows = project.rawRef.filter(keep);
+  const refAll = project.rawRef.filter(keep);
+  const refRows = refAll.filter(segKeep(project));
   if(!refRows.length) return null;
 
   const costByDay = {};
@@ -3792,8 +3889,9 @@ function computeCreativeCpi(project, group, keyFn){
     const key = r.date + '||' + r.campaign;
     costByDay[key] = (costByDay[key] || 0) + r.cost;
   });
+  // A day's campaign cost splits over every creative that day, picked or not.
   const installsByDay = {};
-  refRows.forEach(r=>{
+  refAll.forEach(r=>{
     const key = r.date + '||' + r.campaign;
     installsByDay[key] = (installsByDay[key] || 0) + r.installs;
   });
@@ -3816,8 +3914,12 @@ function computeCreativeCpi(project, group, keyFn){
     }
   });
 
-  const totalCost = Object.values(costByDay).reduce((a,b)=>a+b, 0);
-  const totalInstalls = Object.values(installsByDay).reduce((a,b)=>a+b, 0);
+  // With an ad group / creative picked, the totals are the picked share only.
+  const picked = segActive(project);
+  const totalCost = picked ? Object.values(segments).reduce((a,g)=>a+g.cost, 0)
+                           : Object.values(costByDay).reduce((a,b)=>a+b, 0);
+  const totalInstalls = picked ? Object.values(segments).reduce((a,g)=>a+g.installs, 0)
+                               : Object.values(installsByDay).reduce((a,b)=>a+b, 0);
   const benchmark = totalInstalls > 0 ? totalCost/totalInstalls : null;
 
   const all = Object.values(segments);
@@ -3853,11 +3955,11 @@ function renderCreativeCpiTable(project, group, elId, segLabel){
       ${t.noInstallCount ? `<br>${fmtNum(t.noInstallCount)} ${escapeHtml(segLabel)} توی این بازه نصبی نداشته و چون هزینه‌ای بهش تخصیص نمی‌گیره نیومده.` : ''}
     </div>`;
   const body = t.rows.map(r=>{
-    const camps = r.campaigns.slice(0,2).map(c=>copyableName(c)).join('، ')
+    const camps = r.campaigns.slice(0,2).map(c=>filterableName(project, 'main', normCampaign(c), c) + copyIcon(c)).join('، ')
       + (r.campaigns.length > 2 ? ` +${fmtNum(r.campaigns.length-2)}` : '');
     return `
     <tr>
-      <td class="campaign">${copyableName(r.label, creativeCopyValue(r.label))}</td>
+      <td class="campaign">${segFilterName(project, 'creative', r.label)}${copyIcon(creativeCopyValue(r.label))}</td>
       <td>${fmtNum(r.installs)}</td>
       <td class="muted">${r.installShare.toFixed(1)}٪</td>
       <td>${fmtNum(r.cost)}</td>
@@ -4135,7 +4237,7 @@ function updateCpiSection(project){
 
 function updateSection(project){
   // Every filter change lands here, so the filter lists catch up with it too.
-  if(projectState[project.id]) renderCampaignDropdown(project);
+  if(projectState[project.id]){ renderCampaignDropdown(project); renderSegChips(project); }
   if(project.kind === 'budget') return updateBudgetSection(project);
   if(project.kind === 'cpi') return updateCpiSection(project);
   if(project.error) return;
