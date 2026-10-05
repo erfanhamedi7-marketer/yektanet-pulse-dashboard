@@ -2653,12 +2653,18 @@ function computeSegmentCpa(project, joined, keyFn){
   }));
 
   // Every ad group / creative with enough installs and enough spend behind
-  // it for its CPA to mean something — cheap or expensive alike — biggest
-  // spend first. The "vs average" column says which side each one is on.
+  // it for its CPA to mean something — cheap or expensive alike — most
+  // expensive first: those that spent without converting lead (biggest spend
+  // first), then by CPA, highest first.
   const pricedCost = rows.reduce((t,r)=>t+r.cost, 0);
   const minCost = pricedCost * SEG_MIN_COST_SHARE;
   const significant = rows.filter(r => r.installs >= minInstalls && r.cost >= minCost)
-    .sort((a,b)=> b.cost - a.cost);
+    .sort((a,b)=>{
+      if(a.cpa===null && b.cpa===null) return b.cost - a.cost;
+      if(a.cpa===null) return -1;
+      if(b.cpa===null) return 1;
+      return b.cpa - a.cpa;
+    });
   return {rows: significant, benchmark, totalCost, minInstalls, minCost, unpricedCampaigns,
           candidateCount: rows.length, smallCount: rows.length - significant.length};
 
@@ -2795,7 +2801,7 @@ function renderSegmentIssues(project, joined){
     const installLabel = project.installsLabel || 'نصب';
     head.innerHTML = `<div class="deep-subtext intro">
       هزینه فقط در سطح کمپین موجوده، پس برای هر کمپین «هزینه به ازای ${escapeHtml(installLabel)}» حساب شده (هزینه‌ی کمپین ÷ ${escapeHtml(installLabel)} کمپین) و هزینه‌ی هر Adgroup / Creative = ${escapeHtml(installLabel)} خودش × همون عدد؛ بعد CPA = این هزینه ÷ ${escapeHtml(project.conversionLabel)} خودش.
-      همه‌ی مواردی میان که ${escapeHtml(installLabel)} و هزینه‌ی قابل‌توجهی داشتن${t ? ` (حداقل ${fmtNum(t.minInstalls)} ${escapeHtml(installLabel)} و ${fmtMoney(t.minCost)} هزینه)` : ''} — چه CPA‌شون بالا باشه چه پایین — به‌ترتیب بیشترین هزینه؛ ستون «نسبت به میانگین» نشون می‌ده کدوم گرون‌تر و کدوم ارزون‌تر از میانگینه${t && t.benchmark ? ` (میانگین CPA پروژه در همین بازه: ${fmtMoney(t.benchmark)})` : ''}.
+      همه‌ی مواردی میان که ${escapeHtml(installLabel)} و هزینه‌ی قابل‌توجهی داشتن${t ? ` (حداقل ${fmtNum(t.minInstalls)} ${escapeHtml(installLabel)} و ${fmtMoney(t.minCost)} هزینه)` : ''} — چه CPA‌شون بالا باشه چه پایین — به‌ترتیب گرون‌ترین CPA (اول مواردی که هزینه داشتن ولی کانورژن نداشتن)؛ ستون «نسبت به میانگین» نشون می‌ده کدوم گرون‌تر و کدوم ارزون‌تر از میانگینه${t && t.benchmark ? ` (میانگین CPA پروژه در همین بازه: ${fmtMoney(t.benchmark)})` : ''}.
       ${t && t.unpricedCampaigns ? `<br>${fmtNum(t.unpricedCampaigns)} کمپین چون توی این بازه ${escapeHtml(installLabel)} نداشته قابل قیمت‌گذاری نبوده و کنار گذاشته شده.` : ''}
     </div>`;
   }
