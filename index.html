@@ -24,7 +24,7 @@
     --border-soft:#F2EDE3;
     --text:#15171C;
     --text-muted:#5E6270;
-    --text-faint:#8A8C99;
+    --text-faint:#6B6E7C;
     --warm:#F5D13B;
     /* Per-project brand colors override these three on each section. */
     --accent:#2563EB;
@@ -42,13 +42,17 @@
     --radius-sm:16px;
     --radius-xs:12px;
     --font-ui:'Vazirmatn',system-ui,-apple-system,sans-serif;
-    --font-mono:'IBM Plex Mono',ui-monospace,monospace;
+    /* Plex Mono has no Persian glyphs; without Vazirmatn next in line, a
+       "تومان" inside a figure fell to the system monospace and came apart
+       letter by letter. */
+    --font-mono:'IBM Plex Mono','Vazirmatn',ui-monospace,monospace;
     --border-strong:#DCD2C0;
     --shadow-card:0 1px 2px rgba(58,46,24,.04), 0 14px 30px -22px rgba(58,46,24,.26);
     --shadow-lift:0 2px 4px rgba(58,46,24,.05), 0 22px 40px -22px rgba(58,46,24,.30);
     --shadow-pop:0 16px 40px -14px rgba(58,46,24,.24), 0 2px 6px rgba(58,46,24,.07);
   }
   *{box-sizing:border-box;}
+  ::selection{background:rgba(245,209,59,.45);color:var(--text);}
   html{background:var(--bg);color-scheme:light;}
   body{
     margin:0;
@@ -139,7 +143,7 @@
   }
   .kpi-key{width:9px;height:9px;border-radius:3px;display:inline-block;margin-inline-end:7px;flex-shrink:0;}
   .kpi-delta{
-    font-family:var(--font-mono);font-size:10.5px;font-weight:700;white-space:nowrap;flex-shrink:0;
+    font-family:var(--font-mono);font-size:11px;font-weight:700;white-space:nowrap;flex-shrink:0;
     padding:2px 7px;border-radius:999px;background:var(--surface-3);color:var(--text-muted);
   }
   .kpi-delta.pos{background:var(--positive-soft);color:var(--positive);}
@@ -214,10 +218,8 @@
   thead th{
     text-align:right;color:var(--text-muted);font-weight:700;font-size:11.5px;
     letter-spacing:.02em;
-    padding:0 12px 10px;border-bottom:1px solid var(--border);cursor:pointer;user-select:none;white-space:nowrap;
+    padding:0 12px 10px;border-bottom:1px solid var(--border);white-space:nowrap;
   }
-  thead th:hover{color:var(--text);}
-  thead th .arrow{opacity:.5;font-size:9px;margin-inline-start:4px;}
   tbody td{padding:11px 12px;border-bottom:1px solid var(--border-soft);white-space:nowrap;color:var(--text);}
   tbody td.num{font-family:var(--font-mono);font-size:12.5px;font-variant-numeric:tabular-nums;}
   tbody tr:hover{background:var(--surface-2);}
@@ -501,9 +503,12 @@
   .deep-item b{font-weight:700;}
   .di-date{font-family:var(--font-mono);color:var(--text-muted);font-size:11.5px;margin-inline-start:6px;}
   .di-tag{
-    display:inline-flex;align-items:center;padding:2px 9px;border-radius:99px;
+    display:inline-flex;align-items:center;gap:.35em;padding:2px 9px;border-radius:99px;
     font-size:11px;font-weight:700;font-family:var(--font-mono);margin-inline-end:8px;
   }
+  /* A Latin campaign name beside a run of figures would otherwise pull the
+     figures into its own left-to-right run and shuffle the line. */
+  .deep-item b, .di-date{unicode-bidi:isolate;}
   .di-tag.good{background:var(--positive-soft);color:var(--positive);}
   .di-tag.bad{background:var(--negative-soft);color:var(--negative);}
   .deep-empty{font-size:12.5px;color:var(--text-muted);padding:10px 12px;background:var(--surface-2);border-radius:var(--radius-sm);}
@@ -549,7 +554,7 @@
   .copy-name::after{
     content:'کپی شد ✓';position:absolute;inset-inline-end:0;top:-22px;white-space:nowrap;
     background:var(--positive);color:#fff;border-radius:6px;padding:2px 8px;
-    font-size:10.5px;font-family:var(--font-ui);font-weight:600;
+    font-size:11px;font-family:var(--font-ui);font-weight:600;
     opacity:0;transform:translateY(4px);transition:opacity .15s, transform .15s;pointer-events:none;
   }
   .copy-name.copied::after{opacity:1;transform:translateY(0);}
@@ -671,7 +676,7 @@
     .spark{height:30px;}
     .kpi .value{font-size:26px;}
     .kpi .label{font-size:11.5px;}
-    .kpi-sub{font-size:10.5px;}
+    .kpi-sub{font-size:11px;}
     .kpi:hover{transform:none;}
 
     /* Cards and charts. */
@@ -705,7 +710,22 @@
     .tab-btn{padding:7px 10px;font-size:12.5px;}
     .topbar h1{font-size:15.5px;}
     .brand-mark{width:30px;height:30px;border-radius:10px;}
-    .status-pill{padding:4px 8px;font-size:10.5px;}
+    .status-pill{padding:4px 8px;font-size:11px;}
+  }
+  /* On a touch screen the small icon buttons (copy, remove-filter, "?") keep
+     their look but get a finger-sized hit area around them. */
+  @media (hover:none){
+    .copy-name.copy-icon, .seg-chip-x, .hint{position:relative;}
+    .copy-name.copy-icon::before, .seg-chip-x::before, .hint::before{
+      content:'';position:absolute;inset:-12px;
+    }
+  }
+  /* Motion off: nothing slides, pulses or sweeps; state still changes. */
+  @media (prefers-reduced-motion:reduce){
+    *, *::before, *::after{transition-duration:.01s !important;}
+    .kpi:hover, .section-head:hover .section-logo{transform:none;}
+    .dot.loading{animation:none;}
+    #hintPop{transform:none;}
   }
 </style>
 </head>
@@ -848,6 +868,12 @@ function fmtDateLabel(yyyymmdd){
 function fmtNum(n, digits){
   if(n===null||n===undefined||isNaN(n)) return '—';
   return Number(n).toLocaleString('en-US',{maximumFractionDigits: digits===undefined?0:digits, minimumFractionDigits: digits===undefined?0:digits});
+}
+// A signed figure inside Persian text loses its sign to the far side ("12-")
+// unless the number is isolated as left-to-right.
+function fmtSigned(n, digits){
+  if(n===null||n===undefined||isNaN(n)) return '—';
+  return `<bdi dir="ltr">${n>0?'+':n<0?'−':''}${fmtNum(Math.abs(n), digits)}</bdi>`;
 }
 function fmtMoney(n){
   if(n===null||n===undefined||isNaN(n)) return '—';
@@ -2229,7 +2255,8 @@ function renderCampaignDropdown(project, slot){
   });
   // Escape clears the query rather than closing the panel mid-typing.
   search.addEventListener('keydown', e=>{
-    if(e.key === 'Escape'){
+    // Escape first clears a typed search; with nothing typed it closes the list.
+    if(e.key === 'Escape' && search.value){
       e.stopPropagation();
       search.value = '';
       projectState[project.id].search[slot.key] = '';
@@ -2288,6 +2315,7 @@ function wireCampaignToggle(project, slot){
     const isOpen = !panel.hidden;
     document.querySelectorAll('.ms-panel').forEach(p=>p.hidden = true);
     panel.hidden = isOpen;
+    syncDropdownState();
     if(!panel.hidden){
       const search = document.getElementById(`msSearch${slot.suffix}-${project.id}`);
       if(search) search.focus();
@@ -2322,7 +2350,15 @@ document.addEventListener('click', (e)=>{
 });
 document.addEventListener('click', ()=>{
   document.querySelectorAll('.ms-panel').forEach(p=>p.hidden = true);
+  syncDropdownState();
 });
+// Screen readers hear whether a filter list is open from its button.
+function syncDropdownState(){
+  document.querySelectorAll('.ms-dropdown').forEach(w=>{
+    const t = w.querySelector('.ms-toggle'), p = w.querySelector('.ms-panel');
+    if(t && p) t.setAttribute('aria-expanded', p.hidden ? 'false' : 'true');
+  });
+}
 // A card that starts folded (the Source / Term / Content tables) opens and
 // closes from the button in its header.
 document.addEventListener('click', (e)=>{
@@ -2359,7 +2395,7 @@ function cpiCards(p){
             <span><i class="line"></i>${escapeHtml(cpaLabel)}</span>
           </div>`}
         </div>
-        <div class="chart-box"><canvas id="cpiChart-${p.id}-${g.id}"></canvas></div>
+        <div class="chart-box"><canvas id="cpiChart-${p.id}-${g.id}" role="img" aria-label="نمودار CPI"></canvas></div>
         ${g.campaignTable ? `
         <div class="deep-subhead">${escapeHtml(cpaLabel)} کمپین‌ها — ${escapeHtml(g.title)}</div>
         <div id="cpiCampaigns-${p.id}-${g.id}"></div>` : ''}
@@ -2384,7 +2420,7 @@ function renderSectionsShell(){
         <div class="section-controls">
           ${filterSlots(p).map(slot=>`
           <div class="ms-dropdown" id="msWrap${slot.suffix}-${p.id}">
-            <button type="button" class="ms-toggle" id="msToggle${slot.suffix}-${p.id}">${escapeHtml(slot.allLabel)} ▾</button>
+            <button type="button" class="ms-toggle" id="msToggle${slot.suffix}-${p.id}" aria-haspopup="true" aria-expanded="false" aria-controls="msPanel${slot.suffix}-${p.id}">${escapeHtml(slot.allLabel)} ▾</button>
             <div class="ms-panel" id="msPanel${slot.suffix}-${p.id}" hidden></div>
           </div>`).join('')}
         </div>
@@ -2419,7 +2455,7 @@ function renderSectionsShell(){
           </div>
           <div class="legend-dots" id="legend-budgetChart-${p.id}"></div>
         </div>
-        <div class="chart-box"><canvas id="budgetChart-${p.id}"></canvas></div>
+        <div class="chart-box"><canvas id="budgetChart-${p.id}" role="img" aria-label="نمودار بودجه"></canvas></div>
       </div>
       <div class="card">
         <div class="card-head">
@@ -2446,7 +2482,7 @@ function renderSectionsShell(){
           </div>
           <div class="legend-dots" id="legend-trendChart-${p.id}"></div>
         </div>
-        <div class="chart-box"><canvas id="trendChart-${p.id}"></canvas></div>
+        <div class="chart-box"><canvas id="trendChart-${p.id}" role="img" aria-label="نمودار روند روزانه"></canvas></div>
       </div>`)}
       ${p.hideDeepAnalysis ? '' : `
       <div class="card soft">
@@ -2488,7 +2524,7 @@ function renderSectionsShell(){
         ${p.dimensionTables.map((d,i)=>`
         <div class="deep-subhead">${escapeHtml(d.dimCol)}</div>
         <div class="dim-filter ms-dropdown" id="dimFilter-${p.id}-${i}">
-          <button type="button" class="ms-toggle" id="dimToggle-${p.id}-${i}">همه‌ی ${escapeHtml(d.dimCol)}‌ها ▾</button>
+          <button type="button" class="ms-toggle" id="dimToggle-${p.id}-${i}" aria-haspopup="true" aria-expanded="false" aria-controls="dimPanel-${p.id}-${i}">همه‌ی ${escapeHtml(d.dimCol)}‌ها ▾</button>
           <div class="ms-panel" id="dimPanel-${p.id}-${i}" hidden></div>
         </div>
         <div id="dimTable-${p.id}-${i}"></div>`).join('')}
@@ -2508,7 +2544,7 @@ function renderSectionsShell(){
           </div>
         </div>
         <div class="kpis" id="sessionKpis-${p.id}"></div>
-        <div class="chart-box"><canvas id="sessionsChart-${p.id}"></canvas></div>
+        <div class="chart-box"><canvas id="sessionsChart-${p.id}" role="img" aria-label="نمودار سشن‌ها"></canvas></div>
         <div class="deep-subhead">کدوم کمپین‌ها بیشترین تاثیر رو روی اختلاف کلی دارن؟</div>
         <div id="sessionGaps-${p.id}"></div>
       </div>` : ''}
@@ -3130,7 +3166,7 @@ function renderCostDrivers(project, joined){
   }
   const rows = mainContributors.map(c=>`
     <li class="deep-item">
-      <span class="di-tag ${c.delta>=0?'good':'bad'}">${c.delta>=0?'+':''}${fmtMoney(c.delta)}</span>
+      <span class="di-tag ${c.delta>=0?'good':'bad'}">${fmtSigned(c.delta)} تومان</span>
       <b>${escapeHtml(c.campaign)}</b>
       <span class="di-date">${fmtMoney(c.yesterdayCost)} ← ${fmtMoney(c.todayCost)}</span>
       ${b.totalDelta!==0?` — ${Math.abs(c.share).toFixed(0)}٪ از کل تغییر`:''}
@@ -3159,7 +3195,7 @@ function renderCpaDrivers(project, joined){
   }
   const rows = r.contributors.map(c=>`
     <li class="deep-item">
-      <span class="di-tag ${c.contribution>=0?'bad':'good'}">${c.contribution>=0?'+':''}${fmtMoney(c.contribution)}</span>
+      <span class="di-tag ${c.contribution>=0?'bad':'good'}">${fmtSigned(c.contribution)} تومان</span>
       <b>${escapeHtml(c.campaign)}</b> از تغییر CPA
     </li>`).join('');
   el.innerHTML = headline + `<ul class="deep-list">${rows}</ul>`;
@@ -3218,7 +3254,7 @@ function renderSessionGaps(project){
     <div class="deep-item" style="border-bottom:1px solid var(--border);padding-bottom:12px;">
       <span class="di-tag ${r.overallPct>=0?'bad':'good'}">${r.overallPct>=0?'▲':'▼'} ${Math.abs(r.overallPct).toFixed(1)}٪</span>
       <span class="di-date">${escapeHtml(cfg.otherLabel)}: ${fmtNum(r.totalOther)} ← ${escapeHtml(cfg.ownLabel)}: ${fmtNum(r.totalOwn)}</span><br>
-      اختلاف کل بازه: <b>${r.totalGap>=0?'+':''}${fmtNum(r.totalGap)}</b> سشن
+      اختلاف کل بازه: <b>${fmtSigned(r.totalGap)}</b> سشن
     </div>`;
 
   if(!r.drivers.length){
@@ -3231,10 +3267,10 @@ function renderSessionGaps(project){
                : d.missingFrom === 'own' ? ` <span class="di-date">(توی ${escapeHtml(cfg.ownLabel)} با این اسم نیست)</span>` : '';
     return `
     <li class="deep-item">
-      <span class="di-tag ${d.contributionPct>=0?'bad':'good'}">${d.contributionPct>=0?'+':''}${d.contributionPct.toFixed(1)} واحد</span>
+      <span class="di-tag ${d.contributionPct>=0?'bad':'good'}">${fmtSigned(d.contributionPct, 1)} واحد</span>
       <b>${escapeHtml(d.label)}</b>${note}
       <span class="di-date">${escapeHtml(cfg.otherLabel)}: ${fmtNum(d.other)} ← ${escapeHtml(cfg.ownLabel)}: ${fmtNum(d.own)}</span>
-      — ${d.gap>=0?'+':''}${fmtNum(d.gap)} سشن${r.totalGap!==0?`، ${Math.abs(d.share).toFixed(0)}٪ از کل اختلاف`:''}
+      — ${fmtSigned(d.gap)} سشن${r.totalGap!==0?`، ${Math.abs(d.share).toFixed(0)}٪ از کل اختلاف`:''}
     </li>`;
   }).join('');
 
@@ -3260,7 +3296,7 @@ function renderSessionsKpis(project, series){
      sub:`${fmtNum(series.labels.length)} روز`},
     {label:'درصد اختلاف سشن', accent:true,
      value: gap===null ? '—' : `${gap>0?'▲':'▼'} ${Math.abs(gap).toFixed(1)}٪`,
-     sub: `${own>=other?'+':'−'}${fmtNum(Math.abs(own-other))} سشن نسبت به ${cfg.otherLabel}`}
+     sub: `${fmtSigned(own-other)} سشن نسبت به ${cfg.otherLabel}`}
   ];
   el.style.gridTemplateColumns = `repeat(${cards.length}, 1fr)`;
   el.innerHTML = cards.map(c=>`
@@ -3589,8 +3625,10 @@ function kpiValueHtml(value){
   if(!isFinite(n) || Math.abs(n) < 1e4) return full;
   const tail = m[3] ? unit : '';
   const short = fmtShort(n), tight = fmtShort(n, true);
-  return `<span class="v-full">${full}</span><span class="v-short">${short}${tail}</span>`
-       + (tight !== short ? `<span class="v-tight">${tight}${tail}</span>` : '');
+  const iso = x => `<bdi dir="ltr">${x}</bdi>`;
+  const fullIso = full.replace(/^\s*-?[\d,]+(?:\.\d+)?/, iso);
+  return `<span class="v-full">${fullIso}</span><span class="v-short">${iso(short)}${tail}</span>`
+       + (tight !== short ? `<span class="v-tight">${iso(tight)}${tail}</span>` : '');
 }
 // Full figure if it fits its card at the fixed size, short form if not.
 function fitKpiValue(v){
@@ -4086,7 +4124,7 @@ function renderDimFilter(project, index){
   const search = document.getElementById(searchId);
   if(hadFocus){ search.focus(); try{ search.setSelectionRange(q.length, q.length); }catch(err){} }
   search.oninput = ()=>{ st.dimQuery[index] = search.value; renderDimFilter(project, index); };
-  search.onkeydown = e=>{ if(e.key === 'Escape'){ e.stopPropagation(); st.dimQuery[index] = ''; renderDimFilter(project, index); } };
+  search.onkeydown = e=>{ if(e.key === 'Escape' && search.value){ e.stopPropagation(); st.dimQuery[index] = ''; renderDimFilter(project, index); } };
   const commit = next => {
     st.dimSel[index] = (next !== 'ALL' && opts.every(o=>next.has(o.label)) && !q) ? 'ALL' : next;
     renderDimFilter(project, index);
@@ -4114,6 +4152,7 @@ function renderDimFilter(project, index){
     const open = !panel.hidden;
     document.querySelectorAll('.ms-panel').forEach(p=>p.hidden = true);
     panel.hidden = open;
+    syncDropdownState();
     if(!panel.hidden) search.focus();
   };
 }
@@ -4537,7 +4576,7 @@ function renderSubTabBar(tab){
   if(tab.parts.length < 2){ el.innerHTML = ''; el.hidden = true; return; }
   el.hidden = false;
   el.innerHTML = tab.parts.map(p=>`
-    <button type="button" class="sub-tab-btn${p.id===activePart[tab.id]?' active':''}"
+    <button type="button" class="sub-tab-btn${p.id===activePart[tab.id]?' active':''}"${p.id===activePart[tab.id]?' aria-current="true"':''}
             id="subtab-${p.id}" style="${tabThemeStyle(p)}">${escapeHtml(p.partTitle || p.title)}</button>`).join('');
   tab.parts.forEach(p=>{
     document.getElementById(`subtab-${p.id}`).addEventListener('click', ()=>{
@@ -4656,7 +4695,17 @@ document.addEventListener('focusout', e=>{ if(hintAt(e.target)) hideHint(); });
 document.addEventListener('click', e=>{ const h = hintAt(e.target); if(h) showHint(h); else hideHint(); });
 document.addEventListener('keydown', e=>{
   const h = hintAt(e.target);
-  if(e.key === 'Escape') hideHint();
+  if(e.key === 'Escape'){
+    hideHint();
+    // An open filter list closes too, handing focus back to its button.
+    const open = [...document.querySelectorAll('.ms-panel')].find(p=>!p.hidden);
+    if(open){
+      open.hidden = true;
+      syncDropdownState();
+      const t = open.parentElement.querySelector('.ms-toggle');
+      if(t) t.focus();
+    }
+  }
   else if(h && (e.key === 'Enter' || e.key === ' ')){ e.preventDefault(); showHint(h); }
 });
 // iOS Safari only passes a tap up to the document from something that looks
@@ -4698,7 +4747,10 @@ function switchTab(tabId){
   });
   TABS.forEach(t=>{
     const tabEl = document.getElementById(`tab-${t.id}`);
-    if(tabEl) tabEl.classList.toggle('active', t.id===tabId);
+    if(tabEl){
+      tabEl.classList.toggle('active', t.id===tabId);
+      if(t.id===tabId) tabEl.setAttribute('aria-current', 'true'); else tabEl.removeAttribute('aria-current');
+    }
   });
   renderSubTabBar(tab);
 
