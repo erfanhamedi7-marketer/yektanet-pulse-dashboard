@@ -1172,6 +1172,11 @@ function yektanetExportSections(){
 // (matched in the lowercased campaign name).
 const talaeenOverviewWeb = key => key.includes('-web') || key.includes('sl-');
 
+// Talaeen CPA: "cpa" as its own piece of the campaign name — at the start
+// (cpa-…) or between dashes (sl-ch-cpa, inapp-cpa-pb-web). tCPA bidding
+// campaigns (p-tcpa-web) don't count.
+const talaeenCpa = key => key.split(/[-_\s]+/).includes('cpa');
+
 const ALL_PROJECTS = [
   {
     id: 'appliance-city',
@@ -1334,6 +1339,33 @@ const ALL_PROJECTS = [
     ownDateFilter: true,
     defaultRangeDays: 30,
     excludeCampaign: (key) => !key.includes('wheel-sp'),
+    theme: BRANDS.talaeen
+  },
+  {
+    id: 'talaeen-cpa',
+    group: 'talaeen',
+    logo: '/taline-logo.jpg',
+    partTitle: 'CPA',
+    title: 'طلاین — CPA',
+    subtitle: 'Web - Campaign (مرجع) × Cost - Yektanet — کمپین‌هایی که اسمشون با cpa شروع می‌شه یا یه تیکه‌ی cpa دارن (مثل sl-ch-cpa)',
+    spreadsheetId: '1r9f3Vdl6ldgQeL50tHX4TxjVP0H_UxYeYFKhGFp0yeQ',
+    refSheet: 'Web - Campaign',
+    costSheet: 'Cost - Yektanet',
+    conversionCol: 'Verified',
+    conversionLabel: 'Verified',
+    showInstalls: false,
+    installsCol: 'Sessions',
+    hideSegmentAnalysis: true,
+    impressionsCol: 'Impression',
+    clicksCol: 'Click',
+    // CPA deals are billed on KYC days that may have no Verified row, so
+    // both sides of the join stay.
+    includeUnmatchedCost: true,
+    ownDateFilter: true,
+    defaultRangeDays: 30,
+    excludeCampaign: (key) => !talaeenCpa(key),
+    // KYC as the cost sheet reports it: the count these deals are paid on.
+    costExtraCols: [{col:'KYC', label:'KYC'}],
     theme: BRANDS.talaeen
   },
   {
