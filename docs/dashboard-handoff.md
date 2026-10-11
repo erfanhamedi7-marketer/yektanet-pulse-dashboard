@@ -28,6 +28,7 @@
 1. تغییر روی شاخه‌ی کار → commit → push.
 2. `git fetch origin main` — **مهم:** عرفان گاهی مستقیم از وب گیت‌هاب فایل (معمولاً لوگو) رو `main` آپلود یا حذف می‌کنه، پس `main` ممکنه جلو افتاده باشه. اگه جلو بود، اول `origin/main` رو تو شاخه‌ی کار merge (یا fast-forward) کن و دوباره تست کن.
 3. `git push origin HEAD:main` → Vercel خودش دیپلوی می‌کنه.
+4. **بعد از push حتماً وضعیت دیپلوی Production رو چک کن:** `gh api repos/erfanhamedi7-marketer/yektanet-pulse-dashboard/commits/<sha>/statuses` (یا `/deployments` + `/deployments/<id>/statuses`). ۱۱ اکتبر دیپلوی Production کامیت `0dab1b1` بی‌صدا fail شد (Preview همون کامیت موفق بود) و سایت روی نسخه‌ی قبلی موند؛ با یه کامیت تازه دوباره دیپلوی شد. لاگ Vercel از اینجا قابل دیدن نیست (MCP ورسل به تیم `erfan-s` دسترسی نداره).
 
 ---
 
