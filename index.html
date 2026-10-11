@@ -1390,15 +1390,15 @@ const ALL_PROJECTS = [
     defaultRangeDays: 30,
     theme: BRANDS.wepod
   },
-  // ---- Blu: one tab, three parts. The Blu sheet is split by name — bj- is
-  // Blu Business, everything else is Blu — and Blu Junior reads its own sheet.
+  // ---- Blu: one tab, three parts. The Blu sheet is split by name — biz- is
+  // Blu Business, the rest is Blu — and Blu Junior reads its own sheet.
   {
     id: 'blue',
     group: 'blue',
     groupTitle: 'بلو',
     partTitle: 'بلو',
     title: 'بلو',
-    subtitle: 'Adtrace (مرجع) × Yektanet — همه‌ی کمپین‌ها به‌جز اونایی که با bj- شروع می‌شن',
+    subtitle: 'Adtrace (مرجع) × Yektanet — همه‌ی کمپین‌ها به‌جز biz- (بلو بیزینس) و bj (به‌جز bj-inapp-cpi)',
     logo: '/blu-logo.png',
     spreadsheetId: '1DdhvkT6gVXKoDiicgXnXHTq32yZg3aGpJx97RT4wYeU',
     refSheet: 'Adtrace',
@@ -1409,8 +1409,9 @@ const ALL_PROJECTS = [
     installsCol: 'Installs',
     ownDateFilter: true,
     defaultRangeDays: 30,
-    // bj- campaigns are Blu Business and have their own part.
-    excludeCampaign: (key) => key.startsWith('bj-'),
+    // biz- campaigns are Blu Business and have their own part. Campaigns
+    // starting with "bj" stay out too, except "bj-inapp-cpi".
+    excludeCampaign: (key) => key.startsWith('biz-') || (key.startsWith('bj') && key !== 'bj-inapp-cpi'),
     // Every day's spend counts, even on a day the campaign has no Adtrace row.
     includeUnmatchedCost: true,
     theme: BRANDS.blue
@@ -1420,7 +1421,7 @@ const ALL_PROJECTS = [
     group: 'blue',
     partTitle: 'بلو بیزینس',
     title: 'بلو بیزینس',
-    subtitle: 'Adtrace (مرجع) × Yektanet — فقط کمپین‌هایی که با bj- شروع می‌شن',
+    subtitle: 'Adtrace (مرجع) × Yektanet — فقط کمپین‌هایی که با biz- شروع می‌شن',
     logo: '/blu-logo.png',
     spreadsheetId: '1DdhvkT6gVXKoDiicgXnXHTq32yZg3aGpJx97RT4wYeU',
     refSheet: 'Adtrace',
@@ -1431,7 +1432,7 @@ const ALL_PROJECTS = [
     installsCol: 'Installs',
     ownDateFilter: true,
     defaultRangeDays: 30,
-    excludeCampaign: (key) => !key.startsWith('bj-'),
+    excludeCampaign: (key) => !key.startsWith('biz-'),
     includeUnmatchedCost: true,
     theme: BRANDS.blue
   },

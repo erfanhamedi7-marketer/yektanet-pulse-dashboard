@@ -112,9 +112,9 @@
 - شیت `18ohsYVwngt7UJ5BwvBBWdhpQ2IOxO4b08-D4OMm2VEQ`. `Wepod - Metrix` (تبدیل `v2_national`) × `Wepod - Yektanet`.
 
 ### بلو — گروه `blue` (۳ بخش، از ۱۱ اکتبر)
-- **بلو** (`blue`): شیت `1DdhvkT6gVXKoDiicgXnXHTq32yZg3aGpJx97RT4wYeU`. `Adtrace` (`Card Order`) × `Yektanet`. همه‌ی کمپین‌ها **به‌جز اونایی که با `bj-` شروع می‌شن**. (قبل از ۱۱ اکتبر قانون این بود: `bj` حذف، به‌جز `bj-inapp-cpi`.)
+- **بلو** (`blue`): شیت `1DdhvkT6gVXKoDiicgXnXHTq32yZg3aGpJx97RT4wYeU`. `Adtrace` (`Card Order`) × `Yektanet`. همه‌ی کمپین‌ها **به‌جز `biz-`** (بلو بیزینس) و کمپین‌هایی که با `bj` شروع می‌شن (به‌جز `bj-inapp-cpi`).
   - **`includeUnmatchedCost`**: همه‌ی هزینه‌ها حساب می‌شن، حتی روزی که کمپین ردیف Adtrace نداره (و کمپین‌هایی که اصلاً تو Adtrace نیستن).
-- **بلو بیزینس** (`blue-business`): همون شیت و تب‌ها و تبدیل، فقط کمپین‌هایی که با `bj-` شروع می‌شن (`bj-inapp-cpi` هم اینجاست). `includeUnmatchedCost`.
+- **بلو بیزینس** (`blue-business`): همون شیت و تب‌ها و تبدیل، فقط کمپین‌هایی که با **`biz-`** شروع می‌شن. `includeUnmatchedCost`.
 - **بلو جونیور** (`blue-junior`): دیگه پنهان نیست. شیت جدای `1zBI8XWTlU0huKwd-_IQYvdwxAinvJjAnD7ZPwedO5UA`، تبدیل `Add Child`، با جدول Adgroup/Creative. تم `blueJr`.
 
 ### بانکینو — `bankino`
@@ -327,7 +327,7 @@
 
 **۱۱ اکتبر ۲۰۲۶**
 16. پیش‌فرض اسنپ‌کب = `Oct 2026`؛ `Investment Mehr 405` از پیش‌فرض اسنپ‌پی حذف شد. تفسیر cpa طلاین تأیید شد.
-17. **تب بلو سه زیرتب شد:** بلو (بدون `bj-`)، بلو بیزینس (`bj-`)، بلو جونیور (از حالت پنهان دراومد).
+17. **تب بلو سه زیرتب شد:** بلو (بدون `biz-` و `bj`)، بلو بیزینس (`biz-`)، بلو جونیور (از حالت پنهان دراومد). (اول اشتباهی `bj-` رفته بود تو بیزینس؛ همون روز اصلاح شد.)
 
 ### کارهای باز
 - **توچال کافه بازار:** `cb-bulk` و `cb-dc` (اردیبهشت–خرداد) دیتای تبدیل ندارن — نمایش فقط هزینه، یا خوندن از `Tocal - Metrix - Old`؟ (منتظر تصمیم عرفان)
