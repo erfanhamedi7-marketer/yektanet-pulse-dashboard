@@ -1390,11 +1390,15 @@ const ALL_PROJECTS = [
     defaultRangeDays: 30,
     theme: BRANDS.wepod
   },
+  // ---- Blu: one tab, three parts. The Blu sheet is split by name — bj- is
+  // Blu Business, everything else is Blu — and Blu Junior reads its own sheet.
   {
     id: 'blue',
+    group: 'blue',
+    groupTitle: 'بلو',
+    partTitle: 'بلو',
     title: 'بلو',
-    tabTitle: 'بلو',
-    subtitle: 'Adtrace (مرجع) × Yektanet',
+    subtitle: 'Adtrace (مرجع) × Yektanet — همه‌ی کمپین‌ها به‌جز اونایی که با bj- شروع می‌شن',
     logo: '/blu-logo.png',
     spreadsheetId: '1DdhvkT6gVXKoDiicgXnXHTq32yZg3aGpJx97RT4wYeU',
     refSheet: 'Adtrace',
@@ -1405,20 +1409,38 @@ const ALL_PROJECTS = [
     installsCol: 'Installs',
     ownDateFilter: true,
     defaultRangeDays: 30,
-    // Exclude any campaign starting with "bj" except "bj-inapp-cpi" — applied
-    // to the raw data before anything else (KPIs, chart, deep analysis).
-    excludeCampaign: (key) => key.startsWith('bj') && key !== 'bj-inapp-cpi',
+    // bj- campaigns are Blu Business and have their own part.
+    excludeCampaign: (key) => key.startsWith('bj-'),
     // Every day's spend counts, even on a day the campaign has no Adtrace row.
     includeUnmatchedCost: true,
     theme: BRANDS.blue
   },
   {
+    id: 'blue-business',
+    group: 'blue',
+    partTitle: 'بلو بیزینس',
+    title: 'بلو بیزینس',
+    subtitle: 'Adtrace (مرجع) × Yektanet — فقط کمپین‌هایی که با bj- شروع می‌شن',
+    logo: '/blu-logo.png',
+    spreadsheetId: '1DdhvkT6gVXKoDiicgXnXHTq32yZg3aGpJx97RT4wYeU',
+    refSheet: 'Adtrace',
+    costSheet: 'Yektanet',
+    conversionCol: 'Card Order',
+    conversionLabel: 'Card Order',
+    showInstalls: false,
+    installsCol: 'Installs',
+    ownDateFilter: true,
+    defaultRangeDays: 30,
+    excludeCampaign: (key) => !key.startsWith('bj-'),
+    includeUnmatchedCost: true,
+    theme: BRANDS.blue
+  },
+  {
     id: 'blue-junior',
-    // Hidden for now — flip this back to false (or delete the line) to bring it back.
-    hidden: true,
+    group: 'blue',
+    partTitle: 'بلو جونیور',
     title: 'بلو جونیور',
     logo: '/blu-junior-logo.png',
-    tabTitle: 'بلوجونیور',
     subtitle: 'Adtrace (مرجع) × Yektanet',
     spreadsheetId: '1zBI8XWTlU0huKwd-_IQYvdwxAinvJjAnD7ZPwedO5UA',
     refSheet: 'Adtrace',
