@@ -18,6 +18,7 @@ const ALLOWED_SPREADSHEETS = new Set([
   '1fOn7G0qGS98KL-hU2oNZBqoacTkuasmkDZEQGXLKzD0', // Ramzarz News
   '10hRbyK0f2x7jrzZ8vYgQA8GoG_xONdL73AwXAsPPYLI', // Firouzeh
   '1OJcJVwBH2qBftWC9W1ddVgnPXfRuQdzYjYWbGWPqv5Q', // Tara
+  '1Gp30Q3tpfJw0Z8NNHOcCpvptyKZnh0ABw3P5Prf5BP8', // Talasea (Talasea / Noghresea / Meschi web)
   '1izpnAk0BM49IMTsBv1HTuEUh5dCTT61ukMA-fklLOgk'  // Technopay
 ]);
 

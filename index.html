@@ -928,7 +928,8 @@ const BRANDS = {
   firouzeh: brandTheme('#3EC1CF', '#00818E', BRAND_INK, 0.14),
   // Tara's mark runs from its indigo into magenta; the magenta end draws the CPA line.
   tara:     brandTheme('#312782', '#312782', '#E5007E', 0.10, ['#312782','#E5007E']),
-  technopay:brandTheme('#01B7CD', '#00788A', BRAND_INK, 0.13)
+  technopay:brandTheme('#01B7CD', '#00788A', BRAND_INK, 0.13),
+  talasea:  brandTheme('#C9A13B', '#7E6114', BRAND_INK, 0.16, ['#E8CF7A','#B08A2E'])
 };
 
 // rowFilter keeps a sheet row (both the conversion and the cost side) before
@@ -1122,6 +1123,40 @@ function snappSections(){
     ownDateFilter: true,
     defaultRangeDays: 30,
     theme: BRANDS.snapp
+  }));
+}
+
+// Talasea: one sheet with a tab per brand (Talasea, Noghresea, Meschi). Each
+// tab is both the cost and the KYC side, a Date + Campaign row apiece.
+function talaseaSections(){
+  const parts = [
+    {id:'talasea-web',   partTitle:'طلاسی وب',   sheet:'Talasea - Web'},
+    {id:'noghresea-web', partTitle:'نقره‌سی وب', sheet:'Noghresea - Web'},
+    {id:'meschi-web',    partTitle:'مس‌چی وب',   sheet:'Meschi - Web'}
+  ];
+  return parts.map((part, i) => ({
+    id: part.id,
+    group: 'talasea',
+    ...(i === 0 ? {groupTitle: 'طلاسی'} : {}),
+    partTitle: part.partTitle,
+    title: part.partTitle,
+    subtitle: `${part.sheet} — هزینه و KYC`,
+    logo: '/talasea-logo.jpg',
+    spreadsheetId: '1Gp30Q3tpfJw0Z8NNHOcCpvptyKZnh0ABw3P5Prf5BP8',
+    refSheet: part.sheet,
+    costSheet: part.sheet,
+    conversionCol: 'KYC',
+    conversionLabel: 'KYC',
+    showInstalls: false,
+    installsCol: 'Sessions',
+    impressionsCol: 'Impressions',
+    clicksCol: 'Clicks',
+    // No Adgroup/Creative columns in these tabs.
+    hideSegmentAnalysis: true,
+    includeUnmatchedCost: true,
+    ownDateFilter: true,
+    defaultRangeDays: 30,
+    theme: BRANDS.talasea
   }));
 }
 
@@ -1482,7 +1517,9 @@ const ALL_PROJECTS = [
   ...arzplusSections(),
   // ---- Firouzeh, Tara, Technopay: one Yektanet export each, which is both the
   // conversion and the cost sheet (like Shahr), every campaign counted ----
-  ...yektanetExportSections()
+  ...yektanetExportSections(),
+  // ---- Talasea: three web brands behind one tab ----
+  ...talaseaSections()
 ];
 
 // A hidden project is dropped here, before anything else sees it: no tab, no
