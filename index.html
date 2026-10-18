@@ -1525,24 +1525,28 @@ const ALL_PROJECTS = [
     id: 'agah',
     title: 'آگاه',
     tabTitle: 'آگاه',
-    subtitle: 'Yektanet - Export (کلیک) × GA4 - Export (Sessions، کمپین = Ad Term) — اختلاف سشن به تفکیک کمپین',
+    subtitle: 'GA4 - Export (Sessions، کمپین = Ad Term) × Yektanet - Export (هزینه و کلیک) — STC و هزینه به ازای سشن به تفکیک کمپین',
     logo: '/agah-logo.png',
     spreadsheetId: '1oG7M3zng4jG57tbKwGyUbfsNGFb_Vu-QQT_-_KBVSck',
-    // The export carries no session count of its own, so Yektanet's side of
-    // the comparison is its click count; GA4 names the campaign in Ad Term.
-    refSheet: 'Yektanet - Export',
+    // Yektanet reports no sessions, so GA4's sessions are the conversion and
+    // Yektanet's clicks sit beside them: STC = sessions ÷ clicks. GA4 names
+    // the campaign in Ad Term.
+    refSheet: 'GA4 - Export',
+    refCampaignCol: 'Ad Term',
     costSheet: 'Yektanet - Export',
-    conversionCol: 'Click',
-    conversionLabel: 'Click',
-    cpaLabel: 'CPC',
+    conversionCol: 'Sessions',
+    conversionLabel: 'Sessions (GA4)',
+    cpaLabel: 'هزینه به ازای سشن',
     showInstalls: false,
-    installsCol: 'Sessions',
+    installsCol: 'Installs',
     impressionsCol: 'Impression',
     clicksCol: 'Click',
+    costExtraCols: [{col:'Click', label:'Click', convRate:'STC'}],
+    // Spend with no GA4 session (and sessions with no spend) both count.
+    includeUnmatchedCost: true,
     hideSegmentAnalysis: true,
     ownDateFilter: true,
     defaultRangeDays: 30,
-    compareConversion: {sheet:'GA4 - Export', col:'Sessions', campaignCol:'Ad Term', source:'GA4', ownSource:'یکتانت'},
     theme: BRANDS.agah
   }
 ];
@@ -1557,12 +1561,12 @@ const chartInstances = {};
 // extraCols are further conversion columns the section reports a cost-per for
 // (Deposit, Purchase…). They ride along as `extras` so the join and the range
 // filter treat them exactly like the main conversion.
-function normalizeRefRows(rows, conversionCol, installsCol, adgroupCol, creativeCol, extraCols){
+function normalizeRefRows(rows, conversionCol, installsCol, adgroupCol, creativeCol, extraCols, campaignCol){
   adgroupCol = adgroupCol || 'Adgroup';
   creativeCol = creativeCol || 'Creative';
   return rows.map(r=>{
     const date = normDate(r['Date']);
-    const campaignRaw = r['Campaign'];
+    const campaignRaw = r[campaignCol || 'Campaign'];
     const campaign = normCampaign(campaignRaw);
     if(!date || !campaign) return null;
     return {
@@ -3106,7 +3110,8 @@ function computeCampaignCpaTable(project, joined){
       vsBenchmark: (benchmark && cpa!==null) ? (cpa-benchmark)/benchmark*100 : null,
       costExtra: (project.costExtraCols||[]).map(m=>{
         const n = (c.costExtras || {})[m.col] || 0;
-        return {count: n, per: n > 0 ? c.cost / n : null};
+        return {count: n, per: n > 0 ? c.cost / n : null,
+                rate: n > 0 ? c.conversion / n * 100 : null};
       }),
       extra: c.extra.map(e=>({
         count: e.count, cost: e.cost, conversion: e.conversion,
@@ -3183,7 +3188,8 @@ function renderCampaignCpaTable(project, joined, elId){
         ${recentCell}
         ${vsCell}
         ${r.costExtra.map((e, i)=>`<td>${fmtNum(e.count)}</td>${e.per!==null ? `<td>${fmtNum(e.per)}</td>`
-          : `<td class="${r.cost>0 ? 'neg' : 'muted'}">${r.cost>0 ? `بدون ${escapeHtml(project.costExtraCols[i].label || project.costExtraCols[i].col)}` : '—'}</td>`}`).join('')}
+          : `<td class="${r.cost>0 ? 'neg' : 'muted'}">${r.cost>0 ? `بدون ${escapeHtml(project.costExtraCols[i].label || project.costExtraCols[i].col)}` : '—'}</td>`}${
+          project.costExtraCols[i].convRate ? `<td class="muted">${e.rate!==null ? e.rate.toFixed(1) + '٪' : '—'}</td>` : ''}`).join('')}
         ${t.cmp ? `<td>${fmtNum(r.cmp)}</td>
           <td class="${r.cmpDiff===null ? 'muted' : Math.abs(r.cmpDiff) >= 20 ? 'neg' : 'muted'}">${
             r.cmpDiff===null ? '—' : `<bdi dir="ltr">${fmtDiffPct(r.cmpDiff)}</bdi>`}</td>` : ''}
@@ -3221,7 +3227,8 @@ function renderCampaignCpaTable(project, joined, elId){
             <td class="muted">—</td>
             ${(project.costExtraCols||[]).map((m, i)=>{
               const n = sumOf(all, r=>r.costExtra[i].count);
-              return `<td>${fmtNum(n)}</td><td>${n > 0 ? fmtNum(tCost / n) : '—'}</td>`;
+              return `<td>${fmtNum(n)}</td><td>${n > 0 ? fmtNum(tCost / n) : '—'}</td>`
+                + (m.convRate ? `<td class="muted">${n > 0 ? (tConv / n * 100).toFixed(1) + '٪' : '—'}</td>` : '');
             }).join('')}
             ${t.cmp ? (()=>{
               const n = sumOf(all, r=>r.cmp), d = cmpDiffPct(tConv, n);
@@ -3243,7 +3250,7 @@ function renderCampaignCpaTable(project, joined, elId){
             <th>کمپین</th><th>هزینه (تومان)</th><th>سهم هزینه</th><th>${escapeHtml(label)}</th>
             <th>${escapeHtml(cpaLabel)} کل بازه (تومان)</th><th>${escapeHtml(cpaLabel)} ${fmtNum(t.recentWindow)} روز اخیر</th>
             <th>نسبت به میانگین</th>
-            ${(project.costExtraCols||[]).map(m=>`<th>${escapeHtml(m.label || m.col)}</th><th>هزینه به ازای ${escapeHtml(m.label || m.col)} (تومان)</th>`).join('')}
+            ${(project.costExtraCols||[]).map(m=>`<th>${escapeHtml(m.label || m.col)}</th><th>هزینه به ازای ${escapeHtml(m.label || m.col)} (تومان)</th>${m.convRate ? `<th>${escapeHtml(m.convRate)}</th>` : ''}`).join('')}
             ${t.cmp ? `<th>${escapeHtml(t.cmp.col)} (${escapeHtml(t.cmp.source)})</th><th>اختلاف ${escapeHtml(t.cmp.source)} با ${escapeHtml(t.cmp.ownSource)}</th>` : ''}
             ${t.extras.map(m=>`<th>${escapeHtml(m.name)}</th><th>نرخ ${escapeHtml(m.name)}</th><th>هزینه به ازای ${escapeHtml(m.name)} (تومان)</th>`).join('')}
             <th>روز فعال</th>
@@ -4457,7 +4464,8 @@ function updateSection(project){
     const series = daily.dates.map(d => daily.byDate[d].costExtras[m.col] || 0);
     const per = total > 0 ? totalCost / total : null;
     cards.push({label: name + ' کل', value: fmtNum(total), series,
-      sub: `هزینه به ازای ${escapeHtml(name)}: ${per!==null ? fmtMoney(per) : '—'}`,
+      sub: `هزینه به ازای ${escapeHtml(name)}: ${per!==null ? fmtMoney(per) : '—'}`
+        + (m.convRate ? `<br>${escapeHtml(m.convRate)}: ${total > 0 ? (totalConversion / total * 100).toFixed(1) + '٪' : '—'}` : ''),
       metric:{id:'cx-' + m.col, label:name, data:series},
       delta: prev ? withDays(deltaOf(total, prevTotal, 'up')) : null});
   });
@@ -4576,7 +4584,7 @@ async function loadProject(project){
     const refBySheet = refSheetRows.map((rows, i) =>
       normalizeRefRows(rows, refSheets[i].conversionCol || project.conversionCol,
                        project.installsCol, project.adgroupCol, project.creativeCol,
-                       (project.costPerMetrics||[]).map(m=>m.col)));
+                       (project.costPerMetrics||[]).map(m=>m.col), project.refCampaignCol));
     // What each conversion sheet reported, before any filter — so a campaign
     // rule can say "every campaign sheet X tracks" rather than only match names.
     const campaignCtx = {refCampaigns: {}};

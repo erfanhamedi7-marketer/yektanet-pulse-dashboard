@@ -61,7 +61,8 @@
 | `hideDeepAnalysis`, `hideSegmentAnalysis` | پنهان کردن کارت تحلیل عمیق / جدول‌های Adgroup–Creative |
 | `showInstalls`, `installsCol`, `installsLabel`, `adgroupCol`, `creativeCol`, `impressionsCol`, `clicksCol` | ستون‌ها |
 | `costPerMetrics` | کارت‌های «هزینه به ازای X» برای ستون‌های اضافه‌ی شیت مرجع: `{col, label, sinceFirst, campaignTable}`. `sinceFirst` = هزینه فقط از اولین روزی که این ستون پر شده حساب بشه (Signup رمزارز). `campaignTable` = تعداد/نرخ/هزینه به ازاش تو جدول کمپین هم بیاد |
-| `costExtraCols` | ستون‌های اضافه که از **شیت هزینه** خونده می‌شن (KYC طلاین وب): کارت + ستون تعداد و هزینه به ازا تو جدول کمپین |
+| `costExtraCols` | ستون‌های اضافه که از **شیت هزینه** خونده می‌شن (KYC طلاین وب، Click آگاه): کارت + ستون تعداد و هزینه به ازا تو جدول کمپین. `convRate: 'STC'` = یه ستون نرخ هم بیاد: تبدیل اصلی ÷ این ستون (آگاه: Sessions ÷ Click) |
+| `refCampaignCol` | اسم ستون کمپین تو شیت مرجع (پیش‌فرض `Campaign`؛ آگاه `Ad Term`) |
 | `compareConversion` | همون تبدیل از یه منبع دوم برای مقایسه: `{sheet, col, source, ownSource, campaignCol?}` (GA4 تکنوپی؛ `campaignCol` پیش‌فرض `Campaign`ه، آگاه `Ad Term`). کارت + ستون و درصد اختلاف (منبع دوم − منبع اصلی) ÷ منبع اصلی |
 | `dimensionTables` | جدول‌های Source/Term/Content (بعد + متریک) — کارتش پیش‌فرض بسته‌ست و هر جدول فیلتر خودش رو داره |
 | `sessionsCompare` | مقایسه‌ی سشن با تب دیگه (GA4) |
@@ -177,8 +178,9 @@
 
 ### آگاه — `agah` (از ۱۸ اکتبر)
 - شیت `1oG7M3zng4jG57tbKwGyUbfsNGFb_Vu-QQT_-_KBVSck` (Agah - Data Entry). تب `Yektanet - Export` (Date, Campaign, Campaign Type, Cost, Click, Impression) هم هزینه‌ست هم «تبدیل».
-- هدف: **اختلاف سشن یکتانت و GA4 به تفکیک کمپین.** شیت یکتانت ستون سشن نداره، پس طرف یکتانت = **`Click`** (تبدیل اصلی، `cpaLabel: 'CPC'`).
-- طرف GA4 با `compareConversion`: تب `GA4 - Export` (Date, Medium, Ad Content, Ad Term, Sessions)؛ **اسم کمپین تو `Ad Term`ه** → گزینه‌ی تازه‌ی `campaignCol` تو `compareConversion`. کارت «Sessions (GA4) کل» با اختلاف، و ستون Sessions (GA4) + اختلاف تو جدول کمپین.
+- هدف (از ۱۸ اکتبر، جایگزین نسخه‌ی اول «اختلاف کلیک و سشن»): **STC (سشن به کلیک) و هزینه به ازای سشن به تفکیک کمپین.** شیت یکتانت سشن نداره.
+- شیت مرجع = `GA4 - Export` (Date, Medium, Ad Content, Ad Term, Sessions)؛ **اسم کمپین تو `Ad Term`ه** (`refCampaignCol: 'Ad Term'`). تبدیل اصلی = `Sessions`، `cpaLabel: 'هزینه به ازای سشن'`.
+- هزینه و کلیک از `Yektanet - Export`؛ `Click` با `costExtraCols` و `convRate: 'STC'` → ستون Click، هزینه به ازای کلیک و **STC = Sessions ÷ Click** تو جدول کمپین + خط STC روی کارت. `includeUnmatchedCost` روشنه: کمپینی که کلیک داره ولی سشن GA4 نداره با STC ۰٪ میاد.
 - لوگو `agah-logo.png`، تم `agah` (آبی `#1565A8`).
 
 ## ۴. قابلیت‌های سراسری
@@ -349,6 +351,7 @@
 **۱۸ اکتبر ۲۰۲۶**
 19. پیش‌فرض اسنپ‌پی = `Isfahan 405`، `Merchant Mehr 405`، `Social Mehr 405`.
 20. **داشبورد آگاه:** اختلاف سشن (کلیک یکتانت × Sessions GA4) به تفکیک کمپین. کارت CPA حالا از `cpaLabel` پیروی می‌کنه.
+21. **آگاه عوض شد:** تبدیل اصلی = Sessions GA4 (کمپین از `Ad Term`)، هزینه به ازای سشن، و ستون **STC** (Sessions ÷ Click یکتانت) به تفکیک کمپین. گزینه‌های تازه‌ی `refCampaignCol` و `convRate` تو `costExtraCols`.
 
 ### کارهای باز
 - **توچال کافه بازار:** `cb-bulk` و `cb-dc` (اردیبهشت–خرداد) دیتای تبدیل ندارن — نمایش فقط هزینه، یا خوندن از `Tocal - Metrix - Old`؟ (منتظر تصمیم عرفان)
