@@ -36,7 +36,7 @@
 
 - **تنظیمات پروژه‌ها:** آرایه‌ی `ALL_PROJECTS`؛ `PROJECTS = ALL_PROJECTS.filter(p => !p.hidden)`. بخش‌ها با تابع‌ها ساخته می‌شن: `snappSections()`، `arzplusSections()` (+ `webSection` و `ramzarzSection()`)، `yektanetExportSections()` (فیروزه/تارا/تکنوپی)، `talaseaSections()` (طلاسی).
 - **تب‌ها:** پروژه‌هایی که `group` مشترک دارن پشت یک تب می‌رن (`groupTitle` اسم تب، `partTitle` اسم زیرتب). پروژه‌ی تکی: `tabTitle`.
-- **ترتیب تب‌ها:** شهر لوازم خانگی، اسنپ، طلاین، ویپاد، بلو، بانکینو، ارزپلاس، فیروزه، تارا، تکنوپی، طلاسی. (۲۷ سکشن در کل.)
+- **ترتیب تب‌ها:** شهر لوازم خانگی، اسنپ، طلاین، ویپاد، بلو، بانکینو، ارزپلاس، فیروزه، تارا، تکنوپی، طلاسی، آگاه. (۲۸ سکشن در کل.)
 - **زیرتب‌های ارزپلاس:** ارزپلاس - اپلیکیشن، ارزپلاس - کافه بازار، ارزپلاس - وب، توچال - اپلیکیشن، توچال - کافه بازار، توچال - وب، رمزارز نیوز.
 - **مدل جوین:** ردیف‌های تبدیل (شیت مرجع/ref) با ردیف‌های هزینه روی `تاریخ + کمپین` جوین می‌شن. اسم کمپین نرمال می‌شه (trim + lowercase)، تاریخ به `YYYYMMDD`. عدد و تاریخ با parser مقاوم خونده می‌شن (ارقام فارسی، جداکننده‌ها، نماد علمی، شماره‌سریال تاریخ Sheets، `M/D/YYYY`).
 - **سه نوع سکشن:**
@@ -62,7 +62,7 @@
 | `showInstalls`, `installsCol`, `installsLabel`, `adgroupCol`, `creativeCol`, `impressionsCol`, `clicksCol` | ستون‌ها |
 | `costPerMetrics` | کارت‌های «هزینه به ازای X» برای ستون‌های اضافه‌ی شیت مرجع: `{col, label, sinceFirst, campaignTable}`. `sinceFirst` = هزینه فقط از اولین روزی که این ستون پر شده حساب بشه (Signup رمزارز). `campaignTable` = تعداد/نرخ/هزینه به ازاش تو جدول کمپین هم بیاد |
 | `costExtraCols` | ستون‌های اضافه که از **شیت هزینه** خونده می‌شن (KYC طلاین وب): کارت + ستون تعداد و هزینه به ازا تو جدول کمپین |
-| `compareConversion` | همون تبدیل از یه منبع دوم برای مقایسه: `{sheet, col, source, ownSource}` (GA4 تکنوپی). کارت + ستون و درصد اختلاف (منبع دوم − منبع اصلی) ÷ منبع اصلی |
+| `compareConversion` | همون تبدیل از یه منبع دوم برای مقایسه: `{sheet, col, source, ownSource, campaignCol?}` (GA4 تکنوپی؛ `campaignCol` پیش‌فرض `Campaign`ه، آگاه `Ad Term`). کارت + ستون و درصد اختلاف (منبع دوم − منبع اصلی) ÷ منبع اصلی |
 | `dimensionTables` | جدول‌های Source/Term/Content (بعد + متریک) — کارتش پیش‌فرض بسته‌ست و هر جدول فیلتر خودش رو داره |
 | `sessionsCompare` | مقایسه‌ی سشن با تب دیگه (GA4) |
 | `cpiGroups` | گروه‌های نمودار در سکشن CPI |
@@ -174,6 +174,12 @@
 - تبدیل اصلی `KYC`، همه‌ی کمپین‌ها، `includeUnmatchedCost`، بدون Adgroup/Creative. لوگو `talasea-logo.jpg`، تم `talasea` (طلایی).
 - تا ۱۳ اکتبر فقط طلاسی تگ KYC داره؛ نقره‌سی و مس‌چی KYC صفر دارن (CPA خالی).
 - شیت باید با Service Account شیر بشه (کار عرفان).
+
+### آگاه — `agah` (از ۱۸ اکتبر)
+- شیت `1oG7M3zng4jG57tbKwGyUbfsNGFb_Vu-QQT_-_KBVSck` (Agah - Data Entry). تب `Yektanet - Export` (Date, Campaign, Campaign Type, Cost, Click, Impression) هم هزینه‌ست هم «تبدیل».
+- هدف: **اختلاف سشن یکتانت و GA4 به تفکیک کمپین.** شیت یکتانت ستون سشن نداره، پس طرف یکتانت = **`Click`** (تبدیل اصلی، `cpaLabel: 'CPC'`).
+- طرف GA4 با `compareConversion`: تب `GA4 - Export` (Date, Medium, Ad Content, Ad Term, Sessions)؛ **اسم کمپین تو `Ad Term`ه** → گزینه‌ی تازه‌ی `campaignCol` تو `compareConversion`. کارت «Sessions (GA4) کل» با اختلاف، و ستون Sessions (GA4) + اختلاف تو جدول کمپین.
+- لوگو `agah-logo.png`، تم `agah` (آبی `#1565A8`).
 
 ## ۴. قابلیت‌های سراسری
 
@@ -289,7 +295,7 @@
   - `timezoneId:'Asia/Tehran'` و `page.clock.install` برای تست تاریخ‌ها.
   - کپی: `navigator.clipboard` رو stub کن.
   - برای قوانین جدید، جواب درست رو جدا با Python از xlsx حساب کن و عدد به عدد مقایسه کن.
-  - رگرسیون: هر ۲۷ سکشن رندر بشن، بدون خطای صفحه، دسکتاپ (1400) و موبایل (390).
+  - رگرسیون: هر ۲۸ سکشن رندر بشن، بدون خطای صفحه، دسکتاپ (1400) و موبایل (390).
   - `pkill -f "http.server"` رو تو همون دستوری که الگوش توشه نزن — خود شل رو می‌کشه.
 
 ---
@@ -342,6 +348,7 @@
 
 **۱۸ اکتبر ۲۰۲۶**
 19. پیش‌فرض اسنپ‌پی = `Isfahan 405`، `Merchant Mehr 405`، `Social Mehr 405`.
+20. **داشبورد آگاه:** اختلاف سشن (کلیک یکتانت × Sessions GA4) به تفکیک کمپین. کارت CPA حالا از `cpaLabel` پیروی می‌کنه.
 
 ### کارهای باز
 - **توچال کافه بازار:** `cb-bulk` و `cb-dc` (اردیبهشت–خرداد) دیتای تبدیل ندارن — نمایش فقط هزینه، یا خوندن از `Tocal - Metrix - Old`؟ (منتظر تصمیم عرفان)
