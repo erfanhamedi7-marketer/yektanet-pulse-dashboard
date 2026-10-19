@@ -1,6 +1,6 @@
 # Management Dashboard — راهنمای ادامه‌ی کار (Handoff)
 
-> این فایل خلاصه‌ی کامل تاریخچه، معماری، قوانین کسب‌وکاری و سلیقه‌های طراحی داشبوردیه که تا ۶ اکتبر ۲۰۲۶ ساخته شده (آخرین به‌روزرسانی: ۱۸ اکتبر ۲۰۲۶).
+> این فایل خلاصه‌ی کامل تاریخچه، معماری، قوانین کسب‌وکاری و سلیقه‌های طراحی داشبوردیه که تا ۶ اکتبر ۲۰۲۶ ساخته شده (آخرین به‌روزرسانی: ۱۹ اکتبر ۲۰۲۶).
 > توی چت جدید اول این فایل رو بده، بعد ادیت‌هات رو بگو.
 > **به مدل جدید:** قبل از هر تغییری `index.html` رو از روی شاخه‌ی `main` بخون — کد مرجع نهاییه؛ این فایل فقط نقشه‌ست.
 > **جای این فایل:** `docs/dashboard-handoff.md` توی ریپو. هر تغییر اثرگذار (پروژه/قانون/قابلیت/طراحی/تله‌ی فنی جدید) باید تو همون کامیت اینجا هم ثبت بشه — قاعده‌اش تو `CLAUDE.md` ریشه‌ی ریپوئه.
@@ -62,6 +62,7 @@
 | `showInstalls`, `installsCol`, `installsLabel`, `adgroupCol`, `creativeCol`, `impressionsCol`, `clicksCol` | ستون‌ها |
 | `costPerMetrics` | کارت‌های «هزینه به ازای X» برای ستون‌های اضافه‌ی شیت مرجع: `{col, label, sinceFirst, campaignTable}`. `sinceFirst` = هزینه فقط از اولین روزی که این ستون پر شده حساب بشه (Signup رمزارز). `campaignTable` = تعداد/نرخ/هزینه به ازاش تو جدول کمپین هم بیاد |
 | `costExtraCols` | ستون‌های اضافه که از **شیت هزینه** خونده می‌شن (KYC طلاین وب، Click آگاه): کارت + ستون تعداد و هزینه به ازا تو جدول کمپین. `convRate: 'STC'` = یه ستون نرخ هم بیاد: تبدیل اصلی ÷ این ستون (آگاه: Sessions ÷ Click) |
+| `hideZeroConversionCampaigns` | کمپینی که تو بازه‌ی انتخابی تبدیل اصلیش صفره (با هزینه‌ش) کلاً حذف بشه؛ لیست فیلتر هم فقط کمپین‌هایی که یه‌بار تبدیل داشتن رو نشون می‌ده (آگاه) |
 | `refCampaignCol` | اسم ستون کمپین تو شیت مرجع (پیش‌فرض `Campaign`؛ آگاه `Ad Term`) |
 | `compareConversion` | همون تبدیل از یه منبع دوم برای مقایسه: `{sheet, col, source, ownSource, campaignCol?}` (GA4 تکنوپی؛ `campaignCol` پیش‌فرض `Campaign`ه، آگاه `Ad Term`). کارت + ستون و درصد اختلاف (منبع دوم − منبع اصلی) ÷ منبع اصلی |
 | `dimensionTables` | جدول‌های Source/Term/Content (بعد + متریک) — کارتش پیش‌فرض بسته‌ست و هر جدول فیلتر خودش رو داره |
@@ -180,7 +181,7 @@
 - شیت `1oG7M3zng4jG57tbKwGyUbfsNGFb_Vu-QQT_-_KBVSck` (Agah - Data Entry). تب `Yektanet - Export` (Date, Campaign, Campaign Type, Cost, Click, Impression) هم هزینه‌ست هم «تبدیل».
 - هدف (از ۱۸ اکتبر، جایگزین نسخه‌ی اول «اختلاف کلیک و سشن»): **STC (سشن به کلیک) و هزینه به ازای سشن به تفکیک کمپین.** شیت یکتانت سشن نداره.
 - شیت مرجع = `GA4 - Export` (Date, Medium, Ad Content, Ad Term, Sessions)؛ **اسم کمپین تو `Ad Term`ه** (`refCampaignCol: 'Ad Term'`). تبدیل اصلی = `Sessions`، `cpaLabel: 'هزینه به ازای سشن'`.
-- هزینه و کلیک از `Yektanet - Export`؛ `Click` با `costExtraCols` و `convRate: 'STC'` → ستون Click، هزینه به ازای کلیک و **STC = Sessions ÷ Click** تو جدول کمپین + خط STC روی کارت. `includeUnmatchedCost` روشنه: کمپینی که کلیک داره ولی سشن GA4 نداره با STC ۰٪ میاد.
+- هزینه و کلیک از `Yektanet - Export`؛ `Click` با `costExtraCols` و `convRate: 'STC'` → ستون Click، هزینه به ازای کلیک و **STC = Sessions ÷ Click** تو جدول کمپین + خط STC روی کارت. `includeUnmatchedCost` روشنه (روزی از یه کمپین که هزینه داره ولی ردیف GA4 نداره حساب می‌شه)، ولی **کمپینی که تو بازه‌ی انتخابی اصلاً سشن GA4 نداره کلاً نمایش داده نمی‌شه** — نه تو جدول، نه تو هزینه‌ی کل، نه تو لیست فیلتر (`hideZeroConversionCampaigns`، خواسته‌ی عرفان ۱۹ اکتبر).
 - لوگو `agah-logo.png`، تم `agah` (آبی `#1565A8`).
 
 ## ۴. قابلیت‌های سراسری
@@ -352,6 +353,9 @@
 19. پیش‌فرض اسنپ‌پی = `Isfahan 405`، `Merchant Mehr 405`، `Social Mehr 405`.
 20. **داشبورد آگاه:** اختلاف سشن (کلیک یکتانت × Sessions GA4) به تفکیک کمپین. کارت CPA حالا از `cpaLabel` پیروی می‌کنه.
 21. **آگاه عوض شد:** تبدیل اصلی = Sessions GA4 (کمپین از `Ad Term`)، هزینه به ازای سشن، و ستون **STC** (Sessions ÷ Click یکتانت) به تفکیک کمپین. گزینه‌های تازه‌ی `refCampaignCol` و `convRate` تو `costExtraCols`.
+
+**۱۹ اکتبر ۲۰۲۶**
+22. آگاه: کمپین‌های بدون سشن GA4 دیگه نمایش داده نمی‌شن (`hideZeroConversionCampaigns`).
 
 ### کارهای باز
 - **توچال کافه بازار:** `cb-bulk` و `cb-dc` (اردیبهشت–خرداد) دیتای تبدیل ندارن — نمایش فقط هزینه، یا خوندن از `Tocal - Metrix - Old`؟ (منتظر تصمیم عرفان)

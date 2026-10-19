@@ -1542,8 +1542,10 @@ const ALL_PROJECTS = [
     impressionsCol: 'Impression',
     clicksCol: 'Click',
     costExtraCols: [{col:'Click', label:'Click', convRate:'STC'}],
-    // Spend with no GA4 session (and sessions with no spend) both count.
+    // A campaign day with spend but no GA4 row still counts, but a campaign
+    // with no GA4 session at all in the range is hidden (Erfan, 19 Oct).
     includeUnmatchedCost: true,
+    hideZeroConversionCampaigns: true,
     hideSegmentAnalysis: true,
     ownDateFilter: true,
     defaultRangeDays: 30,
@@ -2051,6 +2053,11 @@ function computeSection(project, window){
     project.rawCost.filter(r=>inRange(r.date) && inCampaign(r.campaign)));
   const refMap = aggregateRef(refFiltered);
   const costMap = aggregateCost(costFiltered);
+  if(project.hideZeroConversionCampaigns){
+    const hasConv = new Set(Object.values(refMap).filter(r=>r.conversion>0).map(r=>r.campaign));
+    Object.keys(costMap).forEach(k=>{ if(!hasConv.has(costMap[k].campaign)) delete costMap[k]; });
+    Object.keys(refMap).forEach(k=>{ if(!hasConv.has(refMap[k].campaign)) delete refMap[k]; });
+  }
   return buildJoinedRows(refMap, costMap, project.includeUnmatchedCost);
 }
 
@@ -4613,6 +4620,14 @@ async function loadProject(project){
       const keptCost = project.rawCost.filter(r=>!project.excludeCampaign(r.campaign, campaignCtx));
       diag.excludedCost = project.rawCost.reduce((s,r)=>s+r.cost,0) - keptCost.reduce((s,r)=>s+r.cost,0);
       project.rawCost = keptCost;
+    }
+    // hideZeroConversionCampaigns: a campaign with no conversion at all (Agah's
+    // campaigns with Yektanet clicks but no GA4 sessions) is left out entirely,
+    // cost included; computeSection repeats this per date window.
+    if(project.hideZeroConversionCampaigns){
+      const hasConv = new Set(project.rawRef.filter(r=>r.conversion>0).map(r=>r.campaign));
+      project.rawRef = project.rawRef.filter(r=>hasConv.has(r.campaign));
+      project.rawCost = project.rawCost.filter(r=>hasConv.has(r.campaign));
     }
     // Today and anything after it is dropped. Sheets carry pre-created rows for
     // days that haven't happened yet, which would push maxDate forward and make
