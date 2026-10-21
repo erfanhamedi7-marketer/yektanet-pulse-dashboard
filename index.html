@@ -772,7 +772,14 @@ async function fetchSheetData(spreadsheetId, sheet){
   const res = await fetch(`/api/sheet-data?spreadsheetId=${encodeURIComponent(spreadsheetId)}&sheet=${encodeURIComponent(sheet)}`);
   const json = await res.json();
   if(!res.ok) throw new Error(json.error || 'sheet not accessible');
-  return json.data;
+  if(json.data) return json.data;
+  // Compact form: one header list and rows as arrays.
+  const headers = json.headers || [];
+  return (json.rows || []).map(row => {
+    const obj = {};
+    headers.forEach((h, i) => { obj[h] = row[i]; });
+    return obj;
+  });
 }
 
 function setStatus(kind, text){
@@ -865,9 +872,14 @@ function fmtDateLabel(yyyymmdd){
   if(s.length !== 8) return s;
   return s.slice(0,4)+'-'+s.slice(4,6)+'-'+s.slice(6,8);
 }
+// toLocaleString builds a new formatter on every call, which with thousands
+// of table cells per render was a real share of each filter change.
+const NUM_FORMATS = {};
 function fmtNum(n, digits){
   if(n===null||n===undefined||isNaN(n)) return '—';
-  return Number(n).toLocaleString('en-US',{maximumFractionDigits: digits===undefined?0:digits, minimumFractionDigits: digits===undefined?0:digits});
+  const d = digits===undefined ? 0 : digits;
+  const f = NUM_FORMATS[d] || (NUM_FORMATS[d] = new Intl.NumberFormat('en-US', {maximumFractionDigits: d, minimumFractionDigits: d}));
+  return f.format(Number(n));
 }
 // A signed figure inside Persian text loses its sign to the far side ("12-")
 // unless the number is isolated as left-to-right.
@@ -3619,6 +3631,9 @@ function densifyScales(options){
   return options;
 }
 function makeChart(canvas, config){
+  // Charts are rebuilt on every filter change; Chart.js's default one-second
+  // animation made each change feel slow.
+  if(!makeChart.tuned){ Chart.defaults.animation.duration = 300; makeChart.tuned = true; }
   densifyScales(config.options);
   return new Chart(canvas, config);
 }
@@ -3773,8 +3788,17 @@ function fitKpiValue(v){
   v.classList.add('short');
   if(overflows() && v.querySelector('.v-tight')) v.classList.replace('short', 'tight');
 }
+// Same as fitKpiValue on every card, but the class changes and the width
+// reads are done in passes, so the page is laid out three times in all rather
+// than twice per card.
 function fitKpiValues(root){
-  (root || document).querySelectorAll('.kpi .value').forEach(fitKpiValue);
+  const all = [...(root || document).querySelectorAll('.kpi .value')];
+  all.forEach(v=>v.classList.remove('short', 'tight'));
+  const overflows = v => v.scrollWidth > v.clientWidth + 1;
+  const wide = all.filter(v => v.clientWidth && v.querySelector('.v-short') && overflows(v));
+  wide.forEach(v=>v.classList.add('short'));
+  const wider = wide.filter(v => v.querySelector('.v-tight') && overflows(v));
+  wider.forEach(v=>v.classList.replace('short', 'tight'));
 }
 
 // Every section's cards go through here, so a card looks the same whichever
@@ -4415,7 +4439,22 @@ function updateCpiSection(project){
   });
 }
 
+// Only the section on screen is drawn. A filter change or the first load marks
+// any other section stale, and switchTab draws it when it is opened — drawing
+// all 28 sections (and measuring their cards while they were all on the page)
+// is what made the first load and every global filter change slow.
+let shownSectionId = null;
 function updateSection(project){
+  if(project.id !== shownSectionId){ project.stale = true; return; }
+  project.stale = false;
+  try{ drawSection(project); }
+  catch(e){
+    console.error('section failed:', project.id, e);
+    const el = document.getElementById(`coverageNote-${project.id}`);
+    if(el) el.innerHTML = 'نمایش این بخش با خطا مواجه شد: ' + escapeHtml(e.message || 'خطای نامشخص');
+  }
+}
+function drawSection(project){
   // Every filter change lands here, so the filter lists catch up with it too.
   if(projectState[project.id]){ renderCampaignDropdown(project); renderSegChips(project); }
   if(project.kind === 'budget') return updateBudgetSection(project);
@@ -4896,13 +4935,15 @@ function switchTab(tabId){
   renderSubTabBar(tab);
 
   const shownProject = PROJECTS.find(p=>p.id===shownId);
+  shownSectionId = shownId;
+  if(shownProject && shownProject.stale && !shownProject.error) updateSection(shownProject);
   const mainContentEl = document.getElementById('mainContent');
   mainContentEl.style.display = (shownProject && !shownProject.ownDateFilter) ? '' : 'none';
   revealInRow(document.getElementById('tabBar'), `tab-${tabId}`);
   revealInRow(document.getElementById('subTabBar'), `subtab-${shownId}`);
   syncStickyOffset();
   // The section just became measurable, so its figures can be sized for real.
-  fitKpiValues();
+  fitKpiValues(document.getElementById(`section-${shownId}`) || undefined);
 }
 
 async function init(){
@@ -4926,15 +4967,10 @@ async function init(){
     document.getElementById('mainContent').innerHTML = '';
   }
 
+  // Sections are drawn when first opened (see updateSection); the shell only
+  // marks them stale.
   renderSectionsShell();
-  PROJECTS.filter(p=>!p.error).forEach(p=>{
-    try{ updateSection(p); }
-    catch(e){
-      console.error('section failed:', p.id, e);
-      const el = document.getElementById(`coverageNote-${p.id}`);
-      if(el) el.innerHTML = 'نمایش این بخش با خطا مواجه شد: ' + escapeHtml(e.message || 'خطای نامشخص');
-    }
-  });
+  PROJECTS.filter(p=>!p.error).forEach(p=>{ p.stale = true; });
   renderTabBar();
   switchTab(TABS[0].id);
   syncStickyOffset();
@@ -4943,7 +4979,7 @@ async function init(){
   let fitTimer = null;
   window.addEventListener('resize', ()=>{
     clearTimeout(fitTimer);
-    fitTimer = setTimeout(()=>fitKpiValues(), 120);
+    fitTimer = setTimeout(()=>fitKpiValues(document.getElementById(`section-${shownSectionId}`) || undefined), 120);
   });
   if(window.ResizeObserver){
     const ro = new ResizeObserver(syncStickyOffset);

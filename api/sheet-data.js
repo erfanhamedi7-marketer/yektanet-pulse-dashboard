@@ -68,15 +68,20 @@ module.exports = async (req, res) => {
       return;
     }
 
+    // Rows go out as arrays under one header list rather than as objects that
+    // repeat every column name, which roughly halves what the browser has to
+    // download and parse; the front-end turns them back into objects. Rows
+    // with nothing in them (pre-formatted blank lines at the bottom of a
+    // sheet) are dropped here.
     const [headers, ...rows] = values;
-    const data = rows.map(row => {
-      const obj = {};
-      headers.forEach((h, i) => { obj[h] = row[i] !== undefined ? row[i] : ''; });
-      return obj;
-    });
+    const filled = rows
+      .filter(row => row.some(v => v !== '' && v !== null && v !== undefined))
+      .map(row => headers.map((h, i) => row[i] !== undefined ? row[i] : ''));
 
-    res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=300');
-    res.status(200).json({ data });
+    // The edge serves a copy for 5 minutes and, after that, keeps answering
+    // with it while it fetches a fresh one, so a visit rarely waits on Google.
+    res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=1800');
+    res.status(200).json({ headers, rows: filled });
   } catch (err) {
     res.status(500).json({ error: err.message || 'Unknown error' });
   }
