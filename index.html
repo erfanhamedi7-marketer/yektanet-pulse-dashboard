@@ -1180,8 +1180,12 @@ function yektanetExportSections(){
     {id:'firouzeh',  title:'فیروزه', spreadsheetId:'10hRbyK0f2x7jrzZ8vYgQA8GoG_xONdL73AwXAsPPYLI',
      conversionCol:'Register', theme: BRANDS.firouzeh, logo:'/Firouzeh%20Logo.jpg',
      keep: key => key.includes('sahel'), keepLabel:'sahel'},
+    // The install campaigns (inapp-cpi-*) have their own part, read against
+    // App Metrica (taraAppSection), so they are left out of this one.
     {id:'tara',      title:'تارا',   spreadsheetId:'1OJcJVwBH2qBftWC9W1ddVgnPXfRuQdzYjYWbGWPqv5Q',
-     conversionCol:'Lead', theme: BRANDS.tara, logo:'/Tara%20-%20Logo.jpg'},
+     conversionCol:'Lead', theme: BRANDS.tara, logo:'/Tara%20-%20Logo.jpg',
+     group:'tara', groupTitle:'تارا', partTitle:'تارا',
+     keep: key => !key.startsWith(TARA_APP_PREFIX), dropLabel: TARA_APP_PREFIX + '*'},
     {id:'technopay', title:'تکنوپی', spreadsheetId:'1izpnAk0BM49IMTsBv1HTuEUh5dCTT61ukMA-fklLOgk',
      conversionCol:'Validation', costPer:[{col:'Lead'}], theme: BRANDS.technopay,
      logo:'/Technopay%20Logo.jpg',
@@ -1193,7 +1197,8 @@ function yektanetExportSections(){
     id: part.id,
     title: part.title,
     tabTitle: part.title,
-    subtitle: `Yektanet - Export — ${part.conversionCol}${part.costPer ? ' و ' + part.costPer.map(m=>m.col).join(' و ') : ''}${part.keepLabel ? ' — فقط کمپین‌های شامل ' + part.keepLabel : ''}`,
+    ...(part.group ? {group: part.group, groupTitle: part.groupTitle, partTitle: part.partTitle} : {}),
+    subtitle: `Yektanet - Export — ${part.conversionCol}${part.costPer ? ' و ' + part.costPer.map(m=>m.col).join(' و ') : ''}${part.keepLabel ? ' — فقط کمپین‌های شامل ' + part.keepLabel : ''}${part.dropLabel ? ' — بدون کمپین‌های ' + part.dropLabel : ''}`,
     // keep(campaign) narrows a project to some of its campaigns, cost included.
     ...(part.keep ? {excludeCampaign: key => !part.keep(key)} : {}),
     ...(part.logo ? {logo: part.logo} : {}),
@@ -1214,7 +1219,40 @@ function yektanetExportSections(){
     ownDateFilter: true,
     defaultRangeDays: 30,
     theme: part.theme
-  }));
+  })).flatMap(section => section.id === 'tara' ? [section, taraAppSection()] : [section]);
+}
+
+// Tara's app install campaigns: App Metrica installs and Sign Ups against the
+// cost of the same campaigns in the Yektanet export.
+const TARA_APP_PREFIX = 'inapp-cpi';
+function taraAppSection(){
+  return {
+    id: 'tara-app',
+    group: 'tara',
+    partTitle: 'تارا - اپلیکیشن',
+    title: 'تارا — اپلیکیشن',
+    subtitle: `Tara - App Metrica (مرجع) × Yektanet - Export — فقط کمپین‌های ${TARA_APP_PREFIX}*، تبدیل Sign Up`,
+    logo: '/Tara%20-%20Logo.jpg',
+    spreadsheetId: '1OJcJVwBH2qBftWC9W1ddVgnPXfRuQdzYjYWbGWPqv5Q',
+    refSheet: 'Tara - App Metrica',
+    costSheet: 'Yektanet - Export',
+    refCampaignsFromCost: true,
+    excludeCampaign: key => !key.startsWith(TARA_APP_PREFIX),
+    conversionCol: 'Sign Up',
+    conversionLabel: 'Sign Up',
+    showInstalls: true,
+    installsCol: 'Total Installs',
+    installsLabel: 'Install',
+    // These campaigns are bought per install, so CPI sits beside the Sign Up CPA.
+    costPerMetrics: [{col:'Total Installs', label:'Install', campaignTable:true}],
+    adgroupCol: 'Ad Group',
+    creativeCol: 'Creative',
+    impressionsCol: 'Impression',
+    clicksCol: 'Click',
+    ownDateFilter: true,
+    defaultRangeDays: 30,
+    theme: BRANDS.tara
+  };
 }
 
 // Talaeen overview: a web campaign is one whose name carries "-web" or "sl-"
