@@ -39,10 +39,65 @@ function getClient() {
   return cachedClient;
 }
 
+// Google allows the service account 60 read requests a minute, and every
+// dashboard load used to spend one per tab (about 40). Now the browser asks
+// for all the tabs of a spreadsheet at once and they are read with one
+// batchGet, which Google counts as a single request. On top of that each warm
+// function instance keeps what it read for two minutes, and keeps it longer
+// as a fallback for when Google refuses with a quota error.
+const memo = new Map();             // key → { at, payload }
+const FRESH_MS = 2 * 60 * 1000;
+const FALLBACK_MS = 24 * 60 * 60 * 1000;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const isQuota = err => {
+  const code = err && (err.code || (err.response && err.response.status));
+  return Number(code) === 429 || /quota/i.test((err && err.message) || '');
+};
+
+// Rows go out as arrays under one header list rather than as objects that
+// repeat every column name, which roughly halves what the browser has to
+// download and parse; the front-end turns them back into objects. Rows with
+// nothing in them (pre-formatted blank lines at the bottom of a sheet) are
+// dropped here.
+function compact(values){
+  if(!values || !values.length) return { headers: [], rows: [] };
+  const [headers, ...rows] = values;
+  const filled = rows
+    .filter(row => row.some(v => v !== '' && v !== null && v !== undefined))
+    .map(row => headers.map((h, i) => row[i] !== undefined ? row[i] : ''));
+  return { headers, rows: filled };
+}
+
+async function readSheets(spreadsheetId, sheets){
+  const client = getClient();
+  // UNFORMATTED_VALUE returns the cell's real number instead of the text the
+  // sheet happens to display: a Cost column formatted as scientific
+  // ("1.48E+08") or rounded for width would otherwise reach the dashboard
+  // already mangled. Dates still come through as their displayed string
+  // rather than a serial number, which is what the front-end parses.
+  const ranges = sheets.map(sh => 'ranges=' + encodeURIComponent(`${sh}!A:Z`)).join('&');
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchGet?${ranges}`
+    + `&valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=FORMATTED_STRING`;
+  // A quota refusal is retried twice, a moment apart, before giving up.
+  for(let attempt = 0; ; attempt++){
+    try{
+      const response = await client.request({ url });
+      const out = {};
+      (response.data.valueRanges || []).forEach((vr, i) => { out[sheets[i]] = compact(vr.values); });
+      return out;
+    }catch(err){
+      if(!isQuota(err) || attempt >= 2) throw err;
+      await sleep(attempt === 0 ? 1500 : 3000);
+    }
+  }
+}
+
 module.exports = async (req, res) => {
   try {
-    const { spreadsheetId, sheet } = req.query;
-    if (!spreadsheetId || !sheet) {
+    const { spreadsheetId } = req.query;
+    const raw = req.query.sheet;
+    const sheets = [...new Set([].concat(raw || []).filter(Boolean))];
+    if (!spreadsheetId || !sheets.length) {
       res.status(400).json({ error: 'Missing spreadsheetId or sheet query param' });
       return;
     }
@@ -51,38 +106,28 @@ module.exports = async (req, res) => {
       return;
     }
 
-    const client = getClient();
-    const range = encodeURIComponent(`${sheet}!A:Z`);
-    // UNFORMATTED_VALUE returns the cell's real number instead of the text the
-    // sheet happens to display: a Cost column formatted as scientific ("1.48E+08")
-    // or rounded for width would otherwise reach the dashboard already mangled.
-    // Dates still come through as their displayed string rather than a serial
-    // number, which is what the front-end parses.
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}`
-      + `?valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=FORMATTED_STRING`;
-    const response = await client.request({ url });
-    const values = response.data.values || [];
-
-    if (!values.length) {
-      res.status(200).json({ data: [] });
-      return;
+    const key = spreadsheetId + '|' + [...sheets].sort().join('|');
+    const hit = memo.get(key);
+    let payload;
+    if (hit && Date.now() - hit.at < FRESH_MS) {
+      payload = hit.payload;
+    } else {
+      try {
+        payload = await readSheets(spreadsheetId, sheets);
+        memo.set(key, { at: Date.now(), payload });
+      } catch (err) {
+        if (isQuota(err) && hit && Date.now() - hit.at < FALLBACK_MS) payload = hit.payload;
+        else throw err;
+      }
     }
-
-    // Rows go out as arrays under one header list rather than as objects that
-    // repeat every column name, which roughly halves what the browser has to
-    // download and parse; the front-end turns them back into objects. Rows
-    // with nothing in them (pre-formatted blank lines at the bottom of a
-    // sheet) are dropped here.
-    const [headers, ...rows] = values;
-    const filled = rows
-      .filter(row => row.some(v => v !== '' && v !== null && v !== undefined))
-      .map(row => headers.map((h, i) => row[i] !== undefined ? row[i] : ''));
 
     // The edge serves a copy for 5 minutes and, after that, keeps answering
     // with it while it fetches a fresh one, so a visit rarely waits on Google.
     res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=1800');
-    res.status(200).json({ headers, rows: filled });
+    // One tab asked for: that tab's {headers, rows}. Several: {sheets: {name: …}}.
+    res.status(200).json(sheets.length === 1 && !Array.isArray(raw) ? payload[sheets[0]] : { sheets: payload });
   } catch (err) {
-    res.status(500).json({ error: err.message || 'Unknown error' });
+    const quota = isQuota(err);
+    res.status(quota ? 429 : 500).json({ error: err.message || 'Unknown error', ...(quota ? { code: 'quota' } : {}) });
   }
 };

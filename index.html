@@ -768,18 +768,48 @@
 (function(){
 "use strict";
 
-async function fetchSheetData(spreadsheetId, sheet){
-  const res = await fetch(`/api/sheet-data?spreadsheetId=${encodeURIComponent(spreadsheetId)}&sheet=${encodeURIComponent(sheet)}`);
-  const json = await res.json();
-  if(!res.ok) throw new Error(json.error || 'sheet not accessible');
+// One tab's answer as row objects. The API sends {headers, rows} (rows as
+// arrays); the older {data} shape (row objects) is still read.
+function sheetRows(json){
   if(json.data) return json.data;
-  // Compact form: one header list and rows as arrays.
   const headers = json.headers || [];
   return (json.rows || []).map(row => {
     const obj = {};
     headers.forEach((h, i) => { obj[h] = row[i]; });
     return obj;
   });
+}
+// Google counts each API call against a quota of 60 reads a minute, so the
+// tabs asked for in the same moment are gathered per spreadsheet and fetched
+// in one call (the API reads them with one batchGet).
+const sheetQueue = {};   // spreadsheetId → [{sheet, resolve, reject}]
+function fetchSheetData(spreadsheetId, sheet){
+  return new Promise((resolve, reject)=>{
+    if(!sheetQueue[spreadsheetId]){
+      sheetQueue[spreadsheetId] = [];
+      setTimeout(()=>flushSheetQueue(spreadsheetId), 0);
+    }
+    sheetQueue[spreadsheetId].push({sheet, resolve, reject});
+  });
+}
+async function flushSheetQueue(spreadsheetId){
+  const waiting = sheetQueue[spreadsheetId];
+  delete sheetQueue[spreadsheetId];
+  const sheets = [...new Set(waiting.map(w=>w.sheet))].sort();
+  try{
+    const qs = sheets.map(sh => 'sheet=' + encodeURIComponent(sh)).join('&');
+    const res = await fetch(`/api/sheet-data?spreadsheetId=${encodeURIComponent(spreadsheetId)}&${qs}`);
+    const json = await res.json();
+    if(!res.ok){
+      throw new Error(json.code === 'quota'
+        ? 'سهمیه‌ی خوندن گوگل شیت (۶۰ درخواست در دقیقه) پر شده — یکی دو دقیقه دیگه صفحه رو رفرش کن.'
+        : (json.error || 'sheet not accessible'));
+    }
+    const bySheet = sheets.length > 1 ? (json.sheets || {}) : {[sheets[0]]: json};
+    waiting.forEach(w => w.resolve(sheetRows(bySheet[w.sheet] || {})));
+  }catch(e){
+    waiting.forEach(w => w.reject(e));
+  }
 }
 
 function setStatus(kind, text){
@@ -4745,7 +4775,10 @@ async function loadProject(project){
     project.rawBlend = [];
     project.rawBudget = [];
     project.budgetByCampaign = {};
-    project.error = 'نتونستم دیتای این پروژه رو بخونم: ' + (e.message || 'خطای نامشخص') + ' — مطمئن شو شیت با ایمیل Service Account شیر شده.';
+    const msg = e.message || 'خطای نامشخص';
+    // A quota refusal says what to do itself; sharing the sheet wouldn't help.
+    project.error = 'نتونستم دیتای این پروژه رو بخونم: ' + msg
+      + (/سهمیه/.test(msg) ? '' : ' — مطمئن شو شیت با ایمیل Service Account شیر شده.');
   }
 }
 
