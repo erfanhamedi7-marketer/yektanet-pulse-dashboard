@@ -1193,7 +1193,7 @@ function talaseaSections(){
     {id:'noghresea-web', partTitle:'نقره‌سی وب', sheet:'Noghresea - Web'},
     {id:'meschi-web',    partTitle:'مس‌چی وب',   sheet:'Meschi - Web'}
   ];
-  return parts.map((part, i) => ({
+  const web = parts.map((part, i) => ({
     id: part.id,
     group: 'talasea',
     ...(i === 0 ? {groupTitle: 'طلاسی'} : {}),
@@ -1217,6 +1217,59 @@ function talaseaSections(){
     defaultRangeDays: 30,
     theme: BRANDS.talasea
   }));
+  // Each brand's app sits right after its web part.
+  // Talasea's app runs no Cafe Bazaar campaigns (25 Oct), so it has no Cafe
+  // Bazaar group; pass true once it does.
+  return [web[0], talaseaAppSection('talasea', 'اپ طلاسی', 'Talasea', false),
+          web[1], talaseaAppSection('noghresea', 'اپ نقره‌سی', 'Noghresea', true),
+          web[2]];
+}
+
+// The app campaigns are named one way in the cost tab and another in Metrix,
+// so the two only meet once folded (Erfan, 25 Oct): a Cafe Bazaar campaign
+// keeps its name — Metrix calls cafe-search just "search" and misspells
+// cafe-discovery-co-install — and every other campaign is the one in-app
+// campaign, cost and installs together.
+const TALASEA_INAPP = 'inapp (همه‌ی کمپین‌های درون اپلیکیشن)';
+function talaseaAppKey(key){
+  if(key === 'search') return 'cafe-search';
+  if(key.startsWith('cafe')) return key.replace('dicovery', 'discovery');
+  return TALASEA_INAPP;
+}
+// Like Ramzarz News: installs are the conversion (CPI), Verification is priced
+// beside them, and the in-app and Cafe Bazaar campaigns are drawn apart.
+function talaseaAppSection(id, title, brand, hasCafe){
+  return {
+    id: id + '-app',
+    group: 'talasea',
+    partTitle: title,
+    title,
+    subtitle: `${brand} - Metrix (نصب و Verification) × ${brand} - App (هزینه) — CPI و هزینه به ازای Verification${hasCafe ? '، درون اپلیکیشن و کافه بازار' : ''}`,
+    logo: '/talasea-logo.jpg',
+    kind: 'cpi',
+    spreadsheetId: '1Gp30Q3tpfJw0Z8NNHOcCpvptyKZnh0ABw3P5Prf5BP8',
+    refSheet: `${brand} - Metrix`,
+    costSheet: `${brand} - App`,
+    campaignKey: talaseaAppKey,
+    conversionCol: 'Total Installs',
+    conversionLabel: 'نصب',
+    cpaLabel: 'CPI',
+    installsCol: 'Total Installs',
+    costPerMetrics: [{col:'Verification', campaignTable:true}],
+    adgroupCol: 'Ad Group',
+    creativeCol: 'Creative',
+    impressionsCol: 'Impressions',
+    clicksCol: 'Clicks',
+    hideDeepAnalysis: true,
+    cpiGroups: [
+      {id:'all',  title:'کلی',           sub:'همه‌ی کمپین‌های اپ'},
+      {id:'app',  title:'درون اپلیکیشن', sub:'همه‌ی کمپین‌های غیر کافه بازار، با هم', prefix:'inapp', creativeTable:true},
+      ...(hasCafe ? [{id:'cafe', title:'کافه بازار', sub:'کمپین‌های cafe-', prefix:'cafe', campaignTable:true}] : [])
+    ],
+    ownDateFilter: true,
+    defaultRangeDays: 30,
+    theme: BRANDS.talasea
+  };
 }
 
 // Projects whose whole sheet is the one "Yektanet - Export" tab: cost,
@@ -4988,6 +5041,14 @@ async function loadProject(project){
       refSheets[i].keep ? rows.filter(r=>refSheets[i].keep(r.campaign)) : rows);
     project.rawCost = normalizeCostRows(costRows, project.impressionsCol, project.clicksCol, diag,
                                         (project.costExtraCols||[]).map(m=>m.col));
+    // campaignKey folds the campaigns two sheets name differently into one key
+    // on both sides, before anything joins them (Talasea's apps: see
+    // talaseaAppKey).
+    if(project.campaignKey){
+      const fold = r => { const k = project.campaignKey(r.campaign); return k === r.campaign ? r : {...r, campaign:k, campaignLabel:k}; };
+      project.rawRef = project.rawRef.map(fold);
+      project.rawCost = project.rawCost.map(fold);
+    }
     // The session comparison works off daily totals of each tab as-is, so it
     // keeps the rows the project's campaign filter removes from everything else.
     project.rawCompare = cmp ? normalizeCompareRows(compareRows, cmp.sessionsCol) : [];
