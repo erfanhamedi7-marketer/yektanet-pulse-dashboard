@@ -1154,7 +1154,9 @@ function ramzarzSection(){
 function snappSections(){
   const parts = [
     {id:'snapppay',   partTitle:'اسنپ‌پی',   title:'اسنپ‌پی',   spreadsheetId:'1dgyCKN89-SF-3IANYg2F9F3tySvjnr4oyn9pbkukAFI',
-     defaultCampaigns:['Isfahan 405', 'Merchant Mehr 405', 'Social Mehr 405']},
+     defaultCampaigns:['Isfahan 405', 'Merchant Mehr 405', 'Social Mehr 405'],
+     // The client message breaks the totals down per Campaign Name too.
+     messageGroupBy:'campaignName'},
     {id:'snappcab',   partTitle:'اسنپ‌کب',   title:'اسنپ‌کب',   spreadsheetId:'1u3kf4CxRJNghQDk-0A7hbYEVktVbprlLfByF2X9gR_c',
      defaultCampaigns:['Bike - Oct 2026', 'Pickup - Oct 2026']},
     {id:'snappbimeh', partTitle:'اسنپ‌بیمه', title:'اسنپ‌بیمه', spreadsheetId:'1SUcOo8o0lwtSQH-HCtm8HipVqN52abbI-Ds77ZeotFg'}
@@ -1175,6 +1177,7 @@ function snappSections(){
     filterUnit: 'Campaign Name',
     filterAllLabel: 'همه‌ی Campaign Name‌ها',
     ...(part.defaultCampaigns ? {defaultCampaigns: part.defaultCampaigns} : {}),
+    ...(part.messageGroupBy ? {messageGroupBy: part.messageGroupBy} : {}),
     ownDateFilter: true,
     defaultRangeDays: 30,
     theme: BRANDS.snapp
@@ -4607,7 +4610,7 @@ function messageRows(project, window){
     const inRange = d => (!from || d >= from) && (!to || d <= to);
     const inName = budgetNameFilter(project), inCampaign = budgetCampaignFilter(project);
     return (project.rawBlend || []).filter(r => inRange(r.date) && inName(r.campaignName) && inCampaign(r.campaign))
-      .map(r => ({campaign: r.campaign, cost: r.cost, impressions: r.impressions, clicks: r.clicks,
+      .map(r => ({campaign: r.campaign, campaignName: r.campaignName, cost: r.cost, impressions: r.impressions, clicks: r.clicks,
                   sessions: r.sessions, installs: 0, action: 0}));
   }
   const spec = messageSpec(project);
@@ -4698,18 +4701,20 @@ function buildClientMessage(project){
   ];
 
   // Per campaign type, where the sheet says which type each campaign is and
-  // the range has more than one of them.
-  const types = campaignTypes(project);
+  // the range has more than one of them — or per Campaign Name where the
+  // business asks for that instead (Snapp Pay).
+  const byName = project.messageGroupBy === 'campaignName';
+  const types = byName ? null : campaignTypes(project);
   const byGroup = {};
   rows.forEach(r => {
-    const g = campaignTypeGroup(types[r.campaign]);
+    const g = byName ? r.campaignName : campaignTypeGroup(types[r.campaign]);
     if(g) (byGroup[g] = byGroup[g] || []).push(r);
   });
   const groups = Object.entries(byGroup).map(([name, list]) => ({name, t: messageTotals(list)}))
     .filter(g => g.t.cost > 0 || g.t.action > 0 || g.t.sessions > 0)
     .sort((a, b) => b.t.cost - a.t.cost);
   if(groups.length > 1){
-    groups.forEach(g => out.push('', `کمپین‌های ${g.name}:`, ...messageLines(g.t, has)));
+    groups.forEach(g => out.push('', byName ? `${g.name}:` : `کمپین‌های ${g.name}:`, ...messageLines(g.t, has)));
   }
 
   // The closing comparison with the same number of days right before.
