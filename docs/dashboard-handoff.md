@@ -61,8 +61,8 @@
 | `ownDateFilter`, `defaultRangeDays` | فیلتر تاریخ مخصوص سکشن (پیش‌فرض ۳۰ روز) |
 | `hideDeepAnalysis`, `hideSegmentAnalysis` | پنهان کردن کارت تحلیل عمیق / جدول‌های Adgroup–Creative |
 | `showInstalls`, `installsCol`, `installsLabel`, `adgroupCol`, `creativeCol`, `impressionsCol`, `clicksCol` | ستون‌ها |
-| `costPerMetrics` | کارت‌های «هزینه به ازای X» برای ستون‌های اضافه‌ی شیت مرجع: `{col, label, sinceFirst, campaignTable}`. `sinceFirst` = هزینه فقط از اولین روزی که این ستون پر شده حساب بشه (Signup رمزارز). `campaignTable` = تعداد/نرخ/هزینه به ازاش تو جدول کمپین هم بیاد |
-| `costExtraCols` | ستون‌های اضافه که از **شیت هزینه** خونده می‌شن (KYC طلاین وب، Click آگاه): کارت + ستون تعداد و هزینه به ازا تو جدول کمپین. `convRate: 'STC'` = یه ستون نرخ هم بیاد: تبدیل اصلی ÷ این ستون (آگاه: Sessions ÷ Click) |
+| `costPerMetrics` | کارت‌های «هزینه به ازای X» برای ستون‌های اضافه‌ی شیت مرجع: `{col, label, sinceFirst, campaignTable, countCard, noRate}`. `sinceFirst` = هزینه فقط از اولین روزی که این ستون پر شده حساب بشه (Signup رمزارز). `campaignTable` = تعداد/نرخ/هزینه به ازاش تو جدول کمپین هم بیاد. `countCard` = تعداد یه کارت جدا داشته باشه. `noRate` = ستون نرخ (X ÷ تبدیل اصلی) تو جدول نیاد (CTA Click آگاه) |
+| `costExtraCols` | ستون‌های اضافه که از **شیت هزینه** خونده می‌شن (KYC طلاین وب): کارت + ستون تعداد و هزینه به ازا تو جدول کمپین. `convRate: 'STC'` = یه ستون نرخ هم بیاد: تبدیل اصلی ÷ این ستون (آگاه تا ۲۵ اکتبر: Sessions ÷ Click؛ الان هیچ پروژه‌ای استفاده‌ش نمی‌کنه) |
 | `hideZeroConversionCampaigns` | کمپینی که تو بازه‌ی انتخابی تبدیل اصلیش صفره (با هزینه‌ش) کلاً حذف بشه؛ لیست فیلتر هم فقط کمپین‌هایی که یه‌بار تبدیل داشتن رو نشون می‌ده (آگاه) |
 | `refCampaignCol` | اسم ستون کمپین تو شیت مرجع (پیش‌فرض `Campaign`؛ آگاه `Ad Term`) |
 | `compareConversion` | همون تبدیل از یه منبع دوم برای مقایسه: `{sheet, col, source, ownSource, campaignCol?}` (GA4 تکنوپی؛ `campaignCol` پیش‌فرض `Campaign`ه، آگاه `Ad Term`). کارت + ستون و درصد اختلاف (منبع دوم − منبع اصلی) ÷ منبع اصلی |
@@ -182,10 +182,10 @@
 
 ### آگاه — `agah` (از ۱۸ اکتبر)
 - شیت `1oG7M3zng4jG57tbKwGyUbfsNGFb_Vu-QQT_-_KBVSck` (Agah - Data Entry). تب `Yektanet - Export` (Date, Campaign, Campaign Type, Cost, Click, Impression) هم هزینه‌ست هم «تبدیل».
-- هدف (از ۱۸ اکتبر، جایگزین نسخه‌ی اول «اختلاف کلیک و سشن»): **STC (سشن به کلیک) و هزینه به ازای سشن به تفکیک کمپین.** شیت یکتانت سشن نداره.
+- هدف: **هزینه به ازای سشن و هزینه به ازای CTA Click به تفکیک کمپین.** شیت یکتانت سشن نداره. (۱۸ تا ۲۵ اکتبر STC هم بود؛ پایین رو ببین.)
 - شیت مرجع = `GA4 - Export` (Date, Medium, Ad Content, Ad Term, Sessions, Cost, Panel Cost, CTA Click)؛ **اسم کمپین تو `Ad Term`ه** (`refCampaignCol: 'Ad Term'`). تبدیل اصلی = `Sessions`، `cpaLabel: 'هزینه به ازای سشن'`.
-- هزینه و کلیک از `Yektanet - Export`؛ `Click` با `costExtraCols` و `convRate: 'STC'` → ستون Click، هزینه به ازای کلیک و **STC = Sessions ÷ Click** تو جدول کمپین + خط STC روی کارت. `includeUnmatchedCost` روشنه (روزی از یه کمپین که هزینه داره ولی ردیف GA4 نداره حساب می‌شه)، ولی **کمپینی که تو بازه‌ی انتخابی اصلاً سشن GA4 نداره کلاً نمایش داده نمی‌شه** — نه تو جدول، نه تو هزینه‌ی کل، نه تو لیست فیلتر (`hideZeroConversionCampaigns`، خواسته‌ی عرفان ۱۹ اکتبر).
-- **CTA Click** (از ۲۵ اکتبر): ستون `CTA Click` تب `GA4 - Export` با `costPerMetrics` (`campaignTable`، بدون `sinceFirst` چون GA4 از همون ۰۷ اکتبر شروع می‌شه). کارت «هزینه به ازای CTA Click» (با تعداد)، و تو جدول کمپین ستون‌های CTA Click، **نرخ CTA Click = CTA Click ÷ Sessions** و هزینه به ازای CTA Click. از ۲۱ اکتبر CTA Click تو شیت بیشتر صفره، با اینکه سشن هست.
+- هزینه از `Yektanet - Export`. **کلیک تبلیغ (ستون `Click` یکتانت) و STC از ۲۵ اکتبر به خواسته‌ی عرفان حذف شدن** و هیچ‌جا نمایش داده نمی‌شن؛ دوباره اضافه‌شون نکن. `includeUnmatchedCost` روشنه (روزی از یه کمپین که هزینه داره ولی ردیف GA4 نداره حساب می‌شه)، ولی **کمپینی که تو بازه‌ی انتخابی اصلاً سشن GA4 نداره کلاً نمایش داده نمی‌شه** — نه تو جدول، نه تو هزینه‌ی کل، نه تو لیست فیلتر (`hideZeroConversionCampaigns`، خواسته‌ی عرفان ۱۹ اکتبر).
+- **CTA Click** (از ۲۵ اکتبر): ستون `CTA Click` تب `GA4 - Export` با `costPerMetrics` (`campaignTable`، بدون `sinceFirst` چون GA4 از همون ۰۷ اکتبر شروع می‌شه). دو کارت «CTA Click کل» (`countCard`) و «هزینه به ازای CTA Click»؛ تو جدول کمپین فقط CTA Click و هزینه به ازای CTA Click (`noRate`: ستون نرخ نداره). از ۲۱ اکتبر CTA Click تو شیت بیشتر صفره، با اینکه سشن هست.
 - لوگو `agah-logo.png`، تم `agah` (آبی `#1565A8`).
 
 ## ۴. قابلیت‌های سراسری
@@ -376,6 +376,7 @@
 
 **۲۵ اکتبر ۲۰۲۶**
 27. آگاه: **CTA Click** از GA4 (کارت هزینه به ازای CTA Click + ستون‌های تعداد، نرخ نسبت به سشن و هزینه به ازا تو جدول کمپین).
+28. آگاه: **کلیک تبلیغ یکتانت و STC حذف شدن**؛ فقط CTA Click (کارت تعداد + کارت هزینه به ازا، و دو ستون تو جدول کمپین، بدون نرخ). گزینه‌های تازه‌ی `countCard` و `noRate` تو `costPerMetrics`.
 
 ### کارهای باز
 - **توچال کافه بازار:** `cb-bulk` و `cb-dc` (اردیبهشت–خرداد) دیتای تبدیل ندارن — نمایش فقط هزینه، یا خوندن از `Tocal - Metrix - Old`؟ (منتظر تصمیم عرفان)

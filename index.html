@@ -1605,12 +1605,11 @@ const ALL_PROJECTS = [
     id: 'agah',
     title: 'آگاه',
     tabTitle: 'آگاه',
-    subtitle: 'GA4 - Export (Sessions و CTA Click، کمپین = Ad Term) × Yektanet - Export (هزینه و کلیک) — STC، هزینه به ازای سشن و CTA Click به تفکیک کمپین',
+    subtitle: 'GA4 - Export (Sessions و CTA Click، کمپین = Ad Term) × Yektanet - Export (هزینه) — هزینه به ازای سشن و CTA Click به تفکیک کمپین',
     logo: '/agah-logo.png',
     spreadsheetId: '1oG7M3zng4jG57tbKwGyUbfsNGFb_Vu-QQT_-_KBVSck',
     // Yektanet reports no sessions, so GA4's sessions are the conversion and
-    // Yektanet's clicks sit beside them: STC = sessions ÷ clicks. GA4 names
-    // the campaign in Ad Term.
+    // Yektanet only brings the cost. GA4 names the campaign in Ad Term.
     refSheet: 'GA4 - Export',
     refCampaignCol: 'Ad Term',
     costSheet: 'Yektanet - Export',
@@ -1621,10 +1620,9 @@ const ALL_PROJECTS = [
     installsCol: 'Installs',
     impressionsCol: 'Impression',
     clicksCol: 'Click',
-    costExtraCols: [{col:'Click', label:'Click', convRate:'STC'}],
-    // GA4 also counts CTA clicks on the landing: card + per-campaign count,
-    // rate (CTA Click ÷ Sessions) and cost per CTA click.
-    costPerMetrics: [{col:'CTA Click', label:'CTA Click', campaignTable:true}],
+    // Ad clicks are left out on purpose (Erfan, 25 Oct): only the CTA clicks
+    // GA4 counts on the landing, as a count and a cost per CTA click.
+    costPerMetrics: [{col:'CTA Click', label:'CTA Click', campaignTable:true, countCard:true, noRate:true}],
     // A campaign day with spend but no GA4 row still counts, but a campaign
     // with no GA4 session at all in the range is hidden (Erfan, 19 Oct).
     includeUnmatchedCost: true,
@@ -3247,7 +3245,7 @@ function renderCampaignCpaTable(project, joined, elId){
         «اختلاف» = (${escapeHtml(t.cmp.source)} − ${escapeHtml(t.cmp.ownSource)}) ÷ ${escapeHtml(t.cmp.ownSource)}.
         کل بازه: ${escapeHtml(t.cmp.ownSource)} <b>${fmtNum(t.totalConversion)}</b>، ${escapeHtml(t.cmp.source)} <b>${fmtNum(t.cmp.total)}</b> (<bdi dir="ltr">${fmtDiffPct(t.cmp.diff)}</bdi>).
         ${t.cmp.missing ? `${fmtNum(t.cmp.missingTotal)} ${escapeHtml(t.cmp.col)} از ${escapeHtml(t.cmp.source)} مال ${fmtNum(t.cmp.missing)} کمپینیه که توی ${escapeHtml(t.cmp.ownSource)} نیست.` : ''}` : ''}
-      ${t.extras.map(m=>`<br>${escapeHtml(m.name)}: تعداد، نرخ (${escapeHtml(m.name)} ÷ ${escapeHtml(label)}) و هزینه به ازای ${escapeHtml(m.name)}${
+      ${t.extras.map(m=>`<br>${escapeHtml(m.name)}: تعداد${m.noRate ? '' : `، نرخ (${escapeHtml(m.name)} ÷ ${escapeHtml(label)})`} و هزینه به ازای ${escapeHtml(m.name)}${
         m.since ? ` — فقط از ${fmtDateLabel(m.since)} که این ستون توی شیت پر شده؛ نرخ و هزینه‌اش هم فقط روی همین روزها حساب شده` : ''}.`).join('')}
     </div>`;
 
@@ -3284,9 +3282,9 @@ function renderCampaignCpaTable(project, joined, elId){
           <td class="${r.cmpDiff===null ? 'muted' : Math.abs(r.cmpDiff) >= 20 ? 'neg' : 'muted'}">${
             r.cmpDiff===null ? '—' : `<bdi dir="ltr">${fmtDiffPct(r.cmpDiff)}</bdi>`}</td>` : ''}
         ${r.extra.map((e, i)=> !e.tracked
-          ? `<td class="muted">—</td><td class="muted">—</td><td class="muted">—</td>`
+          ? `<td class="muted">—</td>${t.extras[i].noRate ? '' : `<td class="muted">—</td>`}<td class="muted">—</td>`
           : `<td>${fmtNum(e.count)}</td>
-             <td class="muted">${e.rate!==null ? e.rate.toFixed(1)+'٪' : '—'}</td>
+             ${t.extras[i].noRate ? '' : `<td class="muted">${e.rate!==null ? e.rate.toFixed(1)+'٪' : '—'}</td>`}
              ${e.per!==null ? `<td>${fmtNum(e.per)}</td>` : `<td class="neg">بدون ${escapeHtml(t.extras[i].name)}</td>`}`).join('')}
         <td class="muted">${fmtNum(r.activeDays)}</td>
       </tr>`;
@@ -3326,7 +3324,7 @@ function renderCampaignCpaTable(project, joined, elId){
             })() : ''}
             ${t.extras.map((m, i)=>{
               const n = sumOf(all, r=>r.extra[i].count), c = sumOf(all, r=>r.extra[i].cost), v = sumOf(all, r=>r.extra[i].conversion);
-              return `<td>${fmtNum(n)}</td><td class="muted">${v > 0 ? (n / v * 100).toFixed(1) + '٪' : '—'}</td><td>${n > 0 ? fmtNum(c / n) : '—'}</td>`;
+              return `<td>${fmtNum(n)}</td>${m.noRate ? '' : `<td class="muted">${v > 0 ? (n / v * 100).toFixed(1) + '٪' : '—'}</td>`}<td>${n > 0 ? fmtNum(c / n) : '—'}</td>`;
             }).join('')}
             <td class="muted">${fmtNum(t.dayCount)} روز</td>
           </tr>
@@ -3342,7 +3340,7 @@ function renderCampaignCpaTable(project, joined, elId){
             <th>نسبت به میانگین</th>
             ${(project.costExtraCols||[]).map(m=>`<th>${escapeHtml(m.label || m.col)}</th><th>هزینه به ازای ${escapeHtml(m.label || m.col)} (تومان)</th>${m.convRate ? `<th>${escapeHtml(m.convRate)}</th>` : ''}`).join('')}
             ${t.cmp ? `<th>${escapeHtml(t.cmp.col)} (${escapeHtml(t.cmp.source)})</th><th>اختلاف ${escapeHtml(t.cmp.source)} با ${escapeHtml(t.cmp.ownSource)}</th>` : ''}
-            ${t.extras.map(m=>`<th>${escapeHtml(m.name)}</th><th>نرخ ${escapeHtml(m.name)}</th><th>هزینه به ازای ${escapeHtml(m.name)} (تومان)</th>`).join('')}
+            ${t.extras.map(m=>`<th>${escapeHtml(m.name)}</th>${m.noRate ? '' : `<th>نرخ ${escapeHtml(m.name)}</th>`}<th>هزینه به ازای ${escapeHtml(m.name)} (تومان)</th>`).join('')}
             <th>روز فعال</th>
           </tr>
         </thead>
@@ -4605,8 +4603,15 @@ function drawSection(project){
     const now = costPerExtra(project, m, joined);
     const before = prev ? costPerExtra(project, m, prev.rows) : null;
     const series = seriesOn(daily.dates, daily, costPerExtraDaily(m));
+    // countCard: the count gets a card of its own, next to its cost per.
+    if(m.countCard){
+      const counts = daily.dates.map(d => daily.byDate[d].extras[m.col] || 0);
+      cards.push({label: name + ' کل', value: fmtNum(now.total), series: counts,
+                  metric:{id:'n-' + m.col, label:name, data:counts},
+                  delta: prev ? withDays(deltaOf(now.total, before.total, 'up')) : null});
+    }
     cards.push({label:`هزینه به ازای ${name}`, value: now.per!==null ? fmtMoney(now.per) : '—',
-                sub: `${fmtNum(now.total)} ${name}`, series,
+                sub: m.countCard ? '' : `${fmtNum(now.total)} ${name}`, series,
                 metric:{id:'per-' + m.col, label:`هزینه به ازای ${name}`, data:series},
                 delta: prev ? withDays(deltaOf(now.per, before.per, 'down')) : null});
   });
