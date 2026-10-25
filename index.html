@@ -1641,8 +1641,11 @@ const ALL_PROJECTS = [
     // Ad clicks are left out on purpose (Erfan, 25 Oct): only the CTA clicks
     // GA4 counts on the landing, as a count and a cost per CTA click.
     costPerMetrics: [{col:'CTA Click', label:'CTA Click', campaignTable:true, countCard:true, noRate:true}],
-    // The client message leaves ad clicks out too (and so CTR and STC).
+    // The client message leaves ad clicks out too (and so CTR and STC), adds
+    // the cost per session, and calls the CTA clicks «ایونت».
     messageHide: ['clicks'],
+    messageSessionCost: true,
+    messageActionLabel: 'ایونت',
     // A campaign day with spend but no GA4 row still counts, but a campaign
     // with no GA4 session at all in the range is hidden (Erfan, 19 Oct).
     includeUnmatchedCost: true,
@@ -4636,7 +4639,12 @@ function messageFields(project){
     clicks: !hide.has('clicks') && any(cost, r => r.clicks),
     sessions: project.kind === 'budget' ? any(cost, r => r.sessions) : !!(spec.sessions && any(ref, spec.sessions)),
     installs: !!(spec && spec.installs && any(ref, spec.installs)),
-    action: !!(spec && spec.action && any(ref, spec.action))
+    action: !!(spec && spec.action && any(ref, spec.action)),
+    // How the business names its target action, and whether its sessions
+    // get a cost-per line of their own (Agah: «ایونت», cost per session).
+    actionLabel: project.messageActionLabel || 'اکشن مدنظر',
+    actionShort: project.messageActionLabel || 'اکشن',
+    sessionCost: !!project.messageSessionCost
   };
   return has;
 }
@@ -4654,14 +4662,15 @@ function messageLines(t, has){
   // the figure after it into left-to-right order ("نرخ ٪CTR: ۰.۳۱").
   if(has.impressions && has.clicks) lines.push(`نرخ CTR‏: ${t.impressions > 0 ? msgPct(t.clicks / t.impressions * 100) : '—'}`);
   if(has.sessions) lines.push(`تعداد سشن: ${msgNum(t.sessions)}`);
+  if(has.sessions && has.sessionCost) lines.push(`هزینه به ازای سشن: ${t.sessions > 0 ? msgNum(t.cost / t.sessions) : '—'}`);
   if(has.sessions && has.clicks) lines.push(`نرخ STC‏: ${t.clicks > 0 ? msgPct(t.sessions / t.clicks * 100) : '—'}`);
   if(has.installs){
     lines.push(`تعداد نصب: ${msgNum(t.installs)}`);
     lines.push(`هزینه به ازای نصب: ${t.installs > 0 ? msgNum(t.cost / t.installs) : '—'}`);
   }
   if(has.action){
-    lines.push(`تعداد اکشن مدنظر: ${msgNum(t.action)}`);
-    lines.push(`هزینه به ازای اکشن مدنظر: ${t.action > 0 ? msgNum(t.cost / t.action) : '—'}`);
+    lines.push(`تعداد ${has.actionLabel}: ${msgNum(t.action)}`);
+    lines.push(`هزینه به ازای ${has.actionLabel}: ${t.action > 0 ? msgNum(t.cost / t.action) : '—'}`);
   }
   return lines;
 }
@@ -4726,7 +4735,7 @@ function buildClientMessage(project){
     const now = messageTotals(rows), before = messageTotals(messageRows(project, prevWin));
     const key = has.action ? 'action' : has.sessions ? 'sessions' : has.installs ? 'installs' : null;
     if(key && (before.cost > 0 || before[key] > 0)){
-      const name = key === 'action' ? 'اکشن' : key === 'sessions' ? 'سشن' : 'نصب';
+      const name = key === 'action' ? has.actionShort : key === 'sessions' ? 'سشن' : 'نصب';
       const when = days === 7 ? 'در هفته‌ی گذشته نسبت به هفته‌ی قبلش'
                  : days === 1 ? 'دیروز نسبت به روز قبلش'
                  : `در این ${faDigits(days)} روز نسبت به ${faDigits(days)} روز قبلش`;
