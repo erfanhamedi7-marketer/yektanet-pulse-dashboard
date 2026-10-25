@@ -727,6 +727,18 @@
     .dot.loading{animation:none;}
     #hintPop{transform:none;}
   }
+
+  /* Client message: the weekly report text, ready to copy into a chat. */
+  .client-msg-card .card-head{margin-bottom:10px;align-items:center;}
+  .client-msg-copy{font-weight:700;background:var(--surface);}
+  .client-msg-copy.copied{background:var(--positive-soft);border-color:var(--positive);color:var(--positive);}
+  .client-msg{
+    width:100%;min-height:280px;resize:vertical;display:block;
+    font:inherit;font-size:14px;line-height:1.95;color:var(--text);
+    background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-xs);
+    padding:14px 16px;
+  }
+  .client-msg:focus{outline:2px solid var(--accent-ink);outline-offset:1px;background:var(--surface);}
 </style>
 </head>
 <body>
@@ -1354,8 +1366,9 @@ const ALL_PROJECTS = [
     installsCol: 'Installs',
     adgroupCol: 'Adgroup',
     creativeCol: 'Creative',
-    impressionsCol: 'Impression',
-    clicksCol: 'Click',
+    // Cost - Yektanet spells them in the plural.
+    impressionsCol: 'Impressions',
+    clicksCol: 'Clicks',
     ownDateFilter: true,
     defaultRangeDays: 30,
     // The overview is the app campaigns plus the web campaigns — cost included —
@@ -1383,8 +1396,8 @@ const ALL_PROJECTS = [
     installsCol: 'Installs',
     adgroupCol: 'Adgroup',
     creativeCol: 'Creative',
-    impressionsCol: 'Impression',
-    clicksCol: 'Click',
+    impressionsCol: 'Impressions',
+    clicksCol: 'Clicks',
     // Adtrace decides what this page is about: cost joins onto the days and
     // campaigns it reports, and nothing else. That is what keeps the web
     // campaigns' spend off an install page without having to guess at the
@@ -1410,8 +1423,8 @@ const ALL_PROJECTS = [
     installsCol: 'Sessions',
     // No Adgroup/Creative breakdown for the web sheets.
     hideSegmentAnalysis: true,
-    impressionsCol: 'Impression',
-    clicksCol: 'Click',
+    impressionsCol: 'Impressions',
+    clicksCol: 'Clicks',
     // A day can carry cost with no conversion row, or a conversion row with no
     // cost — both are real and both belong on the page, so the join keeps
     // either side alone rather than only the days that matched.
@@ -1447,8 +1460,8 @@ const ALL_PROJECTS = [
     showInstalls: false,
     installsCol: 'Sessions',
     hideSegmentAnalysis: true,
-    impressionsCol: 'Impression',
-    clicksCol: 'Click',
+    impressionsCol: 'Impressions',
+    clicksCol: 'Clicks',
     // A day can carry cost with no conversion row, or a conversion row with no
     // cost — both are real and both belong on the page, so the join keeps
     // either side alone rather than only the days that matched.
@@ -1473,8 +1486,8 @@ const ALL_PROJECTS = [
     showInstalls: false,
     installsCol: 'Sessions',
     hideSegmentAnalysis: true,
-    impressionsCol: 'Impression',
-    clicksCol: 'Click',
+    impressionsCol: 'Impressions',
+    clicksCol: 'Clicks',
     // CPA deals are billed on KYC days that may have no Verified row, so
     // both sides of the join stay.
     includeUnmatchedCost: true,
@@ -1568,8 +1581,9 @@ const ALL_PROJECTS = [
     installsCol: 'Installs',
     adgroupCol: 'Adgroup',
     creativeCol: 'Creative',
-    impressionsCol: 'Impression',
-    clicksCol: 'Click',
+    // Its Yektanet tab spells them in the plural, like Blu's.
+    impressionsCol: 'Impressions',
+    clicksCol: 'Clicks',
     ownDateFilter: true,
     defaultRangeDays: 30,
     theme: BRANDS.blueJr
@@ -1623,6 +1637,8 @@ const ALL_PROJECTS = [
     // Ad clicks are left out on purpose (Erfan, 25 Oct): only the CTA clicks
     // GA4 counts on the landing, as a count and a cost per CTA click.
     costPerMetrics: [{col:'CTA Click', label:'CTA Click', campaignTable:true, countCard:true, noRate:true}],
+    // The client message leaves ad clicks out too (and so CTR and STC).
+    messageHide: ['clicks'],
     // A campaign day with spend but no GA4 row still counts, but a campaign
     // with no GA4 session at all in the range is hidden (Erfan, 19 Oct).
     includeUnmatchedCost: true,
@@ -1683,6 +1699,9 @@ function normalizeCostRows(rows, impressionsCol, clicksCol, diag, extraCols){
     // Cell had something in it but we read 0 — an unsupported number format.
     if(diag && rawCost && !/^[0-]*$/.test(latinizeDigits(rawCost).replace(/\D/g,'')||'0') && cost===0) diag.unreadableCost++;
     return {date, campaign, campaignLabel: cellText(r['Campaign']),
+            // Only some Yektanet exports carry it (پویا - هدفمند, اپلیکیشن - کلیکی…);
+            // the client message groups campaigns by it.
+            type: cellText(r['Campaign Type']),
             cost, impressions: toNumber(r[impressionsCol]), clicks: toNumber(r[clicksCol]),
             extras: (extraCols||[]).reduce((acc,col)=>{ acc[col] = toNumber(r[col]); return acc; }, {})};
   }).filter(Boolean);
@@ -1905,6 +1924,8 @@ function buildJoinedRows(refMap, costMap, includeUnmatchedCost){
       extras: base ? base.extras : {},
       // Further columns read from the cost sheet itself (KYC on Talaeen's).
       costExtras: costRow ? costRow.extras : {},
+      impressions: costRow ? costRow.impressions : 0,
+      clicks: costRow ? costRow.clicks : 0,
       cost, cpa: conversion>0 ? (cost/conversion) : null
     });
   });
@@ -2758,6 +2779,16 @@ function renderSectionsShell(){
         <div class="deep-subhead">کدوم کمپین‌ها بیشترین تاثیر رو روی اختلاف کلی دارن؟</div>
         <div id="sessionGaps-${p.id}"></div>
       </div>` : ''}
+      <div class="card client-msg-card">
+        <div class="card-head">
+          <div>
+            <h2>متن گزارش برای مشتری</h2>
+            <div class="card-sub">از بازه و فیلترهای همین بخش ساخته می‌شه و با هر تغییر فیلتر از نو نوشته می‌شه. خطی که این کسب‌وکار دیتاش رو نداره نمیاد. قبل از کپی می‌شه دستی ویرایشش کرد.</div>
+          </div>
+          <button type="button" class="preset-btn client-msg-copy" data-project="${p.id}">کپی متن</button>
+        </div>
+        <textarea class="client-msg" id="clientMsg-${p.id}" rows="14" dir="rtl" spellcheck="false" aria-label="متن گزارش برای مشتری"></textarea>
+      </div>
     </div>
   `).join('');
 
@@ -3043,23 +3074,27 @@ function flashCopied(btn){
   btn.classList.add('copied');
   setTimeout(()=>btn.classList.remove('copied'), 1200);
 }
+async function copyText(text){
+  if(navigator.clipboard && window.isSecureContext){
+    try{ await navigator.clipboard.writeText(text); return; }
+    catch(e){ /* refused (page not focused, permissions) — the old way below */ }
+  }
+  // Older browsers, and the async clipboard saying no.
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;top:-1000px;opacity:0;';
+  document.body.appendChild(ta);
+  ta.select();
+  const ok = document.execCommand('copy');
+  ta.remove();
+  if(!ok) throw new Error('copy refused');
+}
 document.addEventListener('click', async (e)=>{
   const btn = e.target.closest('.copy-name');
   if(!btn) return;
   const text = btn.getAttribute('data-copy') || '';
   try{
-    if(navigator.clipboard && window.isSecureContext){
-      await navigator.clipboard.writeText(text);
-    } else {
-      // http://localhost and older browsers don't get the async clipboard
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.cssText = 'position:fixed;top:-1000px;opacity:0;';
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      ta.remove();
-    }
+    await copyText(text);
     flashCopied(btn);
   }catch(err){
     console.error('copy failed', err);
@@ -4523,12 +4558,204 @@ function updateSection(project){
     if(el) el.innerHTML = 'نمایش این بخش با خطا مواجه شد: ' + escapeHtml(e.message || 'خطای نامشخص');
   }
 }
+// ---------- Client message (weekly report text) ----------
+// The text Erfan sends a client each week, in his own template: a greeting
+// with the range, the totals, the same per campaign type, and a closing line
+// comparing the target action with the stretch before. Each business reports
+// only what its sheets have: a line whose data the business doesn't carry is
+// left out rather than shown as zero.
+const FA_DIGITS = '۰۱۲۳۴۵۶۷۸۹';
+const faDigits = s => String(s).replace(/\d/g, d => FA_DIGITS[d]);
+const msgNum = n => faDigits(fmtNum(Math.round(n)));
+const msgPct = n => faDigits(fmtNum(n, n < 1 ? 2 : 1)) + '٪';
+const fmtJalaliDay = (()=>{
+  let f = null;
+  return yyyymmdd => {
+    try{
+      f = f || new Intl.DateTimeFormat('fa-IR-u-ca-persian', {day:'numeric', month:'long'});
+      return f.format(new Date(toInputDate(yyyymmdd) + 'T12:00:00'));
+    }catch(e){ return faDigits(fmtDateLabel(yyyymmdd)); }
+  };
+})();
+
+// What each figure is read from, for this business. Sessions are the main
+// conversion for Agah, the "installs" column where a dashboard labels Sessions
+// that way (Shahr, Firouzeh, Tara, Technopay); installs are a real install
+// count elsewhere. The target action is the main conversion — except where
+// the main conversion is sessions or installs, where it is the first further
+// conversion the section prices (Agah: CTA Click, Ramzarz: Signup).
+function messageSpec(project){
+  const isSessions = c => /^sessions?$/i.test(String(c || ''));
+  const further = (project.costPerMetrics || [])[0];
+  const convIsSessions = isSessions(project.conversionCol);
+  const convIsInstalls = project.kind === 'cpi';
+  const installsAreSessions = isSessions(project.installsCol);
+  const spec = {
+    sessions: convIsSessions ? r => r.conversion : installsAreSessions ? r => r.installs : null,
+    installs: convIsInstalls ? r => r.conversion : (project.installsCol && !installsAreSessions) ? r => r.installs : null,
+    action: (convIsSessions || convIsInstalls)
+      ? (further ? r => (r.extras && r.extras[further.col]) || 0 : null)
+      : r => r.conversion,
+    hide: project.messageHide || []
+  };
+  return spec;
+}
+// Rows for the message: one per campaign-day, with every figure it can carry.
+function messageRows(project, window){
+  if(project.kind === 'budget'){
+    const {from, to} = window || sectionRange(project);
+    const inRange = d => (!from || d >= from) && (!to || d <= to);
+    const inName = budgetNameFilter(project), inCampaign = budgetCampaignFilter(project);
+    return (project.rawBlend || []).filter(r => inRange(r.date) && inName(r.campaignName) && inCampaign(r.campaign))
+      .map(r => ({campaign: r.campaign, cost: r.cost, impressions: r.impressions, clicks: r.clicks,
+                  sessions: r.sessions, installs: 0, action: 0}));
+  }
+  const spec = messageSpec(project);
+  return computeSection(project, window).joined.map(r => ({
+    campaign: r.campaign, cost: r.cost, impressions: r.impressions || 0, clicks: r.clicks || 0,
+    sessions: spec.sessions ? spec.sessions(r) : 0,
+    installs: spec.installs ? spec.installs(r) : 0,
+    action: spec.action ? spec.action(r) : 0
+  }));
+}
+// Which lines this business has at all — judged on everything it has ever
+// loaded, so a quiet week shows a 0 rather than dropping the line.
+function messageFields(project){
+  const spec = project.kind === 'budget' ? null : messageSpec(project);
+  const any = (rows, f) => (rows || []).some(r => f(r) > 0);
+  const cost = project.kind === 'budget' ? project.rawBlend : project.rawCost;
+  const ref = project.allRef || project.rawRef;
+  const hide = new Set(spec ? spec.hide : []);
+  const has = {
+    impressions: !hide.has('impressions') && any(cost, r => r.impressions),
+    clicks: !hide.has('clicks') && any(cost, r => r.clicks),
+    sessions: project.kind === 'budget' ? any(cost, r => r.sessions) : !!(spec.sessions && any(ref, spec.sessions)),
+    installs: !!(spec && spec.installs && any(ref, spec.installs)),
+    action: !!(spec && spec.action && any(ref, spec.action))
+  };
+  return has;
+}
+function messageTotals(rows){
+  return rows.reduce((t, r) => {
+    ['cost', 'impressions', 'clicks', 'sessions', 'installs', 'action'].forEach(k => { t[k] += r[k] || 0; });
+    return t;
+  }, {cost:0, impressions:0, clicks:0, sessions:0, installs:0, action:0});
+}
+function messageLines(t, has){
+  const lines = [`هزینه: ${msgNum(t.cost)}`];
+  if(has.impressions) lines.push(`نمایش: ${msgNum(t.impressions)}`);
+  if(has.clicks) lines.push(`کلیک: ${msgNum(t.clicks)}`);
+  // The right-to-left mark after CTR / STC keeps the Latin word from pulling
+  // the figure after it into left-to-right order ("نرخ ٪CTR: ۰.۳۱").
+  if(has.impressions && has.clicks) lines.push(`نرخ CTR‏: ${t.impressions > 0 ? msgPct(t.clicks / t.impressions * 100) : '—'}`);
+  if(has.sessions) lines.push(`تعداد سشن: ${msgNum(t.sessions)}`);
+  if(has.sessions && has.clicks) lines.push(`نرخ STC‏: ${t.clicks > 0 ? msgPct(t.sessions / t.clicks * 100) : '—'}`);
+  if(has.installs){
+    lines.push(`تعداد نصب: ${msgNum(t.installs)}`);
+    lines.push(`هزینه به ازای نصب: ${t.installs > 0 ? msgNum(t.cost / t.installs) : '—'}`);
+  }
+  if(has.action){
+    lines.push(`تعداد اکشن مدنظر: ${msgNum(t.action)}`);
+    lines.push(`هزینه به ازای اکشن مدنظر: ${t.action > 0 ? msgNum(t.cost / t.action) : '—'}`);
+  }
+  return lines;
+}
+// Yektanet's campaign types folded into the groups the client knows.
+function campaignTypeGroup(type){
+  const t = String(type || '');
+  if(!t) return null;
+  if(/اپلیکیشن/.test(t)) return 'درون‌اپلیکیشنی';
+  if(/پویا|native/i.test(t)) return 'پویا';
+  if(/همسان/.test(t)) return 'همسان';
+  if(/ویدیو/.test(t)) return 'ویدیویی';
+  if(/پوش/.test(t)) return 'پوش';
+  if(/پیامک/.test(t)) return 'پیامکی';
+  if(/روبیکا/.test(t)) return 'پیام روبیکا';
+  if(/bnr|بنر/i.test(t)) return 'بنری';
+  return t;
+}
+function campaignTypes(project){
+  if(project._typeByCampaign) return project._typeByCampaign;
+  const map = {};
+  (project.rawCost || []).forEach(r => { if(r.type) map[r.campaign] = r.type; });
+  return (project._typeByCampaign = map);
+}
+function buildClientMessage(project){
+  const {from, to} = sectionRange(project);
+  const rows = messageRows(project);
+  if(!rows.length) return 'توی این بازه دیتایی نیست.';
+  const f = from || project.minDate, t = to || project.maxDate;
+  const prevWin = previousWindow(project);
+  const days = prevWin ? prevWin.days : 0;
+  const has = messageFields(project);
+  const out = [
+    'سلام وقتتون بخیر',
+    days === 7 ? 'گزارش هفته پیش خدمت شما' : days === 1 ? 'گزارش دیروز خدمت شما' : 'گزارش این بازه خدمت شما',
+    days === 1 ? `(${fmtJalaliDay(f)})` : `(${fmtJalaliDay(f)} تا ${fmtJalaliDay(t)})`,
+    '',
+    'مجموع',
+    ...messageLines(messageTotals(rows), has)
+  ];
+
+  // Per campaign type, where the sheet says which type each campaign is and
+  // the range has more than one of them.
+  const types = campaignTypes(project);
+  const byGroup = {};
+  rows.forEach(r => {
+    const g = campaignTypeGroup(types[r.campaign]);
+    if(g) (byGroup[g] = byGroup[g] || []).push(r);
+  });
+  const groups = Object.entries(byGroup).map(([name, list]) => ({name, t: messageTotals(list)}))
+    .filter(g => g.t.cost > 0 || g.t.action > 0 || g.t.sessions > 0)
+    .sort((a, b) => b.t.cost - a.t.cost);
+  if(groups.length > 1){
+    groups.forEach(g => out.push('', `کمپین‌های ${g.name}:`, ...messageLines(g.t, has)));
+  }
+
+  // The closing comparison with the same number of days right before.
+  if(prevWin){
+    const now = messageTotals(rows), before = messageTotals(messageRows(project, prevWin));
+    const key = has.action ? 'action' : has.sessions ? 'sessions' : has.installs ? 'installs' : null;
+    if(key && (before.cost > 0 || before[key] > 0)){
+      const name = key === 'action' ? 'اکشن' : key === 'sessions' ? 'سشن' : 'نصب';
+      const when = days === 7 ? 'در هفته‌ی گذشته نسبت به هفته‌ی قبلش'
+                 : days === 1 ? 'دیروز نسبت به روز قبلش'
+                 : `در این ${faDigits(days)} روز نسبت به ${faDigits(days)} روز قبلش`;
+      // A cost per is only worth saying when both stretches actually spent.
+      const per = x => x[key] > 0 && x.cost > 0 ? msgNum(x.cost / x[key]) : null;
+      let s = `${when} تعداد ${name} از ${msgNum(before[key])} به ${msgNum(now[key])} رسید`;
+      if(per(before) && per(now)) s += ` و هزینه به ازای ${name} هم از ${per(before)} به ${per(now)} رسید`;
+      out.push('', s + '.');
+    }
+  }
+  return out.join('\n');
+}
+function renderClientMessage(project){
+  const el = document.getElementById(`clientMsg-${project.id}`);
+  if(!el || project.error) return;
+  try{ el.value = buildClientMessage(project); }
+  catch(e){ console.error('client message failed:', project.id, e); el.value = ''; }
+}
+document.addEventListener('click', async e => {
+  const btn = e.target.closest('.client-msg-copy');
+  if(!btn) return;
+  const el = document.getElementById(`clientMsg-${btn.dataset.project}`);
+  if(!el) return;
+  try{
+    await copyText(el.value);
+    btn.textContent = 'کپی شد ✓';
+    btn.classList.add('copied');
+    setTimeout(()=>{ btn.textContent = 'کپی متن'; btn.classList.remove('copied'); }, 1400);
+  }catch(err){ console.error('copy failed', err); }
+});
+
 function drawSection(project){
   // Every filter change lands here, so the filter lists catch up with it too.
   if(projectState[project.id]){ renderCampaignDropdown(project); renderSegChips(project); }
-  if(project.kind === 'budget') return updateBudgetSection(project);
-  if(project.kind === 'cpi') return updateCpiSection(project);
+  if(project.kind === 'budget'){ updateBudgetSection(project); return renderClientMessage(project); }
+  if(project.kind === 'cpi'){ updateCpiSection(project); return renderClientMessage(project); }
   if(project.error) return;
+  renderClientMessage(project);
   const {joined, matchedCost, totalCostInSheet} = computeSection(project);
   const totalCost = joined.reduce((s,r)=>s+r.cost,0);
   const totalConversion = joined.reduce((s,r)=>s+r.conversion,0);
