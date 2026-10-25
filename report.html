@@ -730,8 +730,8 @@
 
   /* ---------- Client report: notes box + export ---------- */
   .report-card .card-head{margin-bottom:10px;}
-  .report-actions{display:flex;gap:8px;flex-wrap:wrap;}
-  .report-actions .preset-btn{font-weight:700;}
+  .report-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  .report-actions .preset-btn{font-weight:700;background:var(--surface);}
   .report-actions .preset-btn[disabled]{opacity:.6;cursor:progress;}
   .report-notes{
     width:100%;min-height:96px;resize:vertical;display:block;
@@ -741,15 +741,22 @@
   }
   .report-notes:focus{outline:2px solid var(--accent-ink);outline-offset:1px;background:var(--surface);}
 
-  /* The exported document. It carries this whole stylesheet, so its cards and
-     legends look exactly like the dashboard's; these rules lay out the pages. */
-  body.report-doc{background:#FFFFFF;margin:0;padding:24px 16px;}
-  body.report-doc::before, body.report-doc::after{display:none;}
-  .r-page{max-width:900px;margin:0 auto 28px;}
+  /* The exported document is the open section itself, with this whole
+     stylesheet, so it looks exactly like the dashboard. These rules only add
+     the cover in front, the notes at the end, and what a static page needs:
+     whole tables instead of scroll boxes, charts as pictures, plain names. */
+  .report-doc .r-chart-img{display:block;width:100%;height:100%;object-fit:contain;}
+  .report-doc .cpa-table-wrap{max-height:none;overflow-y:visible;overflow-x:auto;}
+  .report-doc .cpa-table thead th{position:static;}
+  .report-doc .filter-name{border-bottom:none;cursor:default;}
+  .report-doc .kpi.pickable{cursor:default;}
+  .report-doc .kpi:hover, .report-doc .card:hover{transform:none;}
+  .r-notes-body p{margin:0 0 8px;font-size:14px;line-height:2;color:var(--text);}
+  .r-notes-body p:last-child{margin-bottom:0;}
   .r-cover{
-    min-height:88vh;display:flex;flex-direction:column;align-items:center;justify-content:center;
-    text-align:center;gap:14px;border:1px solid var(--border);border-radius:var(--radius);
-    padding:48px 24px;position:relative;overflow:hidden;background:#FFFFFF;
+    min-height:80vh;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;gap:14px;margin-bottom:22px;
+    padding:48px 24px;position:relative;overflow:hidden;
   }
   .r-cover-band{position:absolute;inset:0 0 auto 0;height:10px;background:var(--accent-grad);}
   .r-logo{max-width:180px;max-height:120px;object-fit:contain;border-radius:20px;}
@@ -759,31 +766,28 @@
   .r-greg{font-family:var(--font-mono);font-size:14px;font-weight:500;color:var(--text-muted);}
   .r-filters{font-size:13px;color:var(--text-muted);max-width:60ch;line-height:1.8;}
   .r-made{font-size:12px;color:var(--text-faint);margin-top:18px;}
-  .r-h{font-size:18px;font-weight:800;margin:0 0 12px;color:var(--text);}
-  .r-notes{border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px 18px;margin-bottom:22px;background:var(--surface-2);}
-  .r-notes p{margin:0 0 8px;font-size:14px;line-height:2;}
-  .r-notes p:last-child{margin-bottom:0;}
-  .report-doc .r-kpis{grid-template-columns:repeat(var(--cols),minmax(0,1fr)) !important;margin-bottom:22px;}
-  .report-doc .kpi{min-height:0;box-shadow:none;}
-  .report-doc .kpi:hover, .report-doc .card:hover{transform:none;box-shadow:none;}
-  .report-doc .kpi .value{font-size:24px;}
-  .report-doc .spark{opacity:1;}
-  .r-chart{border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px 18px;margin-bottom:18px;break-inside:avoid;}
-  .r-chart .card-head{margin-bottom:10px;}
-  .r-chart img{display:block;width:100%;height:auto;}
-  .r-chart .kpis{margin-bottom:12px;}
   @media screen and (max-width:640px){
-    .report-doc .r-kpis{grid-template-columns:repeat(2,minmax(0,1fr)) !important;}
     .r-title{font-size:28px;}
     .r-cover{min-height:70vh;}
   }
+  /* PDF: A4 landscape is 1062px wide inside its margins — wide enough that
+     the page keeps the desktop layout (the phone and tablet rules start at
+     900px), so the PDF looks like the dashboard rather than its mobile form. */
   @media print{
-    @page{size:A4;margin:12mm;}
-    html, body.report-doc{background:#FFFFFF;}
-    body.report-doc{padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
-    .r-page{max-width:none;margin:0;}
-    .r-cover{min-height:0;height:265mm;border:none;border-radius:0;break-after:page;}
-    .report-doc .kpi{break-inside:avoid;}
+    @page{size:A4 landscape;margin:8mm;}
+    html, body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+    .report-doc .wrap{max-width:none;padding:0;}
+    .r-cover{min-height:0;height:185mm;margin:0;break-after:page;}
+    .report-doc .kpis, .report-doc .kpi, .report-doc .section-head{break-inside:avoid;}
+    .report-doc .card{break-inside:avoid;}
+    .report-doc .card.soft, .report-doc .card.r-long{break-inside:auto;}
+    .report-doc .cpa-table tr{break-inside:avoid;}
+    /* Paper can't scroll sideways: wide tables wrap their headers and get a
+       smaller type so every column is on the page. */
+    .report-doc .cpa-table-wrap{overflow:visible;}
+    .report-doc .cpa-table{font-size:10px;width:100%;}
+    .report-doc .cpa-table th, .report-doc .cpa-table td{white-space:normal;padding:6px 5px;}
+    .report-doc .cpa-table th{font-size:9.5px;}
   }
 </style>
 </head>
@@ -2691,6 +2695,10 @@ function renderSectionsShell(){
             <button type="button" class="ms-toggle" id="msToggle${slot.suffix}-${p.id}" aria-haspopup="true" aria-expanded="false" aria-controls="msPanel${slot.suffix}-${p.id}">${escapeHtml(slot.allLabel)} ▾</button>
             <div class="ms-panel" id="msPanel${slot.suffix}-${p.id}" hidden></div>
           </div>`).join('')}
+          <div class="report-actions">
+            <button type="button" class="preset-btn" data-export="pdf" data-project="${p.id}">خروجی PDF</button>
+            <button type="button" class="preset-btn" data-export="html" data-project="${p.id}">خروجی HTML</button>
+          </div>
         </div>
       </div>
       ${p.ownDateFilter ? `
@@ -2711,19 +2719,6 @@ function renderSectionsShell(){
           <button class="preset-btn active" id="ownPreset30-${p.id}">۳۰ روز اخیر</button>
         </div>
       </div>` : ''}
-      <div class="card report-card">
-        <div class="card-head">
-          <div>
-            <h2>توضیحات گزارش</h2>
-            <div class="card-sub">این متن تو خروجی بالای کارت‌ها میاد. خروجی بازه و فیلتر کمپینی که الان انتخاب شده و متریک‌های روی نمودار رو برمی‌داره. متن روی همین مرورگر ذخیره می‌شه.</div>
-          </div>
-          <div class="report-actions">
-            <button type="button" class="preset-btn" data-export="pdf" data-project="${p.id}">خروجی PDF</button>
-            <button type="button" class="preset-btn" data-export="html" data-project="${p.id}">خروجی HTML</button>
-          </div>
-        </div>
-        <textarea class="report-notes" id="reportNotes-${p.id}" rows="4" placeholder="خلاصه‌ی عملکرد این هفته، نکته‌ها و برنامه‌ی هفته‌ی بعد…" aria-label="توضیحات گزارش"></textarea>
-      </div>
       <div class="coverage-note" id="coverageNote-${p.id}"></div>
       <div class="seg-chips" id="segChips-${p.id}" hidden></div>
       <div class="kpis" id="kpis-${p.id}"></div>
@@ -2829,6 +2824,15 @@ function renderSectionsShell(){
         <div class="deep-subhead">کدوم کمپین‌ها بیشترین تاثیر رو روی اختلاف کلی دارن؟</div>
         <div id="sessionGaps-${p.id}"></div>
       </div>` : ''}
+      <div class="card report-card">
+        <div class="card-head">
+          <div>
+            <h2>توضیحات</h2>
+            <div class="card-sub">این متن ته خروجی PDF و HTML میاد. خروجی همین صفحه‌ست با همین بازه و فیلترها. متن روی همین مرورگر ذخیره می‌شه.</div>
+          </div>
+        </div>
+        <textarea class="report-notes" id="reportNotes-${p.id}" rows="4" placeholder="خلاصه‌ی عملکرد این هفته، نکته‌ها و برنامه‌ی هفته‌ی بعد…" aria-label="توضیحات گزارش"></textarea>
+      </div>
     </div>
   `).join('');
 
@@ -5125,20 +5129,46 @@ function chartImage(chart){
   return c.toDataURL('image/png');
 }
 
-// The cards as they are on screen, minus what only makes sense on screen
-// (picking a metric for the chart), and with the full figures.
-function reportKpis(el){
-  const clone = el.cloneNode(true);
-  clone.removeAttribute('id');
-  clone.removeAttribute('style');
-  clone.querySelectorAll('.kpi').forEach(k=>{
-    k.classList.remove('pickable', 'picked');
-    ['role', 'tabindex', 'title', 'aria-pressed', 'data-metric', 'style'].forEach(a=>k.removeAttribute(a));
+// The export is the open section exactly as it is on screen — same cards,
+// charts, tables and colours — with a cover page in front and the notes as a
+// last card. Only what cannot work in a static file is taken out: filters and
+// buttons, the "?" hints, folded cards and the notes box itself.
+function reportSectionHtml(sec, notes){
+  const shots = {};
+  sec.querySelectorAll('canvas').forEach(c=>{
+    const chart = c.offsetParent && Chart.getChart(c);
+    if(chart) shots[c.id] = chartImage(chart);
   });
-  clone.querySelectorAll('.value').forEach(v=>v.classList.remove('short', 'tight'));
-  const n = clone.querySelectorAll('.kpi').length;
-  clone.style.setProperty('--cols', n === 4 ? 2 : Math.min(3, Math.max(1, n)));
-  clone.classList.add('r-kpis');
+  const clone = sec.cloneNode(true);
+  clone.removeAttribute('id');
+  clone.style.display = '';
+  clone.querySelectorAll('canvas').forEach(c=>{
+    if(!shots[c.id]){ c.remove(); return; }
+    const img = document.createElement('img');
+    img.className = 'r-chart-img';
+    img.src = shots[c.id];
+    img.alt = c.getAttribute('aria-label') || '';
+    c.replaceWith(img);
+  });
+  // Campaign / Adgroup names are filter buttons on screen; here they are text.
+  clone.querySelectorAll('button.filter-name').forEach(b=>{
+    const s = document.createElement('span');
+    s.className = b.className;
+    s.textContent = b.textContent;
+    b.replaceWith(s);
+  });
+  clone.querySelectorAll('.section-controls, .section-filter-bar, .report-card, .card.collapsed, .hint, button, input, textarea')
+    .forEach(e=>e.remove());
+  clone.querySelectorAll('[role="button"], [tabindex]').forEach(e=>{ e.removeAttribute('role'); e.removeAttribute('tabindex'); });
+  clone.querySelectorAll('[id]').forEach(e=>e.removeAttribute('id'));
+  if(notes){
+    clone.insertAdjacentHTML('beforeend', `
+      <div class="card">
+        <div class="card-head"><div><h2>توضیحات</h2></div></div>
+        <div class="r-notes-body">${notes.split(/\n\s*\n/)
+          .map(p=>`<p>${escapeHtml(p.trim()).replace(/\n/g, '<br>')}</p>`).join('')}</div>
+      </div>`);
+  }
   return clone.outerHTML;
 }
 
@@ -5150,33 +5180,15 @@ async function buildReportHtml(project){
   const notes = loadNotes(project.id).trim();
   const filters = [...sec.querySelectorAll('.section-controls .ms-toggle')]
     .map(b=>b.textContent.replace('▾', '').trim()).filter(t=>t && !/^همه/.test(t));
-  const kpiEl = document.getElementById(`kpis-${project.id}`);
-  const charts = [...sec.querySelectorAll('.card')].map(card=>{
-    const canvas = card.querySelector('canvas');
-    const chart = canvas && card.offsetParent && Chart.getChart(canvas);
-    if(!chart) return '';
-    // The heading without its "?" help button.
-    const h2 = card.querySelector('.card-head h2');
-    const heading = h2 ? (()=>{ const c = h2.cloneNode(true); c.querySelectorAll('.hint').forEach(x=>x.remove()); return c.textContent.trim(); })() : '';
-    const legend = card.querySelector('.legend-dots');
-    const inner = card.querySelector('.kpis');
-    return `
-      <div class="r-chart">
-        <div class="card-head">
-          <h2 class="r-h" style="margin:0">${escapeHtml(heading)}</h2>
-          ${legend ? legend.outerHTML.replace(/\sid="[^"]*"/, '') : ''}
-        </div>
-        ${inner && inner.children.length ? reportKpis(inner) : ''}
-        <img src="${chartImage(chart)}" alt="${escapeHtml(heading || 'نمودار')}">
-      </div>`;
-  }).join('');
+  const body = reportSectionHtml(sec, notes);
   const css = document.querySelector('head style').textContent;
+  const rootStyle = document.documentElement.getAttribute('style') || '';
   const title = `گزارش ${project.title} — ${fmtJalali(from)} تا ${fmtJalali(to)}`;
   return {
     title,
     file: `${project.id}-report-${from}-${to}`,
     html: `<!DOCTYPE html>
-<html lang="fa" dir="rtl">
+<html lang="fa" dir="rtl" style="${escapeHtml(rootStyle)}">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -5186,8 +5198,8 @@ async function buildReportHtml(project){
 <style>${css}</style>
 </head>
 <body class="report-doc">
-<div style="${sectionThemeStyle(project)}">
-  <section class="r-page r-cover">
+<div class="wrap">
+  <section class="card r-cover" style="${sectionThemeStyle(project)}">
     <div class="r-cover-band"></div>
     ${logo ? `<img class="r-logo" src="${logo}" alt="${escapeHtml(project.title)}">` : ''}
     <div class="r-kicker">گزارش عملکرد کمپین‌ها</div>
@@ -5199,14 +5211,16 @@ async function buildReportHtml(project){
     ${filters.length ? `<div class="r-filters">${filters.map(escapeHtml).join(' · ')}</div>` : ''}
     <div class="r-made">تاریخ تهیه: ${fmtJalali(fromInputDate(localIso(new Date())))}</div>
   </section>
-  <section class="r-page">
-    ${notes ? `<div class="r-notes"><h2 class="r-h">توضیحات</h2>${
-      notes.split(/\n\s*\n/).map(p=>`<p>${escapeHtml(p.trim()).replace(/\n/g, '<br>')}</p>`).join('')}</div>` : ''}
-    <h2 class="r-h">شاخص‌های اصلی</h2>
-    ${kpiEl ? reportKpis(kpiEl) : ''}
-    ${charts}
-  </section>
+  ${body}
 </div>
+<script>
+// Each figure shows in full, or short (447.2M) when its card is too narrow —
+// sized again for whatever window or page this file is opened in.
+${fitKpiValues.toString()}
+addEventListener('load', ()=>fitKpiValues());
+addEventListener('resize', ()=>fitKpiValues());
+addEventListener('beforeprint', ()=>fitKpiValues());
+<\/script>
 </body>
 </html>`
   };
@@ -5224,7 +5238,8 @@ function downloadReportHtml(r){
 function printReport(r){
   const f = document.createElement('iframe');
   f.setAttribute('aria-hidden', 'true');
-  f.style.cssText = 'position:fixed;left:-10000px;top:0;width:800px;height:1100px;border:0;';
+  // As wide as the printed page (A4 landscape), so the figures are sized for it.
+  f.style.cssText = 'position:fixed;left:-10000px;top:0;width:1062px;height:750px;border:0;';
   document.body.appendChild(f);
   f.onload = async ()=>{
     const w = f.contentWindow;
