@@ -1605,7 +1605,7 @@ const ALL_PROJECTS = [
     id: 'agah',
     title: 'آگاه',
     tabTitle: 'آگاه',
-    subtitle: 'GA4 - Export (Sessions، کمپین = Ad Term) × Yektanet - Export (هزینه و کلیک) — STC و هزینه به ازای سشن به تفکیک کمپین',
+    subtitle: 'GA4 - Export (Sessions و CTA Click، کمپین = Ad Term) × Yektanet - Export (هزینه و کلیک) — STC، هزینه به ازای سشن و CTA Click به تفکیک کمپین',
     logo: '/agah-logo.png',
     spreadsheetId: '1oG7M3zng4jG57tbKwGyUbfsNGFb_Vu-QQT_-_KBVSck',
     // Yektanet reports no sessions, so GA4's sessions are the conversion and
@@ -1622,6 +1622,9 @@ const ALL_PROJECTS = [
     impressionsCol: 'Impression',
     clicksCol: 'Click',
     costExtraCols: [{col:'Click', label:'Click', convRate:'STC'}],
+    // GA4 also counts CTA clicks on the landing: card + per-campaign count,
+    // rate (CTA Click ÷ Sessions) and cost per CTA click.
+    costPerMetrics: [{col:'CTA Click', label:'CTA Click', campaignTable:true}],
     // A campaign day with spend but no GA4 row still counts, but a campaign
     // with no GA4 session at all in the range is hidden (Erfan, 19 Oct).
     includeUnmatchedCost: true,
