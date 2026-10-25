@@ -733,11 +733,12 @@
   .client-msg-copy{font-weight:700;background:var(--surface);}
   .client-msg-copy.copied{background:var(--positive-soft);border-color:var(--positive);color:var(--positive);}
   .client-msg{
-    width:100%;min-height:280px;resize:vertical;display:block;
-    font:inherit;font-size:14px;line-height:1.95;color:var(--text);
+    width:100%;min-height:280px;max-height:560px;overflow-y:auto;resize:vertical;display:block;
+    font:inherit;font-size:14px;line-height:1.95;color:var(--text);white-space:pre-wrap;
     background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-xs);
     padding:14px 16px;
   }
+  .client-msg b{font-weight:800;}
   .client-msg:focus{outline:2px solid var(--accent-ink);outline-offset:1px;background:var(--surface);}
 </style>
 </head>
@@ -2790,7 +2791,8 @@ function renderSectionsShell(){
           </div>
           <button type="button" class="preset-btn client-msg-copy" data-project="${p.id}">کپی متن</button>
         </div>
-        <textarea class="client-msg" id="clientMsg-${p.id}" rows="14" dir="rtl" spellcheck="false" aria-label="متن گزارش برای مشتری"></textarea>
+        <div class="client-msg" id="clientMsg-${p.id}" contenteditable="true" dir="rtl" spellcheck="false"
+             role="textbox" aria-multiline="true" aria-label="متن گزارش برای مشتری"></div>
       </div>
     </div>
   `).join('');
@@ -4714,7 +4716,9 @@ function buildClientMessage(project){
     .filter(g => g.t.cost > 0 || g.t.action > 0 || g.t.sessions > 0)
     .sort((a, b) => b.t.cost - a.t.cost);
   if(groups.length > 1){
-    groups.forEach(g => out.push('', byName ? `${g.name}:` : `کمپین‌های ${g.name}:`, ...messageLines(g.t, has)));
+    // A Latin Campaign Name in a right-to-left line drops its colon to the
+    // far left (":Social Mehr 405"); the left-to-right mark keeps it at the end.
+    groups.forEach(g => out.push('', byName ? `${g.name}:‎` : `کمپین‌های ${g.name}:`, ...messageLines(g.t, has)));
   }
 
   // The closing comparison with the same number of days right before.
@@ -4735,11 +4739,36 @@ function buildClientMessage(project){
   }
   return out.join('\n');
 }
+// The figures go out bold (Erfan sends the text on Telegram). A figure is a
+// run of Persian digits with its separators and an optional ٪; the date line
+// "(۲۶ مهر تا ۲ آبان)" is left plain. `wrap` decides how a figure is marked:
+// <b> on the page and in the rich copy, **…** in the plain copy, which
+// Telegram turns into bold when the message is sent.
+const MSG_FIGURE = /[۰-۹](?:[۰-۹,.]*[۰-۹])?٪?/g;
+function boldFigures(text, wrap){
+  return text.split('\n').map(line => /^\s*\(/.test(line) ? line : line.replace(MSG_FIGURE, wrap)).join('\n');
+}
 function renderClientMessage(project){
   const el = document.getElementById(`clientMsg-${project.id}`);
   if(!el || project.error) return;
-  try{ el.value = buildClientMessage(project); }
-  catch(e){ console.error('client message failed:', project.id, e); el.value = ''; }
+  try{ el.innerHTML = boldFigures(escapeHtml(buildClientMessage(project)), n => `<b>${n}</b>`); }
+  catch(e){ console.error('client message failed:', project.id, e); el.textContent = ''; }
+}
+// Rich text where the pasting app takes it (Telegram Desktop keeps <b>), and
+// Telegram's own **bold** markup in the plain text for everywhere else.
+async function copyClientMessage(text){
+  const plain = boldFigures(text, n => `**${n}**`);
+  const html = `<div dir="rtl">${boldFigures(escapeHtml(text), n => `<b>${n}</b>`).replace(/\n/g, '<br>')}</div>`;
+  if(navigator.clipboard && window.isSecureContext && window.ClipboardItem){
+    try{
+      await navigator.clipboard.write([new ClipboardItem({
+        'text/plain': new Blob([plain], {type:'text/plain'}),
+        'text/html': new Blob([html], {type:'text/html'})
+      })]);
+      return;
+    }catch(e){ /* fall back to plain text below */ }
+  }
+  await copyText(plain);
 }
 document.addEventListener('click', async e => {
   const btn = e.target.closest('.client-msg-copy');
@@ -4747,7 +4776,8 @@ document.addEventListener('click', async e => {
   const el = document.getElementById(`clientMsg-${btn.dataset.project}`);
   if(!el) return;
   try{
-    await copyText(el.value);
+    // innerText keeps the line breaks and whatever was edited by hand.
+    await copyClientMessage(el.innerText.replace(/\n{3,}/g, '\n\n').trim());
     btn.textContent = 'کپی شد ✓';
     btn.classList.add('copied');
     setTimeout(()=>{ btn.textContent = 'کپی متن'; btn.classList.remove('copied'); }, 1400);
