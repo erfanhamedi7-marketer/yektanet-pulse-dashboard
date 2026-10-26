@@ -2253,6 +2253,24 @@ function weekStartFor(yyyymmdd){
   return localIso(d);
 }
 
+// "Last week" is the last whole Saturday-to-Friday week before today — on a
+// Saturday, the week that ended yesterday. Unlike "from Saturday" it is fixed
+// to the calendar, not to the sheet; only its ends are kept inside the days
+// the sheet has, so a sheet that stops on Wednesday shows Saturday-Wednesday.
+function lastWeekWithin(minDate, maxDate){
+  const sat = new Date();
+  sat.setDate(sat.getDate() - ((sat.getDay() + 1) % 7) - 7);   // Saturday of last week
+  const fri = new Date(sat);
+  fri.setDate(fri.getDate() + 6);
+  const week = {from: localIso(sat), to: localIso(fri)};
+  let {from, to} = week;
+  if(minDate && from < toInputDate(minDate)) from = toInputDate(minDate);
+  if(maxDate && to > toInputDate(maxDate)) to = toInputDate(maxDate);
+  // A sheet with nothing in that week at all (stopped weeks ago) shows the
+  // week itself, empty, rather than a range that runs backwards.
+  return from <= to ? {from, to} : week;
+}
+
 function renderFilterBar(){
   document.getElementById('mainContent').innerHTML = `
     <div class="filter-bar">
@@ -2268,6 +2286,7 @@ function renderFilterBar(){
         <button class="preset-btn active" id="presetAll">کل بازه</button>
         <button class="preset-btn" id="presetYesterday">دیروز</button>
         <button class="preset-btn" id="presetWeek">از شنبه</button>
+        <button class="preset-btn" id="presetLastWeek">هفته قبل</button>
         <button class="preset-btn" id="preset7">۷ روز اخیر</button>
         <button class="preset-btn" id="preset30">۳۰ روز اخیر</button>
       </div>
@@ -2284,6 +2303,7 @@ function renderFilterBar(){
   document.getElementById('presetAll').addEventListener('click', (e)=>setGlobalPreset(null, e.target));
   document.getElementById('presetYesterday').addEventListener('click', (e)=>setGlobalPreset('yesterday', e.target));
   document.getElementById('presetWeek').addEventListener('click', (e)=>setGlobalPreset('week', e.target));
+  document.getElementById('presetLastWeek').addEventListener('click', (e)=>setGlobalPreset('lastweek', e.target));
   document.getElementById('preset7').addEventListener('click', (e)=>setGlobalPreset(7, e.target));
   document.getElementById('preset30').addEventListener('click', (e)=>setGlobalPreset(30, e.target));
 }
@@ -2302,6 +2322,10 @@ function setGlobalPreset(days, btn){
     const weekIso = weekStartFor(sheetMaxDate);
     document.getElementById('fromDate').value = weekIso < minIso ? minIso : weekIso;
     document.getElementById('toDate').value = toInputDate(sheetMaxDate);
+  } else if(days === 'lastweek'){
+    const w = lastWeekWithin(sheetMinDate, sheetMaxDate);
+    document.getElementById('fromDate').value = w.from;
+    document.getElementById('toDate').value = w.to;
   } else {
     const maxD = new Date(toInputDate(sheetMaxDate));
     const fromD = new Date(maxD);
@@ -2350,6 +2374,10 @@ function setOwnPreset(project, days, btn){
     const weekIso = weekStartFor(project.maxDate);
     fromInput.value = weekIso < minIso ? minIso : weekIso;
     toInput.value = toInputDate(project.maxDate);
+  } else if(days === 'lastweek'){
+    const w = lastWeekWithin(project.minDate, project.maxDate);
+    fromInput.value = w.from;
+    toInput.value = w.to;
   } else {
     const maxD = new Date(toInputDate(project.maxDate));
     const fromD = new Date(maxD);
@@ -2730,6 +2758,7 @@ function renderSectionsShell(){
           <button class="preset-btn" id="ownPresetAll-${p.id}">کل بازه</button>
           <button class="preset-btn" id="ownPresetYesterday-${p.id}">دیروز</button>
           <button class="preset-btn" id="ownPresetWeek-${p.id}">از شنبه</button>
+          <button class="preset-btn" id="ownPresetLastWeek-${p.id}">هفته قبل</button>
           <button class="preset-btn" id="ownPreset7-${p.id}">۷ روز اخیر</button>
           <button class="preset-btn active" id="ownPreset30-${p.id}">۳۰ روز اخیر</button>
         </div>
@@ -2892,6 +2921,7 @@ function renderSectionsShell(){
       document.getElementById(`ownPresetAll-${p.id}`).addEventListener('click', e=>setOwnPreset(p, null, e.target));
       document.getElementById(`ownPresetYesterday-${p.id}`).addEventListener('click', e=>setOwnPreset(p, 'yesterday', e.target));
       document.getElementById(`ownPresetWeek-${p.id}`).addEventListener('click', e=>setOwnPreset(p, 'week', e.target));
+      document.getElementById(`ownPresetLastWeek-${p.id}`).addEventListener('click', e=>setOwnPreset(p, 'lastweek', e.target));
       document.getElementById(`ownPreset7-${p.id}`).addEventListener('click', e=>setOwnPreset(p, 7, e.target));
       document.getElementById(`ownPreset30-${p.id}`).addEventListener('click', e=>setOwnPreset(p, 30, e.target));
       // Default: last {defaultRangeDays} days
