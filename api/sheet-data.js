@@ -1,4 +1,5 @@
 const { JWT } = require('google-auth-library');
+const auth = require('./_auth');
 
 // Whitelist of spreadsheet IDs this endpoint is allowed to read, so it can't
 // be used as an open proxy to any sheet the service account happens to see.
@@ -93,6 +94,12 @@ async function readSheets(spreadsheetId, sheets){
 }
 
 module.exports = async (req, res) => {
+  // Data only for someone signed in (see _auth.js).
+  if (!auth.getSession(req)) {
+    res.setHeader('Cache-Control', 'no-store');
+    res.status(401).json({ error: 'login required', code: 'auth' });
+    return;
+  }
   try {
     const { spreadsheetId } = req.query;
     const raw = req.query.sheet;
@@ -121,9 +128,10 @@ module.exports = async (req, res) => {
       }
     }
 
-    // The edge serves a copy for 5 minutes and, after that, keeps answering
-    // with it while it fetches a fresh one, so a visit rarely waits on Google.
-    res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=1800');
+    // Private: Vercel's shared edge cache keys on the URL alone and would hand
+    // this data to someone who is not signed in, so only the signed-in
+    // browser keeps a copy. Google is still spared by the memo above.
+    res.setHeader('Cache-Control', 'private, max-age=120');
     // One tab asked for: that tab's {headers, rows}. Several: {sheets: {name: …}}.
     res.status(200).json(sheets.length === 1 && !Array.isArray(raw) ? payload[sheets[0]] : { sheets: payload });
   } catch (err) {

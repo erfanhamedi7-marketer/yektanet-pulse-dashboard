@@ -10,6 +10,7 @@
 <meta name="theme-color" content="#F7F3EA">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="/auth.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
   :root{
@@ -812,6 +813,8 @@ async function flushSheetQueue(spreadsheetId){
   try{
     const qs = sheets.map(sh => 'sheet=' + encodeURIComponent(sh)).join('&');
     const res = await fetch(`/api/sheet-data?spreadsheetId=${encodeURIComponent(spreadsheetId)}&${qs}`);
+    // The session ended while the page was open: back to the login screen.
+    if(res.status === 401){ window.dashAuth.expired(); throw new Error('login required'); }
     const json = await res.json();
     if(!res.ok){
       throw new Error(json.code === 'quota'
@@ -5433,7 +5436,8 @@ async function init(){
   setStatus(anyError?'err':'live', anyError ? 'بعضی پروژه‌ها خطا دادن — جزئیات توی همون سکشن' : 'همگام‌سازی شد — ' + new Date().toLocaleTimeString('fa-IR',{hour:'2-digit',minute:'2-digit'}));
 }
 
-init();
+// Nothing is read until someone is signed in (auth.js).
+window.dashAuth.ready().then(init);
 })();
 
 </script>
