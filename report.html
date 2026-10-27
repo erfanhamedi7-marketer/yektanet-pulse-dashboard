@@ -1359,6 +1359,8 @@ const talaeenOverviewWeb = key => key.includes('-web') || key.includes('sl-');
 // (cpa-…) or between dashes (sl-ch-cpa, inapp-cpa-pb-web). tCPA bidding
 // campaigns (p-tcpa-web) don't count.
 const talaeenCpa = key => key.split(/[-_\s]+/).includes('cpa');
+// Blu campaigns left out by name (keys are trimmed and lower-cased).
+const BLUE_DROPPED = new Set(['inapp-cpc-shareit', 'lba-bazar']);
 
 const ALL_PROJECTS = [
   {
@@ -1580,7 +1582,7 @@ const ALL_PROJECTS = [
     groupTitle: 'بلو',
     partTitle: 'بلو',
     title: 'بلو',
-    subtitle: 'Adtrace (مرجع) × Yektanet — همه‌ی کمپین‌ها به‌جز biz- (بلو بیزینس) و bj (به‌جز bj-inapp-cpi)',
+    subtitle: 'Adtrace (مرجع) × Yektanet — همه‌ی کمپین‌ها به‌جز biz- (بلو بیزینس)، bj، inapp-cpc-shareit و lba-bazar',
     logo: '/blu-logo.png',
     spreadsheetId: '1DdhvkT6gVXKoDiicgXnXHTq32yZg3aGpJx97RT4wYeU',
     refSheet: 'Adtrace',
@@ -1592,8 +1594,9 @@ const ALL_PROJECTS = [
     ownDateFilter: true,
     defaultRangeDays: 30,
     // biz- campaigns are Blu Business and have their own part. Campaigns
-    // starting with "bj" stay out too, except "bj-inapp-cpi".
-    excludeCampaign: (key) => key.startsWith('biz-') || (key.startsWith('bj') && key !== 'bj-inapp-cpi'),
+    // starting with "bj" stay out too (bj-inapp-cpi included since 27 Oct),
+    // and so do inapp-cpc-shareit and lba-bazar (Erfan, 27 Oct).
+    excludeCampaign: (key) => key.startsWith('biz-') || key.startsWith('bj') || BLUE_DROPPED.has(key),
     // Every day's spend counts, even on a day the campaign has no Adtrace row.
     includeUnmatchedCost: true,
     theme: BRANDS.blue
