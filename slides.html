@@ -161,7 +161,8 @@
     display:none;position:absolute;left:-30px;top:50%;transform:translateY(-50%);width:22px;height:22px;border-radius:50%;
     border:1px solid var(--border);background:#fff;color:var(--negative);font-size:13px;line-height:1;cursor:pointer;padding:0;
   }
-  body.editing .s-table tbody tr:hover .row-x{display:block;}
+  body.editing .s-table tbody tr:hover .row-x, body.editing .ct-t:hover .row-x{display:block;}
+  .ct-t .row-x{left:12px;top:12px;transform:none;}
 
   /* Settings */
   .set-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:18px;}
@@ -200,6 +201,15 @@
   .slide-set .body{padding:4px 16px 16px;border-top:1px solid var(--surface-3);}
   .slide-set.off summary .t{color:var(--text-faint);text-decoration:line-through;}
   .set-foot{display:flex;gap:8px;flex-wrap:wrap;}
+  .camp-list.sm{max-height:260px;margin-bottom:14px;}
+  .camp-row .pt{font-size:11px;color:var(--text-faint);margin-right:6px;}
+  .client-card.merged .client-logo{background:var(--surface-3);}
+  .client-card.new{border-style:dashed;border-width:2px;border-color:var(--border-strong);box-shadow:none;background:transparent;justify-content:center;font-weight:700;color:var(--text-muted);}
+  .client-card.new svg{width:20px;height:20px;flex-shrink:0;}
+  .client-card{text-decoration:none;}
+  .badge{display:inline-block;font-size:10.5px;font-weight:700;background:var(--surface-3);color:var(--text-muted);border-radius:999px;padding:1px 8px;margin-right:4px;}
+  .home-sec{margin:26px 0 12px;font-size:14px;font-weight:800;color:var(--text-muted);}
+  .btn.saved{background:var(--positive-soft);border-color:transparent;color:var(--positive);}
   .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--text);color:#fff;padding:10px 18px;border-radius:999px;font-size:13px;z-index:200;box-shadow:var(--shadow-pop);}
 
   /* Presentation */
@@ -337,6 +347,18 @@
   .bar-cell{display:flex;align-items:center;gap:10px;justify-content:flex-end;}
   .bar-cell i{display:block;height:8px;border-radius:8px;background:var(--grad);min-width:2px;}
 
+  /* Campaign types */
+  .ct-grid{display:grid;gap:22px;height:100%;align-content:center;grid-template-columns:repeat(var(--cols),minmax(0,1fr));}
+  .ct-t{position:relative;display:flex;align-items:center;gap:20px;background:#FAF7F0;border:1px solid #EFE8DA;border-radius:26px;padding:26px 28px;min-height:124px;}
+  .ct-n{width:56px;height:56px;border-radius:18px;background:var(--grad);color:#fff;font-size:24px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .ct-name{font-size:27px;font-weight:800;color:#15171C;line-height:1.35;}
+  .ct-name.ltr{direction:ltr;text-align:right;}
+  .ct-d{font-size:16px;color:#5E6270;margin-top:4px;}
+  .ct-grid.many{gap:16px;}
+  .ct-grid.many .ct-t{min-height:92px;padding:18px 22px;border-radius:22px;}
+  .ct-grid.many .ct-name{font-size:21px;}
+  .ct-grid.many .ct-n{width:44px;height:44px;font-size:19px;border-radius:14px;}
+
   /* Charts */
   .s-chart{position:absolute;top:0;right:0;left:0;bottom:40px;}
   .s-chart canvas,.s-chart img{width:100% !important;height:100% !important;}
@@ -393,6 +415,7 @@ const ICON = {
   pdf:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 18v-6M9 15l3 3 3-3"/></svg>',
   html:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg>',
   pen:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+  save:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>',
   reset:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>',
   up:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15l-6-6-6 6"/></svg>',
   down:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>',
@@ -400,7 +423,8 @@ const ICON = {
   cal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
   chart:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-5 4 4 8-9"/></svg>',
   flag:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg>',
-  note:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>'
+  note:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>',
+  merge:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v6a6 6 0 0 0 6 6h0a6 6 0 0 1 6 6"/><path d="M18 3v6a6 6 0 0 1-6 6"/></svg>'
 };
 
 function setStatus(kind, text){
@@ -411,7 +435,7 @@ function toast(msg){
   const t = document.createElement('div');
   t.className = 'toast'; t.textContent = msg;
   document.body.appendChild(t);
-  setTimeout(()=>t.remove(), 2200);
+  setTimeout(()=>t.remove(), 2600);
 }
 const store = {
   get(k, fallback){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : fallback; }catch(e){ return fallback; } },
@@ -477,42 +501,84 @@ function loadCore(){
 }
 
 let core = null;
-const S = {project:null, cfg:null, edits:{}, editKey:null, data:null, charts:[]};
 let PROJ = [];
+const S = {report:null, cfg:null, edits:{}, editKey:null, data:null, cache:{}, charts:[], focusSlide:null};
+
+// ---------- Reports: one dashboard section, or several merged ----------
+// A report reads one or more dashboard sections ("parts"). A merged report
+// (Arzplus web + app…) adds the parts' rows together; its campaign keys carry
+// the part's id ("arzplus-web::sl-x") so two parts' campaigns never mix.
+const MERGES_KEY = 'slides:merges';
+function mergeDefs(){ return store.get(MERGES_KEY, []); }
+function saveMergeDefs(list){ store.set(MERGES_KEY, list); }
+function makeSingle(p){
+  return {id:p.id, title:p.title, logo:p.logo, theme:p.theme, parts:[p], merged:false, group:p.group};
+}
+function makeMerged(m){
+  const parts = (m.parts || []).map(id => PROJ.find(p => p.id === id)).filter(Boolean);
+  if(!parts.length) return null;
+  const withLogo = parts.find(p => p.logo);
+  return {id:m.id, title:m.title, logo:withLogo ? withLogo.logo : null, theme:parts[0].theme, parts, merged:true, def:m};
+}
+function allReports(){
+  return [...mergeDefs().map(makeMerged).filter(Boolean), ...PROJ.map(makeSingle)];
+}
+const pkey = (R, part, raw) => R.merged ? part.id + '::' + raw : raw;
+function splitKey(R, key){
+  if(!R.merged) return {part:R.parts[0], raw:key};
+  const i = key.indexOf('::');
+  return {part:R.parts.find(p => p.id === key.slice(0, i)) || R.parts[0], raw:key.slice(i + 2)};
+}
+const anyBudget = R => R.parts.some(p => p.kind === 'budget');
 
 function groupTitles(){
   const m = {};
   core.PROJECTS.forEach(p => { if(p.group && p.groupTitle) m[p.group] = p.groupTitle; });
   return m;
 }
-function themeOf(p){
-  const t = p.theme || {accent:'#2563EB', ink:'#1D4ED8', accent2:'#1B1F27', accentSoft:'rgba(37,99,235,.10)'};
+function themeOf(R){
+  const t = R.theme || {accent:'#2563EB', ink:'#1D4ED8', accent2:'#1B1F27', accentSoft:'rgba(37,99,235,.10)'};
   const grad = t.grad ? `linear-gradient(135deg, ${t.grad[0]}, ${t.grad[1]})` : `linear-gradient(135deg, ${t.accent}, ${t.ink})`;
   // A near-black second colour reads as a neutral line next to brand columns.
   const second = t.accent2 && t.accent2 !== t.accent ? t.accent2 : t.ink;
   return {accent:t.accent, ink:t.ink, second, soft:t.accentSoft, grad};
 }
-function themeVars(p){
-  const t = themeOf(p);
+function themeVars(R){
+  const t = themeOf(R);
   return `--accent:${t.accent};--ink:${t.ink};--soft:${t.soft};--grad:${t.grad};`;
 }
-function logoHtml(p, cls){
-  const src = (S.project === p && S.cfg && S.cfg.logo) || p.logo;
-  return src ? `<img class="${cls || 's-logo'}" src="${esc(src)}" alt="">`
-             : `<div class="s-initial">${esc((p.title || '?').trim().charAt(0))}</div>`;
+function logoHtml(R, cls){
+  const src = (S.report === R && S.cfg && S.cfg.logo) || R.logo;
+  return src ? `<img class="${cls === undefined ? 's-logo' : cls}" src="${esc(src)}" alt="">`
+             : `<div class="s-initial">${esc((R.title || '?').trim().charAt(0))}</div>`;
+}
+function cardLogo(R){
+  return R.logo ? `<img src="${esc(R.logo)}" alt="">` : esc(R.title.charAt(0));
 }
 
 // ---------- Metrics, dimensions, mediums ----------
 const isSessionsCol = c => /^sessions?$/i.test(String(c || ''));
-function defaultActionLabel(p, has){
+function partHas(p){ return p._has || (p._has = core.messageFields(p)); }
+function hasOf(R){
+  if(R._has) return R._has;
+  const hs = R.parts.map(partHas);
+  const any = k => hs.some(h => h[k]);
+  return (R._has = {impressions:any('impressions'), clicks:any('clicks'), sessions:any('sessions'),
+                    installs:any('installs'), action:any('action')});
+}
+function partActionLabel(p){
   if(p.messageActionLabel) return p.messageActionLabel;
   const further = (p.costPerMetrics || [])[0];
   if(isSessionsCol(p.conversionCol) || p.kind === 'cpi') return further ? (further.label || further.col) : 'اکشن';
   return p.conversionLabel || p.conversionCol || 'اکشن';
 }
-function metricDefs(p){
-  const has = p._has || (p._has = core.messageFields(p));
-  const act = (S.cfg && S.cfg.actionLabel) || defaultActionLabel(p, has);
+function defaultActionLabel(R){
+  const labels = Array.from(new Set(R.parts.filter(p => partHas(p).action).map(partActionLabel)));
+  return labels.join(' / ') || 'اکشن';
+}
+function metricDefs(R){
+  const has = hasOf(R);
+  const act = (S.cfg && S.cfg.actionLabel) || defaultActionLabel(R);
   return [
     {id:'cost',        label:'هزینه', money:true, good:0, ok:true},
     {id:'impressions', label:'نمایش', good:1, ok:has.impressions},
@@ -528,7 +594,7 @@ function metricDefs(p){
     {id:'costShare',   label:'سهم از هزینه', pct:true, good:0, ok:true, groupOnly:true}
   ];
 }
-const defsById = p => Object.fromEntries(metricDefs(p).map(m => [m.id, m]));
+const defsById = R => Object.fromEntries(metricDefs(R).map(m => [m.id, m]));
 function metricValue(id, t, all){
   const div = (a, b) => b > 0 ? a / b : null;
   switch(id){
@@ -556,6 +622,10 @@ function totals(rows){
   rows.forEach(r => { for(const k in t) t[k] += r[k] || 0; });
   return t;
 }
+function mainAction(ok){
+  return ok('actions') ? 'actions' : ok('installs') ? 'installs' : ok('sessions') ? 'sessions' : 'clicks';
+}
+const EFF_OF = {actions:'cpa', installs:'cpi', sessions:'cps', clicks:'ctr'};
 
 // Yektanet's Campaign Type when the sheet has it; otherwise a guess from the
 // campaign's name; a medium set by hand in the settings wins over both.
@@ -569,25 +639,35 @@ function guessMedium(key){
   for(const [re, m] of MEDIUM_GUESS) if(re.test(k)) return m;
   return null;
 }
-function autoMedium(p, key){
-  const types = core.campaignTypes(p);
-  return (types[key] && core.campaignTypeGroup(types[key])) || guessMedium(key) || 'سایر';
+function autoMedium(R, key){
+  const {part, raw} = splitKey(R, key);
+  const types = core.campaignTypes(part);
+  return (types[raw] && core.campaignTypeGroup(types[raw])) || guessMedium(raw) || 'سایر';
 }
-function mediumOf(p, key){
-  return (S.cfg.mediums && S.cfg.mediums[key]) || autoMedium(p, key);
+function mediumOf(R, key){
+  return (S.cfg.mediums && S.cfg.mediums[key]) || autoMedium(R, key);
 }
-function dimDefs(p){
+// The sheet's own Campaign Type ("پوش - کلیکی"), where there is one.
+function rawType(R, key){
+  const {part, raw} = splitKey(R, key);
+  return core.campaignTypes(part)[raw] || mediumOf(R, key);
+}
+function dimDefs(R){
   const d = [
     {id:'day', label:'روز', chrono:true, key:r => r.date, name:k => jDay(k)},
     {id:'week', label:'هفته', chrono:true, key:r => isoToYmd(core.weekStartFor(r.date)), name:k => 'هفته‌ی ' + jDay(k)},
-    {id:'campaign', label:'کمپین', ltr:true, key:r => r.campaign, name:(k, r) => r.campaignLabel || k},
-    {id:'medium', label:'مدیوم', key:r => mediumOf(p, r.campaign), name:k => k}
+    {id:'campaign', label:'کمپین', ltr:true, key:r => r.campaign, name:(k, r) => r.campaignLabel || r.raw || k},
+    {id:'medium', label:'مدیوم', key:r => mediumOf(R, r.campaign), name:k => k},
+    {id:'type', label:'Campaign Type', key:r => rawType(R, r.campaign), name:k => k}
   ];
-  if(p.kind === 'budget') d.splice(3, 0, {id:'campaignName', label:'Campaign Name', ltr:true, key:r => core.normCampaign(r.campaignName), name:(k, r) => r.campaignName || k});
+  if(anyBudget(R)) d.splice(3, 0, {id:'campaignName', label:'Campaign Name', ltr:true,
+    key:r => r.cname || r.campaign, name:(k, r) => r.campaignName || r.campaignLabel || k});
+  if(R.merged) d.push({id:'part', label:'بخش', key:r => r.part, name:(k, r) => r.partTitle});
   return d;
 }
-function groupRows(p, rows, dimId){
-  const dim = dimDefs(p).find(d => d.id === dimId) || dimDefs(p)[0];
+function groupRows(R, rows, dimId){
+  const dims = dimDefs(R);
+  const dim = dims.find(d => d.id === dimId) || dims[0];
   const map = new Map();
   rows.forEach(r => {
     const k = dim.key(r);
@@ -600,78 +680,60 @@ function groupRows(p, rows, dimId){
   return {dim, groups};
 }
 
-// ---------- Settings per customer ----------
-const cfgKey = p => 'slides:cfg:' + p.id;
+// ---------- Settings per report ----------
+const cfgKey = R => 'slides:cfg:' + R.id;
 const SLIDE_TYPES = {
-  cover:'جلد', campaigns:'کمپین‌های اجرا شده', kpis:'آمار کلی (کارت‌ها)', chart:'نمودار', table:'جدول مقایسه', text:'متن / تحلیل'
+  cover:'جلد', campaigns:'کمپین‌های اجرا شده (نوع کمپین‌ها)', kpis:'آمار کلی (کارت‌ها)', chart:'نمودار', table:'جدول مقایسه', text:'متن / تحلیل'
 };
 const CHART_TYPES = {combo:'ستونی + خطی', bar:'ستونی', hbar:'ستونی افقی', line:'خطی', doughnut:'دایره‌ای'};
+const LIST_LEVELS = {medium:'مدیوم (گروه نوع کمپین)', type:'Campaign Type شیت', campaign:'اسم کمپین‌ها'};
 const PRESETS = [
   ['lastWeek', 'هفته قبل'], ['last7', '۷ روز اخیر'], ['last30', '۳۰ روز اخیر'], ['sinceSat', 'از شنبه'],
   ['yesterday', 'دیروز'], ['all', 'کل بازه'], ['custom', 'دلخواه']
 ];
-function mainAction(ok){
-  return ok('actions') ? 'actions' : ok('installs') ? 'installs' : ok('sessions') ? 'sessions' : 'clicks';
-}
-function defaultSlides(p){
-  const defs = defsById(p);
+function defaultSlides(R){
+  const defs = defsById(R);
   const ok = id => defs[id] && defs[id].ok;
-  const pick = (ids, n) => ids.filter(ok).slice(0, n);
-  const main = mainAction(ok);
-  const eff = {actions:'cpa', installs:'cpi', sessions:'cps', clicks:'ctr'}[main];
-  const mediums = new Set(allRows(p).map(r => mediumOf(p, r.campaign)));
+  const pick = (ids, n) => Array.from(new Set(ids)).filter(ok).slice(0, n);
+  const main = mainAction(ok), eff = EFF_OF[main];
+  const mediums = new Set(allRows(R).map(r => mediumOf(R, r.campaign)));
   return [
     {id:'cover', type:'cover', title:'', on:true},
-    {id:'campaigns', type:'campaigns', title:'کمپین‌های اجرا شده', on:true, metrics:pick(['cost', main], 2), maxRows:8},
+    {id:'campaigns', type:'campaigns', title:'کمپین‌های اجرا شده', on:true, level:'medium'},
     {id:'kpis', type:'kpis', title:'آمار کلی کمپین‌ها', on:true,
      metrics:pick(['cost', 'impressions', 'clicks', 'ctr', 'sessions', 'cps', 'installs', 'cpi', 'actions', 'cpa'], 8)},
     {id:'chart1', type:'chart', title:'نمودار شماره ۱', on:true, dim:'day', chart:'combo', metrics:['cost', main]},
     {id:'chart2', type:'chart', title:'نمودار شماره ۲', on:true, dim:mediums.size > 1 ? 'medium' : 'day',
      chart:mediums.size > 1 ? 'bar' : 'line', metrics:mediums.size > 1 ? ['cost', eff] : [eff]},
     {id:'mediums', type:'table', title:'جدول مقایسه مدیوم‌ها', on:true, dim:'medium',
-     metrics:pick(Array.from(new Set(['cost', 'costShare', main, eff, 'impressions', 'clicks', 'ctr', 'sessions', 'installs', 'cpi', 'actions', 'cpa'])), 7), maxRows:10},
+     metrics:pick(['cost', 'costShare', main, eff, 'impressions', 'clicks', 'ctr', 'sessions', 'installs', 'cpi', 'actions', 'cpa'], 7), maxRows:10},
     {id:'analysis', type:'text', title:'تحلیل کلی و اقدامات پیش رو', on:true,
      cols:[{h:'تحلیل کلی', auto:'analysis', icon:'chart'}, {h:'اقدامات پیش رو', auto:'next', icon:'flag'}]}
   ];
 }
-function defaultCfg(p){
-  return {v:1, period:{preset:'lastWeek'}, compare:true, campaigns:null, title:'گزارش عملکرد کمپین‌ها',
-          kicker:'', actionLabel:'', logo:null, mediums:{}, slides:null};
+function defaultCfg(){
+  return {v:2, period:{preset:'lastWeek'}, compare:true, campaigns:null, title:'گزارش عملکرد کمپین‌ها',
+          kicker:'', actionLabel:'', logo:null, mediums:{}, slides:null, tpl:{}, tplSavedAt:null};
 }
-function loadCfg(p){
-  const cfg = Object.assign(defaultCfg(p), store.get(cfgKey(p), {}));
+function loadCfg(R){
+  const cfg = Object.assign(defaultCfg(), store.get(cfgKey(R), {}));
   S.cfg = cfg;
-  if(!Array.isArray(cfg.slides) || !cfg.slides.length) cfg.slides = defaultSlides(p);
+  if(!Array.isArray(cfg.slides) || !cfg.slides.length) cfg.slides = defaultSlides(R);
+  // The first version listed campaigns with figures; this slide is now a
+  // plain list of campaign types.
+  cfg.slides.forEach(s => { if(s.type === 'campaigns' && !s.level) s.level = 'medium'; });
+  cfg.tpl = cfg.tpl || {};
   return cfg;
 }
 function saveCfg(){
-  if(!store.set(cfgKey(S.project), S.cfg)) toast('ذخیره نشد — حافظه‌ی مرورگر پر یا بسته‌ست');
+  S.cache = {};
+  if(!store.set(cfgKey(S.report), S.cfg)) toast('ذخیره نشد — حافظه‌ی مرورگر پر یا بسته‌ست');
 }
 
 // ---------- The report's rows ----------
-function campaignSelection(p){
-  const c = S.cfg.campaigns;
-  if(Array.isArray(c)) return new Set(c);
-  if(p.defaultCampaigns && p.defaultCampaigns.length){
-    const wanted = new Set(p.defaultCampaigns.map(core.normCampaign));
-    const opts = campaignOptions(p, null).map(o => o.key);
-    const matched = opts.filter(k => wanted.has(k));
-    if(matched.length && matched.length < opts.length) return new Set(matched);
-  }
-  return 'ALL';
-}
-function rowsFor(p, win, sel){
-  core.projectState[p.id] = {campaigns: sel === undefined ? campaignSelection(p) : sel, subCampaigns:'ALL',
-                             from: win.from, to: win.to};
-  return core.messageRows(p, {from: win.from, to: win.to});
-}
-function allRows(p){
-  return rowsFor(p, {from:p.minDate, to:p.maxDate}, 'ALL');
-}
-// The campaigns a report can be narrowed to: Campaign Names for the budget
-// sections (their filter works on those), campaigns everywhere else; ordered
-// by spend in the given window.
-function campaignOptions(p, win){
+// Campaigns a part can be narrowed to: Campaign Names for the budget sections
+// (their filter works on those), campaigns everywhere else.
+function partOptions(part, win){
   const inWin = d => !win || (d >= win.from && d <= win.to);
   const m = new Map();
   const add = (key, label, cost, d) => {
@@ -680,16 +742,67 @@ function campaignOptions(p, win){
     const o = m.get(key);
     if(inWin(d)){ o.cost += cost; o.active = true; }
   };
-  if(p.kind === 'budget') (p.rawBlend || []).forEach(r => add(core.normCampaign(r.campaignName), r.campaignName, r.cost, r.date));
+  if(part.kind === 'budget') (part.rawBlend || []).forEach(r => add(core.normCampaign(r.campaignName), r.campaignName, r.cost, r.date));
   else{
-    (p.rawCost || []).forEach(r => add(r.campaign, r.campaignLabel || r.campaign, r.cost, r.date));
-    (p.rawRef || []).forEach(r => add(r.campaign, r.campaignLabel || r.campaign, 0, r.date));
+    (part.rawCost || []).forEach(r => add(r.campaign, r.campaignLabel || r.campaign, r.cost, r.date));
+    (part.rawRef || []).forEach(r => add(r.campaign, r.campaignLabel || r.campaign, 0, r.date));
   }
-  return Array.from(m.values()).sort((a, b) => b.cost - a.cost || (a.label < b.label ? -1 : 1));
+  return Array.from(m.values());
 }
-function resolvePeriod(p){
+function campaignOptions(R, win){
+  return R.parts.flatMap(part => partOptions(part, win).map(o => ({...o, key:pkey(R, part, o.key), part})))
+    .sort((a, b) => b.cost - a.cost || (a.label < b.label ? -1 : 1));
+}
+// The report's own campaign pick: an explicit list once one is made in the
+// settings, otherwise everything — or the dashboard's default campaigns of
+// the parts that have some (the Snapp sections).
+function campaignSelection(R){
+  const c = S.cfg.campaigns;
+  if(Array.isArray(c)) return new Set(c);
+  let narrowed = false;
+  const keys = [];
+  R.parts.forEach(part => {
+    const opts = partOptions(part, null).map(o => o.key);
+    if(part.defaultCampaigns && part.defaultCampaigns.length){
+      const wanted = new Set(part.defaultCampaigns.map(core.normCampaign));
+      const matched = opts.filter(k => wanted.has(k));
+      if(matched.length && matched.length < opts.length){
+        narrowed = true;
+        keys.push(...matched.map(k => pkey(R, part, k)));
+        return;
+      }
+    }
+    keys.push(...opts.map(k => pkey(R, part, k)));
+  });
+  return narrowed ? new Set(keys) : 'ALL';
+}
+// A slide may count only some campaigns; null means the report's own pick.
+function slideSelection(R, s){
+  return s && Array.isArray(s.campaigns) ? new Set(s.campaigns) : campaignSelection(R);
+}
+function partSel(R, part, sel){
+  if(sel === 'ALL') return 'ALL';
+  if(!R.merged) return sel;
+  const pre = part.id + '::';
+  return new Set(Array.from(sel).filter(k => k.startsWith(pre)).map(k => k.slice(pre.length)));
+}
+function rowsFor(R, win, sel){
+  return R.parts.flatMap(part => {
+    const ps = partSel(R, part, sel);
+    if(ps !== 'ALL' && !ps.size) return [];
+    core.projectState[part.id] = {campaigns:ps, subCampaigns:'ALL', from:win.from, to:win.to};
+    return core.messageRows(part, {from:win.from, to:win.to}).map(r => ({
+      ...r, part:part.id, partTitle:part.title, raw:r.campaign, campaign:pkey(R, part, r.campaign),
+      cname: part.kind === 'budget' ? pkey(R, part, core.normCampaign(r.campaignName)) : null
+    }));
+  });
+}
+function allRows(R){
+  return rowsFor(R, {from:R.minDate, to:R.maxDate}, 'ALL');
+}
+function resolvePeriod(R){
   const per = S.cfg.period || {preset:'lastWeek'};
-  const min = p.minDate, max = p.maxDate;
+  const min = R.minDate, max = R.maxDate;
   if(!min || !max) return null;
   const clamp = w => ({from: w.from < min ? min : w.from, to: w.to > max ? max : w.to});
   switch(per.preset){
@@ -706,22 +819,29 @@ function resolvePeriod(p){
   }
   return {from:min, to:max};
 }
-function computeData(p){
-  const win = resolvePeriod(p);
-  if(!win) return {win:null, rows:[], prevRows:[], t:totals([]), pt:null};
+function computeData(R, sel){
+  const win = resolvePeriod(R);
+  if(!win) return {win:null, rows:[], prevRows:[], t:totals([]), pt:null, days:0};
   const days = daysBetween(win.from, win.to);
   const prev = {from:addDays(win.from, -days), to:addDays(win.from, -1)};
-  const rows = rowsFor(p, win);
-  const prevRows = rowsFor(p, prev);
+  const rows = rowsFor(R, win, sel);
+  const prevRows = rowsFor(R, prev, sel);
   return {win, prev, days, rows, prevRows, t:totals(rows), pt:prevRows.length ? totals(prevRows) : null};
 }
+function dataFor(s){
+  if(!s || !Array.isArray(s.campaigns)) return S.data;
+  const key = s.campaigns.slice().sort().join('|');
+  return S.cache[key] || (S.cache[key] = computeData(S.report, new Set(s.campaigns)));
+}
 
-// ---------- Edits (everything on a slide can be typed over) ----------
-// Kept per customer and per period: a week's hand-written analysis must not
-// reappear on next week's report, and changing the period starts clean.
+// ---------- Edits and the report template ----------
+// Typed-over text is kept per period (a week's analysis must not reappear on
+// next week's report). "ذخیره قالب" copies the parts of it that aren't
+// figures — titles, headings, labels, notes, hidden rows — into the report's
+// settings, where every later period starts from them.
 function editsKey(){
   const w = S.data && S.data.win;
-  return 'slides:edits:' + S.project.id + ':' + (w ? w.from + '-' + w.to : 'none');
+  return 'slides:edits:' + S.report.id + ':' + (w ? w.from + '-' + w.to : 'none');
 }
 function loadEdits(){ S.editKey = editsKey(); S.edits = store.get(S.editKey, {}); }
 let editTimer = null;
@@ -729,58 +849,111 @@ function saveEdits(){
   clearTimeout(editTimer);
   editTimer = setTimeout(()=>{ if(!store.set(S.editKey, S.edits)) toast('ذخیره نشد — حافظه‌ی مرورگر پر یا بسته‌ست'); }, 250);
 }
+function isTemplateKey(s, k){
+  if(/^(c:|v:|d:)/.test(k) || k === 'period') return false;
+  if(s.type === 'cover') return k !== 'foot';          // the date it was made
+  if(k === 'kicker') return false;                      // the period line
+  if(/^b\d+$/.test(k)){ const col = (s.cols || [])[+k.slice(1)]; return !(col && col.auto); }
+  return true;
+}
+function templateCount(){
+  return Object.values(S.cfg.tpl || {}).reduce((n, e) => n + Object.keys(e).length, 0);
+}
+function saveTemplate(){
+  const tpl = S.cfg.tpl = S.cfg.tpl || {};
+  S.cfg.slides.forEach(s => {
+    const ed = S.edits[s.id];
+    if(!ed) return;
+    Object.keys(ed).forEach(k => {
+      if(!isTemplateKey(s, k)) return;
+      (tpl[s.id] = tpl[s.id] || {})[k] = ed[k];
+      delete ed[k];   // now carried by the template
+    });
+    if(!Object.keys(ed).length) delete S.edits[s.id];
+  });
+  S.cfg.tplSavedAt = Date.now();
+  saveCfg();
+  store.set(S.editKey, S.edits);
+}
 const E = (k, html, ph, tag, cls) =>
   `<${tag || 'div'} class="${cls || ''}" data-k="${esc(k)}"${ph ? ` data-ph="${esc(ph)}"` : ''}>${html}</${tag || 'div'}>`;
 function applyEdits(el, sid){
-  const ed = S.edits[sid] || {};
+  const ed = Object.assign({}, (S.cfg.tpl || {})[sid], S.edits[sid]);
   $$('[data-k]', el).forEach(n => { if(ed[n.dataset.k] !== undefined) n.innerHTML = ed[n.dataset.k]; });
-  $$('tr[data-row]', el).forEach(tr => { if(ed['hide:' + tr.dataset.row]) tr.remove(); });
+  $$('[data-row]', el).forEach(r => { if(ed['hide:' + r.dataset.row]) r.remove(); });
   if(document.body.classList.contains('editing')) $$('[data-k]', el).forEach(n => n.setAttribute('contenteditable', 'true'));
 }
+const rk = k => String(k).replace(/[^\w؀-ۿ-]/g, '_');
 
 // ---------- Slides ----------
-function slideHead(p, s, kicker){
+function slideHead(R, s, kicker){
   return `<header class="s-head">
     <div class="s-titles"><span class="s-bar"></span><div>
       ${E('title', esc(s.title), 'عنوان اسلاید', 'h2')}
       ${E('kicker', esc(kicker), 'زیرعنوان')}
     </div></div>
-    <div class="s-logo-btn" data-logo title="برای عوض کردن لوگو کلیک کن">${logoHtml(p)}</div>
+    <div class="s-logo-btn" data-logo title="برای عوض کردن لوگو کلیک کن">${logoHtml(R)}</div>
   </header>`;
 }
-function slideFoot(p, num){
-  return `<footer class="s-foot">${E('foot', esc(p.title + ' · ' + S.cfg.title))}<span class="s-num">${fa(num).padStart(2, '۰')}</span></footer>`;
+function slideFoot(R, num){
+  return `<footer class="s-foot">${E('foot', esc(R.title + ' · ' + S.cfg.title))}<span class="s-num">${fa(num).padStart(2, '۰')}</span></footer>`;
 }
-function deltaHtml(def, now, before){
+const periodOf = d => d.win ? periodLabel(d.win.from, d.win.to) : '';
+function compareWords(days){
+  return days === 7 ? {cur:'هفته‌ی گذشته', prev:'هفته‌ی قبلش', vs:'نسبت به هفته‌ی قبل'}
+       : days === 1 ? {cur:'دیروز', prev:'روز قبلش', vs:'نسبت به روز قبل'}
+       : {cur:'این بازه', prev:'بازه‌ی مشابه قبل', vs:'نسبت به بازه‌ی قبل'};
+}
+function deltaHtml(def, now, before, d){
   if(!S.cfg.compare || before === null || before === undefined || !isFinite(before) || before === 0 || now === null || !isFinite(now)) return '';
   const pct = (now - before) / Math.abs(before) * 100;
   if(!isFinite(pct)) return '';
   const up = pct > 0.05, down = pct < -0.05;
   const cls = !up && !down ? '' : def.good === 0 ? '' : (up ? 'up-' : 'down-') + ((up ? def.good > 0 : def.good < 0) ? 'good' : 'bad');
   const arrow = up ? '▲' : down ? '▼' : '●';
-  const days = S.data.days;
-  const label = days === 7 ? 'نسبت به هفته‌ی قبل' : days === 1 ? 'نسبت به روز قبل' : 'نسبت به بازه‌ی قبل';
-  return `<span class="kpi-d ${cls}">${arrow} ${fa(Math.abs(pct), Math.abs(pct) < 10 ? 1 : 0)}٪ <small>${label}</small></span>`;
+  return `<span class="kpi-d ${cls}">${arrow} ${fa(Math.abs(pct), Math.abs(pct) < 10 ? 1 : 0)}٪ <small>${compareWords(d.days).vs}</small></span>`;
 }
 
-function renderCover(p, s){
+function renderCover(R, s){
   const d = S.data;
   const kicker = S.cfg.kicker || (d.days === 7 ? 'گزارش هفتگی کمپین‌ها' : d.days === 1 ? 'گزارش روزانه کمپین‌ها' : 'گزارش دوره‌ای کمپین‌ها');
   const made = jFull(dateYmd(new Date()));
   return `<section class="slide slide-cover">
     <div class="cv-panel"><span class="cv-ring r1"></span><span class="cv-ring r2"></span><span class="cv-ring r3"></span></div>
-    <div class="cv-logo"><div class="s-logo-btn" data-logo title="برای عوض کردن لوگو کلیک کن">${logoHtml(p)}</div></div>
+    <div class="cv-logo"><div class="s-logo-btn" data-logo title="برای عوض کردن لوگو کلیک کن">${logoHtml(R)}</div></div>
     <div class="cv-text">
       ${E('kicker', esc(kicker), 'برچسب', 'div', 'cv-kicker')}
       ${E('title', esc(S.cfg.title), 'عنوان گزارش', 'h1')}
-      ${E('client', esc(p.title), 'اسم مشتری', 'div', 'cv-client')}
-      <div class="cv-period">${ICON.cal}${E('period', esc(d.win ? periodLabel(d.win.from, d.win.to) : ''), 'بازه‌ی گزارش', 'span')}</div>
+      ${E('client', esc(R.title), 'اسم مشتری', 'div', 'cv-client')}
+      <div class="cv-period">${ICON.cal}${E('period', esc(periodOf(d)), 'بازه‌ی گزارش', 'span')}</div>
     </div>
     ${E('foot', esc('تاریخ تهیه: ' + made), '', 'div', 'cv-foot')}
   </section>`;
 }
-function renderKpis(p, s, num){
-  const defs = defsById(p), d = S.data;
+// "Campaigns run": only the kinds of campaign that ran — no figures.
+function renderTypesSlide(R, s, num){
+  const d = dataFor(s);
+  const level = s.level || 'medium';
+  const dimId = level === 'campaign' ? (anyBudget(R) ? 'campaignName' : 'campaign') : level;
+  const groups = groupRows(R, d.rows, dimId).groups;
+  const n = groups.length;
+  const cols = n <= 2 ? Math.max(n, 1) : n <= 4 ? 2 : n <= 9 ? 3 : 4;
+  const many = n > 6;
+  const tiles = groups.map((g, i) => {
+    const key = rk(g.key);
+    return `<div class="ct-t" data-row="${esc(key)}"><span class="ct-n">${fa(i + 1)}</span>
+      <div style="min-width:0">${E('ct:' + key, esc(g.name), 'نام', 'div', 'ct-name' + (level === 'campaign' ? ' ltr' : ''))}
+      ${E('cd:' + key, '', 'توضیح (اختیاری)', 'div', 'ct-d')}</div>
+      <button type="button" class="row-x" data-hide="${esc(key)}" title="حذف از اسلاید">×</button></div>`;
+  }).join('');
+  const unit = level === 'campaign' ? 'کمپین' : 'نوع کمپین';
+  return `<section class="slide">${slideHead(R, s, `${fa(n)} ${unit} — ${periodOf(d)}`)}
+    <div class="s-body">${n ? `<div class="ct-grid ${many ? 'many' : ''}" style="--cols:${cols}">${tiles}</div>`
+                           : '<div class="s-empty">توی این بازه کمپینی اجرا نشده</div>'}</div>
+    ${slideFoot(R, num)}</section>`;
+}
+function renderKpis(R, s, num){
+  const defs = defsById(R), d = dataFor(s);
   const ms = (s.metrics || []).filter(id => defs[id] && defs[id].ok && !defs[id].groupOnly);
   const n = ms.length;
   const cols = n <= 3 ? Math.max(n, 1) : n === 4 ? 4 : n <= 6 ? 3 : 4;
@@ -792,125 +965,155 @@ function renderKpis(p, s, num){
       ${E('l:' + id, esc(def.label), '', 'div', 'kpi-l')}
       ${E('v:' + id, esc(fmtMetric(def, v)), '', 'div', 'kpi-v')}
       ${def.money ? E('u:' + id, 'تومان', '', 'div', 'kpi-u') : ''}
-      ${E('d:' + id, deltaHtml(def, v, pv), '', 'div')}
+      ${E('d:' + id, deltaHtml(def, v, pv, d), '', 'div')}
     </div>`;
   }).join('');
-  return `<section class="slide">${slideHead(p, s, d.win ? periodLabel(d.win.from, d.win.to) : '')}
+  return `<section class="slide">${slideHead(R, s, periodOf(d))}
     <div class="s-body">${n ? `<div class="kpi-grid ${rows > 1 && cols > 3 ? 'dense' : ''}" style="--cols:${cols};--th:${rows > 1 ? 196 : 260}px">${tiles}</div>`
                            : '<div class="s-empty">متریکی برای این اسلاید انتخاب نشده</div>'}</div>
-    ${slideFoot(p, num)}</section>`;
+    ${slideFoot(R, num)}</section>`;
 }
-function tableHtml(p, s, groups, metricIds, opts){
-  const defs = defsById(p), all = S.data.t;
+function tableHtml(R, s, d, groups, metricIds, dim){
+  const defs = defsById(R), all = d.t;
   const max = Math.max(1, +s.maxRows || 10);
   let shown = groups, rest = [];
   if(groups.length > max){ shown = groups.slice(0, max - 1); rest = groups.slice(max - 1); }
   const head = [
-    opts.numbered ? '<th>#</th>' : '',
-    `<th>${E('h:dim', esc(opts.dimLabel), '', 'span')}</th>`,
-    opts.medium ? `<th>${E('h:medium', 'مدیوم', '', 'span')}</th>` : '',
+    `<th>${E('h:dim', esc(dim.label), '', 'span')}</th>`,
     ...metricIds.map(id => `<th class="n">${E('h:' + id, esc(defs[id].label + (defs[id].money ? ' (تومان)' : '')), '', 'span')}</th>`)
   ].join('');
   const cells = (rowKey, t) => metricIds.map(id => {
     const v = metricValue(id, t, all);
     const bar = id === 'costShare' && v !== null ? `<i style="width:${Math.max(2, Math.round(v * 0.9))}px"></i>` : '';
-    return `<td class="n">${bar ? `<div class="bar-cell">${bar}${E('c:' + rowKey + ':' + id, esc(fmtMetric(defs[id], v)), '', 'span')}</div>`
-                                : E('c:' + rowKey + ':' + id, esc(fmtMetric(defs[id], v)), '', 'span')}</td>`;
+    const val = E('c:' + rowKey + ':' + id, esc(fmtMetric(defs[id], v)), '', 'span');
+    return `<td class="n">${bar ? `<div class="bar-cell">${bar}${val}</div>` : val}</td>`;
   }).join('');
-  const rk = k => String(k).replace(/[^\w؀-ۿ-]/g, '_');
-  const body = shown.map((g, i) => {
+  const body = shown.map(g => {
     const key = rk(g.key);
     return `<tr data-row="${esc(key)}">
-      ${opts.numbered ? `<td class="ix">${fa(i + 1)}</td>` : ''}
-      <td class="nm ${opts.ltr ? 'ltr' : ''}">${E('c:' + key + ':name', esc(g.name), '', 'span')}<button type="button" class="row-x" data-hide="${esc(key)}" title="حذف این ردیف از اسلاید">×</button></td>
-      ${opts.medium ? `<td>${E('c:' + key + ':medium', `<span class="pill">${esc(mediumOf(p, g.key))}</span>`, '', 'span')}</td>` : ''}
+      <td class="nm ${dim.ltr ? 'ltr' : ''}">${E('c:' + key + ':name', esc(g.name), '', 'span')}<button type="button" class="row-x" data-hide="${esc(key)}" title="حذف این ردیف از اسلاید">×</button></td>
       ${cells(key, g.t)}</tr>`;
   }).join('');
-  const other = rest.length ? (() => {
-    const t = totals(rest.flatMap(g => g.rows));
-    return `<tr class="oth" data-row="__rest">${opts.numbered ? '<td class="ix"></td>' : ''}
+  const other = rest.length ? `<tr class="oth" data-row="__rest">
       <td class="nm">${E('c:__rest:name', esc(`سایر (${fa(rest.length)} مورد)`), '', 'span')}<button type="button" class="row-x" data-hide="__rest" title="حذف این ردیف از اسلاید">×</button></td>
-      ${opts.medium ? '<td></td>' : ''}${cells('__rest', t)}</tr>`;
-  })() : '';
-  const tot = `<tr class="tot">${opts.numbered ? '<td></td>' : ''}<td>${E('c:__tot:name', 'مجموع', '', 'span')}</td>
-      ${opts.medium ? '<td></td>' : ''}${cells('__tot', all)}</tr>`;
+      ${cells('__rest', totals(rest.flatMap(g => g.rows)))}</tr>` : '';
+  const tot = `<tr class="tot"><td>${E('c:__tot:name', 'مجموع', '', 'span')}</td>${cells('__tot', all)}</tr>`;
   const dense = shown.length + (rest.length ? 1 : 0) > 8 || metricIds.length > 6;
   return `<table class="s-table ${dense ? 'dense' : ''}"><thead><tr>${head}</tr></thead><tbody>${body}${other}${tot}</tbody></table>`;
 }
-function renderTableSlide(p, s, num, campaigns){
-  const defs = defsById(p), d = S.data;
+function renderTableSlide(R, s, num){
+  const defs = defsById(R), d = dataFor(s);
   const ms = (s.metrics || []).filter(id => defs[id] && defs[id].ok);
-  const dimId = campaigns ? (p.kind === 'budget' ? 'campaignName' : 'campaign') : (s.dim || 'medium');
-  const {dim, groups} = groupRows(p, d.rows, dimId);
-  const body = !d.rows.length ? '<div class="s-empty">توی این بازه دیتایی نیست</div>'
-    : tableHtml(p, s, groups, ms, {numbered:campaigns, medium:campaigns && dimId === 'campaign', dimLabel:dim.label, ltr:dim.ltr});
-  const kicker = campaigns
-    ? `${fa(groups.length)} کمپین فعال — ${d.win ? periodLabel(d.win.from, d.win.to) : ''}`
-    : (d.win ? periodLabel(d.win.from, d.win.to) : '');
-  return `<section class="slide">${slideHead(p, s, kicker)}<div class="s-body">${body}</div>${slideFoot(p, num)}</section>`;
+  const {dim, groups} = groupRows(R, d.rows, s.dim || 'medium');
+  const body = !d.rows.length ? '<div class="s-empty">توی این بازه دیتایی نیست</div>' : tableHtml(R, s, d, groups, ms, dim);
+  return `<section class="slide">${slideHead(R, s, periodOf(d))}<div class="s-body">${body}</div>${slideFoot(R, num)}</section>`;
 }
-function renderChartSlide(p, s, num){
-  const d = S.data;
-  return `<section class="slide">${slideHead(p, s, d.win ? periodLabel(d.win.from, d.win.to) : '')}
+function renderChartSlide(R, s, num){
+  const d = dataFor(s);
+  return `<section class="slide">${slideHead(R, s, periodOf(d))}
     <div class="s-body">${d.rows.length ? `<div class="s-chart"><canvas data-chart="${esc(s.id)}"></canvas></div>
       ${E('note', '', 'توضیح نمودار (اختیاری)', 'div', 's-note')}` : '<div class="s-empty">توی این بازه دیتایی نیست</div>'}</div>
-    ${slideFoot(p, num)}</section>`;
+    ${slideFoot(R, num)}</section>`;
 }
 
-// A first draft of the analysis, from the figures themselves; it is meant to
-// be rewritten on the slide.
-function analysisDraft(p){
-  const d = S.data, defs = defsById(p), t = d.t;
-  if(!d.rows.length) return '<ul><li>توی این بازه دیتایی ثبت نشده.</li></ul>';
+// The default analysis: what changed against the same length of time just
+// before — the totals, the main action and its cost, traffic, the medium that
+// moved most, and campaigns that started or stopped. Meant to be edited.
+function analysisDraft(R, d){
+  const defs = defsById(R);
+  const w = compareWords(d.days);
+  const t = d.t, p = d.pt;
+  if(!d.rows.length) return `<ul><li>در ${w.cur} دیتایی ثبت نشده.</li></ul>`;
   const ok = id => defs[id] && defs[id].ok;
-  const main = mainAction(ok);
-  const eff = {actions:'cpa', installs:'cpi', sessions:'cps', clicks:'ctr'}[main];
+  const main = mainAction(ok), eff = EFF_OF[main];
   const mDef = defs[main], eDef = defs[eff];
+  const val = (def, v) => v === null || !isFinite(v) ? '—' : def.pct ? faPct(v) : fa(v) + (def.money ? ' تومان' : '');
+  const chg = (a, b) => {
+    if(a === null || b === null || !isFinite(a) || !isFinite(b)) return '';
+    if(!b) return a ? ' (از صفر)' : '';
+    const pct = (a - b) / Math.abs(b) * 100;
+    if(Math.abs(pct) < 0.5) return ' (بدون تغییر محسوس)';
+    return ` (<b>${fa(Math.abs(pct), Math.abs(pct) < 10 ? 1 : 0)}٪ ${pct > 0 ? 'افزایش' : 'کاهش'}</b>)`;
+  };
+  const fromTo = (id, label) => {
+    const def = defs[id];
+    const a = metricValue(id, t), b = metricValue(id, p);
+    return `${label || def.label} از ${val(def, b)} به <b>${val(def, a)}</b> رسید${chg(a, b)}`;
+  };
   const out = [];
-  const effTxt = v => eDef.pct ? faPct(v) : fa(v) + ' تومان';
-  out.push(`در این بازه مجموعاً <b>${fa(t.cost)} تومان</b> هزینه شد و <b>${fa(metricValue(main, t))}</b> ${esc(mDef.label)} ثبت شد`
-    + (metricValue(eff, t) !== null ? ` (${esc(eDef.label)}: <b>${effTxt(metricValue(eff, t))}</b>).` : '.'));
-  if(d.pt){
-    const ch = (a, b) => b > 0 ? (a - b) / b * 100 : null;
-    const c1 = ch(metricValue(main, t), metricValue(main, d.pt)), c2 = ch(metricValue(eff, t) || 0, metricValue(eff, d.pt) || 0);
-    const word = c => c > 0 ? 'افزایش' : 'کاهش';
-    const parts = [];
-    if(c1 !== null && isFinite(c1)) parts.push(`تعداد ${esc(mDef.label)} <b>${fa(Math.abs(c1), 1)}٪ ${word(c1)}</b>`);
-    if(c2 !== null && isFinite(c2) && metricValue(eff, d.pt)) parts.push(`${esc(eDef.label)} <b>${fa(Math.abs(c2), 1)}٪ ${word(c2)}</b>`);
-    if(parts.length) out.push(`نسبت به بازه‌ی قبل، ${parts.join(' و ')} داشت.`);
+  if(!p){
+    out.push(`در ${w.cur} مجموعاً <b>${fa(t.cost)} تومان</b> هزینه شد و <b>${fa(metricValue(main, t))}</b> ${esc(mDef.label)} ثبت شد.`);
+    out.push(`برای ${w.prev} دیتایی نیست که با اون مقایسه بشه.`);
+    return '<ul>' + out.map(x => `<li>${x}</li>`).join('') + '</ul>';
   }
-  const med = groupRows(p, d.rows, 'medium').groups.filter(g => metricValue(main, g.t) > 0);
-  if(med.length > 1 && eDef.money){
-    const best = med.slice().sort((a, b) => metricValue(eff, a.t) - metricValue(eff, b.t))[0];
-    out.push(`بهترین بازدهی مربوط به مدیوم <b>${esc(best.name)}</b> بود (${esc(eDef.label)}: <b>${effTxt(metricValue(eff, best.t))}</b>).`);
+  out.push(`در ${w.cur} نسبت به ${w.prev}، ${fromTo('cost', 'هزینه')}.`);
+  const effPart = metricValue(eff, t) !== null || metricValue(eff, p) !== null ? ` و ${fromTo(eff, esc(eDef.label))}` : '';
+  out.push(`${main === 'clicks' ? '' : 'تعداد '}${fromTo(main, esc(mDef.label))}${effPart}.`);
+  const plain = (a, b) => {
+    if(!b) return a ? 'رشد از صفر' : 'بدون تغییر';
+    const pct = (a - b) / Math.abs(b) * 100;
+    return Math.abs(pct) < 0.5 ? 'بدون تغییر محسوس' : `<b>${fa(Math.abs(pct), Math.abs(pct) < 10 ? 1 : 0)}٪ ${pct > 0 ? 'افزایش' : 'کاهش'}</b>`;
+  };
+  const traffic = [];
+  if(ok('impressions') && main !== 'impressions') traffic.push(`نمایش ${plain(t.impressions, p.impressions)}`);
+  if(ok('clicks') && main !== 'clicks') traffic.push(`کلیک ${plain(t.clicks, p.clicks)}`);
+  if(traffic.length){
+    const ctr = ok('ctr') ? `؛ ${fromTo('ctr')}` : '';
+    out.push(`${traffic.join(' و ')} داشت${ctr}.`);
   }
-  const camps = groupRows(p, d.rows, p.kind === 'budget' ? 'campaignName' : 'campaign').groups;
-  const top = camps.slice().sort((a, b) => metricValue(main, b.t) - metricValue(main, a.t))[0];
-  if(top && metricValue(main, top.t) > 0 && metricValue(main, t) > 0){
-    out.push(`کمپین <b dir="auto">${esc(top.name)}</b> با <b>${fa(metricValue(main, top.t))}</b> ${esc(mDef.label)} بیشترین سهم را داشت (${faPct(metricValue(main, top.t) / metricValue(main, t) * 100)} از کل).`);
+  if(ok('sessions') && main !== 'sessions') out.push(`تعداد ${fromTo('sessions')}.`);
+  // The medium whose main action moved the most, up or down.
+  const cur = groupRows(R, d.rows, 'medium').groups, prev = groupRows(R, d.prevRows, 'medium').groups;
+  const names = new Set([...cur, ...prev].map(g => g.key));
+  if(names.size > 1){
+    const find = (list, k) => (list.find(g => g.key === k) || {t:totals([])}).t;
+    let best = null;
+    names.forEach(k => {
+      const a = metricValue(main, find(cur, k)) || 0, b = metricValue(main, find(prev, k)) || 0;
+      if(!best || Math.abs(a - b) > Math.abs(best.a - best.b)) best = {k, a, b};
+    });
+    if(best && best.a !== best.b){
+      out.push(`بیشترین تغییر ${esc(mDef.label)} مربوط به مدیوم <b>${esc(best.k)}</b> بود: از ${fa(best.b)} به <b>${fa(best.a)}</b>${chg(best.a, best.b)}.`);
+    }
   }
+  // Campaigns that spent this time but not last time, and the other way round.
+  const spent = rows => {
+    const m = new Map();
+    rows.forEach(r => { if(r.cost > 0) m.set(r.campaign, r.campaignLabel || r.raw); });
+    return m;
+  };
+  const a = spent(d.rows), b = spent(d.prevRows);
+  const list = (m, other) => {
+    const names = Array.from(m.entries()).filter(([k]) => !other.has(k)).map(([, l]) => `<bdi>${esc(l)}</bdi>`);
+    if(!names.length) return '';
+    return names.slice(0, 3).join('، ') + (names.length > 3 ? ` و ${fa(names.length - 3)} کمپین دیگه` : '');
+  };
+  const started = list(a, b), stopped = list(b, a);
+  if(started) out.push(`کمپین‌های تازه‌ی ${w.cur}: ${started}.`);
+  if(stopped) out.push(`کمپین‌هایی که در ${w.cur} هزینه نداشتن: ${stopped}.`);
   return '<ul>' + out.map(x => `<li>${x}</li>`).join('') + '</ul>';
 }
 function nextDraft(){
   return '<ul><li>…</li><li>…</li><li>…</li></ul>';
 }
-function renderTextSlide(p, s, num){
+function renderTextSlide(R, s, num){
+  const d = dataFor(s);
   const cols = s.cols && s.cols.length ? s.cols : [{h:'', auto:null, icon:'note'}];
   const body = cols.map((c, i) => `<div class="an-col">
-      ${c.h !== undefined ? `<div class="an-h"><i>${ICON[c.icon] || ICON.note}</i>${E('h' + i, esc(c.h), 'تیتر', 'span')}</div>` : ''}
-      ${E('b' + i, c.auto === 'analysis' ? analysisDraft(p) : c.auto === 'next' ? nextDraft() : '', 'متن رو اینجا بنویس…', 'div', 'an-body')}
+      <div class="an-h"><i>${ICON[c.icon] || ICON.note}</i>${E('h' + i, esc(c.h || ''), 'تیتر', 'span')}</div>
+      ${E('b' + i, c.auto === 'analysis' ? analysisDraft(R, d) : c.auto === 'next' ? nextDraft() : '', 'متن رو اینجا بنویس…', 'div', 'an-body')}
     </div>`).join('');
-  return `<section class="slide">${slideHead(p, s, S.data.win ? periodLabel(S.data.win.from, S.data.win.to) : '')}
-    <div class="s-body"><div class="an-grid" style="--cols:${cols.length}">${body}</div></div>${slideFoot(p, num)}</section>`;
+  return `<section class="slide">${slideHead(R, s, periodOf(d))}
+    <div class="s-body"><div class="an-grid" style="--cols:${cols.length}">${body}</div></div>${slideFoot(R, num)}</section>`;
 }
-function renderSlide(p, s, num){
+function renderSlide(R, s, num){
   switch(s.type){
-    case 'cover': return renderCover(p, s);
-    case 'kpis': return renderKpis(p, s, num);
-    case 'campaigns': return renderTableSlide(p, s, num, true);
-    case 'table': return renderTableSlide(p, s, num, false);
-    case 'chart': return renderChartSlide(p, s, num);
-    case 'text': return renderTextSlide(p, s, num);
+    case 'cover': return renderCover(R, s);
+    case 'campaigns': return renderTypesSlide(R, s, num);
+    case 'kpis': return renderKpis(R, s, num);
+    case 'table': return renderTableSlide(R, s, num);
+    case 'chart': return renderChartSlide(R, s, num);
+    case 'text': return renderTextSlide(R, s, num);
   }
   return '';
 }
@@ -923,12 +1126,12 @@ function alpha(hex, a){
   if(h.length !== 6) return hex;
   return `rgba(${parseInt(h.slice(0,2),16)},${parseInt(h.slice(2,4),16)},${parseInt(h.slice(4,6),16)},${a})`;
 }
-function drawChart(p, s, canvas){
-  const defs = defsById(p), th = themeOf(p);
+function drawChart(R, s, canvas){
+  const defs = defsById(R), th = themeOf(R), d = dataFor(s);
   const ms = (s.metrics || []).filter(id => defs[id] && defs[id].ok).slice(0, s.chart === 'doughnut' ? 1 : 2);
   if(!ms.length) return null;
-  let {dim, groups} = groupRows(p, S.data.rows, s.dim || 'day');
-  const all = S.data.t;
+  let {dim, groups} = groupRows(R, d.rows, s.dim || 'day');
+  const all = d.t;
   if(!dim.chrono && groups.length > 10){
     const rest = groups.slice(9);
     groups = groups.slice(0, 9).concat([{key:'__rest', name:'سایر', t:totals(rest.flatMap(g => g.rows))}]);
@@ -992,95 +1195,165 @@ function drawChart(p, s, canvas){
 // ---------- Views ----------
 function route(){
   const h = decodeURIComponent(location.hash.replace(/^#\/?/, ''));
-  const [pid, sub] = h.split('/');
-  const p = PROJ.find(x => x.id === pid);
+  const [id, sub] = h.split('/');
   closePresent();
-  if(!p) return renderHome();
-  openProject(p, sub === 'settings' ? 'settings' : 'deck');
+  if(id === 'new-merge') return renderMergeForm(null);
+  const R = allReports().find(x => x.id === id);
+  if(!R) return renderHome();
+  if(sub === 'parts') return renderMergeForm(R);
+  openReport(R, sub === 'settings' ? 'settings' : 'deck');
 }
 function renderHome(){
-  S.project = null;
+  S.report = null;
   document.body.style.removeProperty('--page-accent');
   const gt = groupTitles();
+  const merged = allReports().filter(R => R.merged);
+  const card = R => `
+      <button type="button" class="client-card ${R.merged ? 'merged' : ''}" data-rid="${esc(R.id)}"
+        data-q="${esc((R.title + ' ' + (gt[R.group] || '') + ' ' + R.parts.map(p => p.title).join(' ')).toLowerCase())}">
+        <span class="client-logo" style="color:${themeOf(R).ink}">${cardLogo(R)}</span>
+        <span><span class="client-name">${esc(R.title)}</span>${R.merged
+          ? `<span class="client-group" style="display:block"><span class="badge">ترکیبی</span>${esc(R.parts.map(p => p.title).join(' + '))}</span>`
+          : R.group && gt[R.group] && gt[R.group] !== R.title ? `<span class="client-group" style="display:block">${esc(gt[R.group])}</span>` : ''}</span>
+      </button>`;
   $('#view').innerHTML = `
-    <div class="home-head"><div><h2>انتخاب مشتری</h2><p>برای هر مشتری یه گزارش اسلایدی ساخته می‌شه؛ بازه، متریک‌ها و اسلایدها از «تنظیمات» همون مشتری.</p></div>
+    <div class="home-head"><div><h2>انتخاب مشتری</h2><p>برای هر مشتری یه گزارش اسلایدی ساخته می‌شه؛ بازه، کمپین‌ها، متریک‌ها و اسلایدها از «تنظیمات» همون گزارش.</p></div>
       <input class="search" id="clientSearch" type="search" placeholder="جست‌وجوی مشتری…" aria-label="جست‌وجوی مشتری"></div>
-    <div class="client-grid" id="clientGrid">${PROJ.map(p => `
-      <button type="button" class="client-card" data-pid="${esc(p.id)}" data-q="${esc((p.title + ' ' + (gt[p.group] || '')).toLowerCase())}">
-        <span class="client-logo" style="color:${themeOf(p).ink}">${p.logo ? `<img src="${esc(p.logo)}" alt="">` : esc(p.title.charAt(0))}</span>
-        <span><span class="client-name">${esc(p.title)}</span>${p.group && gt[p.group] && gt[p.group] !== p.title ? `<span class="client-group" style="display:block">${esc(gt[p.group])}</span>` : ''}</span>
-      </button>`).join('')}</div>`;
-  $$('.client-card').forEach(b => b.addEventListener('click', () => { location.hash = '#' + b.dataset.pid; }));
+    <div class="home-sec">گزارش‌های ترکیبی (چند بخش با هم)</div>
+    <div class="client-grid">${merged.map(card).join('')}
+      <a class="client-card new" href="#new-merge">${ICON.merge}+ ساختن گزارش ترکیبی</a></div>
+    <div class="home-sec">بخش‌های داشبورد</div>
+    <div class="client-grid">${PROJ.map(p => card(makeSingle(p))).join('')}</div>`;
+  $$('.client-card[data-rid]').forEach(b => b.addEventListener('click', () => { location.hash = '#' + b.dataset.rid; }));
   $('#clientSearch').addEventListener('input', e => {
     const q = e.target.value.trim().toLowerCase();
-    $$('.client-card').forEach(b => { b.hidden = q && !b.dataset.q.includes(q); });
+    $$('.client-card[data-rid]').forEach(b => { b.hidden = q && !b.dataset.q.includes(q); });
   });
   setStatus('live', 'آماده');
 }
 
-async function openProject(p, view){
-  if(S.project !== p){
-    S.project = p;
-    S.data = null;
-    document.body.style.setProperty('--page-accent', themeOf(p).accent);
-    if(!p._loaded){
-      $('#view').innerHTML = `<div class="loading-box"><span class="spinner"></span>در حال خوندن شیت‌های ${esc(p.title)}…</div>`;
+// Picking the parts of a merged report: a new one, or an existing one's.
+function renderMergeForm(R){
+  S.report = null;
+  const gt = groupTitles();
+  const chosen = new Set(R ? R.def.parts : []);
+  $('#view').innerHTML = `
+    <div class="deck-bar"><div class="deck-id"><a class="btn icon" href="#${R ? esc(R.id) + '/settings' : ''}" aria-label="برگشت">${ICON.back}</a>
+      <div><b>${R ? 'بخش‌های گزارش ترکیبی' : 'ساختن گزارش ترکیبی'}</b><span>چند بخش داشبورد که دیتاشون با هم جمع بشه — مثلاً ارزپلاس وب + ارزپلاس اپ</span></div></div></div>
+    <div class="set-grid"><section class="card">
+      <label class="field"><span>اسم گزارش</span><input class="inp" id="mTitle" value="${esc(R ? R.title : '')}" placeholder="مثلاً ارزپلاس (وب + اپلیکیشن)"></label>
+      <div class="field"><span>بخش‌ها (حداقل دو تا)</span></div>
+      <input class="search" id="mSearch" type="search" placeholder="جست‌وجو…" style="width:100%;margin-bottom:10px">
+      <div class="camp-list">${PROJ.map(p => `<label class="camp-row" data-q="${esc((p.title + ' ' + (gt[p.group] || '')).toLowerCase())}" style="grid-template-columns:auto minmax(0,1fr)">
+        <input type="checkbox" data-part="${esc(p.id)}" ${chosen.has(p.id) ? 'checked' : ''}><span>${esc(p.title)}</span></label>`).join('')}</div>
+      <div class="set-foot" style="margin-top:16px"><button type="button" class="btn primary" id="mSave">${R ? 'ذخیره' : 'ساختن گزارش'}</button>
+        ${R ? '<button type="button" class="btn danger" id="mDelete">حذف این گزارش ترکیبی</button>' : ''}</div>
+    </section></div>`;
+  $('#mSearch').addEventListener('input', e => {
+    const q = e.target.value.trim().toLowerCase();
+    $$('label.camp-row').forEach(r => { r.hidden = q && !r.dataset.q.includes(q); });
+  });
+  $('#mSave').addEventListener('click', () => {
+    const parts = $$('[data-part]').filter(b => b.checked).map(b => b.dataset.part);
+    if(parts.length < 2){ toast('حداقل دو بخش رو انتخاب کن'); return; }
+    const title = $('#mTitle').value.trim() || parts.map(id => PROJ.find(p => p.id === id).title).join(' + ');
+    const list = mergeDefs();
+    if(R){
+      const m = list.find(x => x.id === R.id);
+      m.title = title; m.parts = parts;
+      // Campaign picks and mediums name the parts; a removed part's go too.
+      const cfg = store.get(cfgKey(R), null);
+      if(cfg){
+        const keep = k => parts.some(id => String(k).startsWith(id + '::'));
+        if(Array.isArray(cfg.campaigns)) cfg.campaigns = null;
+        (cfg.slides || []).forEach(s => { if(Array.isArray(s.campaigns)) s.campaigns = s.campaigns.filter(keep); });
+        Object.keys(cfg.mediums || {}).forEach(k => { if(!keep(k)) delete cfg.mediums[k]; });
+        store.set(cfgKey(R), cfg);
+      }
+    }else list.unshift({id:'merge-' + Date.now().toString(36), title, parts});
+    saveMergeDefs(list);
+    location.hash = '#' + (R ? R.id : list[0].id);
+  });
+  const del = $('#mDelete');
+  if(del) del.addEventListener('click', () => {
+    if(!confirm(`گزارش ترکیبی «${R.title}» و تنظیماتش حذف بشه؟ (بخش‌های داشبورد دست نمی‌خورن)`)) return;
+    saveMergeDefs(mergeDefs().filter(x => x.id !== R.id));
+    store.del(cfgKey(R));
+    location.hash = '#';
+  });
+  setStatus('live', 'آماده');
+}
+
+async function openReport(R, view){
+  if(!S.report || S.report.id !== R.id){
+    S.report = R; S.data = null; S.cache = {};
+    document.body.style.setProperty('--page-accent', themeOf(R).accent);
+    const todo = R.parts.filter(p => !p._loaded);
+    if(todo.length){
+      $('#view').innerHTML = `<div class="loading-box"><span class="spinner"></span>در حال خوندن شیت‌های ${esc(R.title)}…</div>`;
       setStatus('loading', 'در حال خوندن شیت…');
-      await core.loadProject(p);
-      p._loaded = !p.error;
-      if(S.project !== p) return;
+      await Promise.all(todo.map(async p => { await core.loadProject(p); p._loaded = !p.error; }));
+      if(S.report !== R) return;
     }
-    if(p.error){
-      $('#view').innerHTML = `${backBar(p)}<div class="error-box">${esc(p.error)}</div>`;
+    const bad = R.parts.filter(p => p.error);
+    if(bad.length){
+      $('#view').innerHTML = `${backBar(R)}${bad.map(p => `<div class="error-box">${esc(p.title)}: ${esc(p.error)}</div>`).join('')}`;
       setStatus('err', 'خطا در خوندن شیت');
-      p._loaded = false;
+      S.report = null;
       return;
     }
-    loadCfg(p);
-  }
-  S.data = computeData(p);
+    const mins = R.parts.map(p => p.minDate).filter(Boolean).sort(), maxs = R.parts.map(p => p.maxDate).filter(Boolean).sort();
+    R.minDate = mins[0] || null; R.maxDate = maxs[maxs.length - 1] || null;
+    loadCfg(R);
+  }else R = S.report;   // route() builds a fresh object each time; keep the loaded one
+  S.cache = {};
+  S.data = computeData(R, campaignSelection(R));
   loadEdits();
   setStatus('live', 'همگام‌سازی شد — ' + new Date().toLocaleTimeString('fa-IR', {hour:'2-digit', minute:'2-digit'}));
-  view === 'settings' ? renderSettings(p) : renderDeck(p);
+  view === 'settings' ? renderSettings(R) : renderDeck(R);
 }
-function backBar(p){
+function backBar(R){
   return `<div class="deck-bar"><div class="deck-id">
     <a class="btn icon" href="#" title="همه‌ی مشتری‌ها" aria-label="همه‌ی مشتری‌ها">${ICON.back}</a>
-    <span class="client-logo">${p.logo ? `<img src="${esc(p.logo)}" alt="">` : esc(p.title.charAt(0))}</span>
-    <div><b>${esc(p.title)}</b><span>${S.data && S.data.win ? esc(periodLabel(S.data.win.from, S.data.win.to)) : ''}</span></div>
+    <span class="client-logo">${cardLogo(R)}</span>
+    <div><b>${esc(R.title)}</b><span>${S.data && S.data.win ? esc(periodLabel(S.data.win.from, S.data.win.to)) : ''}${R.merged ? ' — ' + esc(R.parts.map(p => p.title).join(' + ')) : ''}</span></div>
   </div><div class="deck-actions" id="deckActions"></div></div>`;
 }
 
 function enabledSlides(){ return S.cfg.slides.filter(s => s.on !== false); }
 function destroyCharts(){ S.charts.forEach(c => c.destroy()); S.charts = []; }
+function savedLabel(){
+  return S.cfg.tplSavedAt ? 'قالب ذخیره‌شده: ' + new Date(S.cfg.tplSavedAt).toLocaleString('fa-IR', {month:'long', day:'numeric', hour:'2-digit', minute:'2-digit'}) : 'هنوز قالبی ذخیره نشده';
+}
 
-function renderDeck(p){
+function renderDeck(R){
   destroyCharts();
   const editing = document.body.classList.contains('editing');
   const slides = enabledSlides();
   const hiddenCount = S.cfg.slides.length - slides.length;
-  $('#view').innerHTML = backBar(p) + `<div class="deck" id="deck">${slides.map((s, i) => `
+  $('#view').innerHTML = backBar(R) + `<div class="deck" id="deck">${slides.map((s, i) => `
     <div class="slide-item" data-sid="${esc(s.id)}">
       <div class="slide-tools">
-        <span class="lbl"><b>${fa(i + 1)}</b>${esc(SLIDE_TYPES[s.type] || s.type)}</span>
+        <span class="lbl"><b>${fa(i + 1)}</b>${esc(SLIDE_TYPES[s.type] || s.type)}${Array.isArray(s.campaigns) ? ` — <span title="این اسلاید فقط کمپین‌های انتخابی خودش رو می‌شمره">${fa(s.campaigns.length)} کمپین انتخابی</span>` : ''}</span>
         <span class="grp">
           <button type="button" class="btn sm icon" data-act="up" title="جابه‌جایی به بالا" aria-label="بالا" ${i === 0 ? 'disabled' : ''}>${ICON.up}</button>
           <button type="button" class="btn sm icon" data-act="down" title="جابه‌جایی به پایین" aria-label="پایین" ${i === slides.length - 1 ? 'disabled' : ''}>${ICON.down}</button>
           <button type="button" class="btn sm icon" data-act="hide" title="پنهان کردن این اسلاید" aria-label="پنهان کردن">${ICON.eyeOff}</button>
-          <button type="button" class="btn sm icon" data-act="reset" title="برگردوندن ویرایش‌های این اسلاید" aria-label="برگردوندن ویرایش‌ها">${ICON.reset}</button>
-          <a class="btn sm icon" href="#${esc(p.id)}/settings" data-act="cfg" title="تنظیمات این اسلاید" aria-label="تنظیمات">${ICON.gear}</a>
+          <button type="button" class="btn sm icon" data-act="reset" title="برگردوندن ویرایش‌های این بازه (قالب می‌مونه)" aria-label="برگردوندن ویرایش‌ها">${ICON.reset}</button>
+          <a class="btn sm icon" href="#${esc(R.id)}/settings" data-act="cfg" title="تنظیمات این اسلاید (متریک‌ها، کمپین‌ها…)" aria-label="تنظیمات">${ICON.gear}</a>
           <button type="button" class="btn sm icon" data-act="present" title="ارائه از این اسلاید" aria-label="ارائه">${ICON.play}</button>
         </span>
       </div>
-      <div class="s-frame" style="${themeVars(p)}">${renderSlide(p, s, i + 1)}</div>
+      <div class="s-frame" style="${themeVars(R)}">${renderSlide(R, s, i + 1)}</div>
     </div>`).join('')}
     <div class="add-slide"><span>افزودن اسلاید${hiddenCount ? ` — ${fa(hiddenCount)} اسلاید پنهان تو تنظیمات` : ''}</span>
       ${['chart', 'table', 'kpis', 'campaigns', 'text'].map(t => `<button type="button" class="btn sm" data-add="${t}">+ ${esc(SLIDE_TYPES[t])}</button>`).join('')}
     </div></div>`;
   $('#deckActions').innerHTML = `
-    <a class="btn" href="#${esc(p.id)}/settings">${ICON.gear}<span class="t">تنظیمات</span></a>
+    <button type="button" class="btn ${S.cfg.tplSavedAt ? 'saved' : ''}" id="saveTpl" title="${esc(savedLabel())}">${ICON.save}<span class="t">ذخیره قالب</span></button>
+    <a class="btn" href="#${esc(R.id)}/settings">${ICON.gear}<span class="t">تنظیمات</span></a>
     <button type="button" class="btn ${editing ? 'on' : ''}" id="editToggle" aria-pressed="${editing}">${ICON.pen}<span class="t">ویرایش</span></button>
-    <button type="button" class="btn" id="resetAll" title="همه‌ی ویرایش‌های این بازه پاک بشه و از دیتا ساخته بشه">${ICON.reset}<span class="t">بازسازی</span></button>
+    <button type="button" class="btn" id="resetAll" title="ویرایش‌های این بازه پاک بشه و از دیتا و قالب ساخته بشه">${ICON.reset}<span class="t">بازسازی</span></button>
     <button type="button" class="btn" id="presentBtn">${ICON.play}<span class="t">ارائه</span></button>
     <button type="button" class="btn" id="pdfBtn">${ICON.pdf}<span class="t">PDF</span></button>
     <button type="button" class="btn primary" id="htmlBtn">${ICON.html}<span class="t">HTML</span></button>`;
@@ -1092,20 +1365,20 @@ function renderDeck(p){
     applyEdits(slideEl, sid);
     const s = S.cfg.slides.find(x => x.id === sid);
     const cv = $('canvas[data-chart]', slideEl);
-    if(cv){ const c = drawChart(p, s, cv); if(c){ S.charts.push(c); cv._chart = c; } }
+    if(cv){ const c = drawChart(R, s, cv); if(c) S.charts.push(c); }
   });
   fitFrames();
   $$('#deck .slide').forEach(fitSlideText);
-  wireDeck(p);
+  wireDeck(R);
 }
 
 // A figure too wide for its tile, or an analysis longer than its box, is
 // stepped down in size rather than cut off.
 function fitSlideText(slide){
-  $$('.kpi-v', slide).forEach(el => {
+  $$('.kpi-v, .ct-name', slide).forEach(el => {
     el.style.fontSize = '';
     let size = parseFloat(getComputedStyle(el).fontSize);
-    while(el.scrollWidth > el.clientWidth + 1 && size > 18){ size -= 2; el.style.fontSize = size + 'px'; }
+    while(el.scrollWidth > el.clientWidth + 1 && size > 14){ size -= 1; el.style.fontSize = size + 'px'; }
   });
   $$('.an-body', slide).forEach(el => {
     el.style.fontSize = '';
@@ -1114,13 +1387,12 @@ function fitSlideText(slide){
     while(box.scrollHeight > box.clientHeight + 1 && size > 12){ size -= 1; el.style.fontSize = size + 'px'; }
   });
 }
-
 function fitFrames(root){
   $$('.s-frame', root).forEach(f => f.style.setProperty('--k', f.clientWidth / 1280));
 }
 const ro = window.ResizeObserver ? new ResizeObserver(() => fitFrames()) : null;
 
-function wireDeck(p){
+function wireDeck(R){
   const deck = $('#deck');
   if(ro){ ro.disconnect(); ro.observe(deck); }
   deck.addEventListener('input', e => {
@@ -1144,13 +1416,13 @@ function wireDeck(p){
       const sid = hide.closest('.slide').dataset.sid;
       (S.edits[sid] = S.edits[sid] || {})['hide:' + hide.dataset.hide] = 1;
       saveEdits();
-      hide.closest('tr').remove();
+      hide.closest('[data-row]').remove();
       return;
     }
     const logo = e.target.closest('[data-logo]');
     if(logo && document.body.classList.contains('editing')){ $('#logoFile').click(); return; }
     const add = e.target.closest('[data-add]');
-    if(add){ addSlide(p, add.dataset.add); renderDeck(p); toast('اسلاید اضافه شد — تنظیماتش تو صفحه‌ی تنظیمات'); return; }
+    if(add){ addSlide(R, add.dataset.add); renderDeck(R); toast('اسلاید اضافه شد — تنظیماتش تو صفحه‌ی تنظیمات'); return; }
     const act = e.target.closest('[data-act]');
     if(!act) return;
     const sid = act.closest('.slide-item').dataset.sid;
@@ -1162,21 +1434,26 @@ function wireDeck(p){
         if(!other) return;
         const oi = list.indexOf(other);
         [list[idx], list[oi]] = [list[oi], list[idx]];
-        saveCfg(); renderDeck(p); break;
+        saveCfg(); renderDeck(R); break;
       }
-      case 'hide': list[idx].on = false; saveCfg(); renderDeck(p); toast('پنهان شد — از تنظیمات برمی‌گرده'); break;
-      case 'reset': delete S.edits[sid]; saveEdits(); renderDeck(p); break;
+      case 'hide': list[idx].on = false; saveCfg(); renderDeck(R); toast('پنهان شد — از تنظیمات برمی‌گرده'); break;
+      case 'reset': delete S.edits[sid]; saveEdits(); renderDeck(R); break;
       case 'cfg': S.focusSlide = sid; break;
       case 'present': openPresent(enabledSlides().findIndex(s => s.id === sid)); break;
     }
   });
+  $('#saveTpl').addEventListener('click', () => {
+    saveTemplate();
+    renderDeck(R);
+    toast('قالب این گزارش ذخیره شد — بازه‌های بعدی با همین اسلایدها و متن‌ها ساخته می‌شن');
+  });
   $('#editToggle').addEventListener('click', () => {
     document.body.classList.toggle('editing');
-    renderDeck(p);
+    renderDeck(R);
   });
   $('#resetAll').addEventListener('click', () => {
-    if(!confirm('همه‌ی متن‌هایی که روی اسلایدهای این بازه عوض کردی پاک بشه؟')) return;
-    S.edits = {}; store.del(S.editKey); renderDeck(p);
+    if(!confirm('ویرایش‌های این بازه پاک بشه؟ (قالب ذخیره‌شده دست نمی‌خوره)')) return;
+    S.edits = {}; store.del(S.editKey); renderDeck(R);
   });
   $('#presentBtn').addEventListener('click', () => openPresent(0));
   $('#pdfBtn').addEventListener('click', exportPdf);
@@ -1186,7 +1463,7 @@ function wireDeck(p){
 $('#logoFile').addEventListener('change', e => {
   const f = e.target.files && e.target.files[0];
   e.target.value = '';
-  if(!f || !S.project) return;
+  if(!f || !S.report) return;
   const reader = new FileReader();
   reader.onload = () => {
     // Shrunk to fit: browser storage holds a few megabytes for everything.
@@ -1205,15 +1482,15 @@ $('#logoFile').addEventListener('change', e => {
   reader.readAsDataURL(f);
 });
 
-function addSlide(p, type){
-  const defs = defsById(p), ok = id => defs[id] && defs[id].ok;
+function addSlide(R, type){
+  const defs = defsById(R), ok = id => defs[id] && defs[id].ok;
   const main = mainAction(ok);
   const id = type + '-' + Date.now().toString(36);
   const base = {id, type, on:true, title:SLIDE_TYPES[type]};
   if(type === 'chart') Object.assign(base, {title:'نمودار', dim:'day', chart:'combo', metrics:['cost', main]});
   if(type === 'table') Object.assign(base, {title:'جدول مقایسه', dim:'campaign', maxRows:10, metrics:['cost', 'costShare', main].filter(ok)});
   if(type === 'kpis') Object.assign(base, {title:'آمار کلی', metrics:['cost', main].filter(ok)});
-  if(type === 'campaigns') Object.assign(base, {title:'کمپین‌ها', maxRows:8, metrics:['cost', main].filter(ok)});
+  if(type === 'campaigns') Object.assign(base, {title:'کمپین‌های اجرا شده', level:'medium'});
   if(type === 'text') Object.assign(base, {title:'یادداشت', cols:[{h:'', auto:null, icon:'note'}]});
   S.cfg.slides.push(base);
   saveCfg();
@@ -1221,41 +1498,62 @@ function addSlide(p, type){
 }
 
 // ---------- Settings page ----------
-function renderSettings(p){
+function campRow(o, checked, attr, extra){
+  return `<label class="camp-row" data-q="${esc((o.label + ' ' + (o.part ? o.part.title : '')).toLowerCase())}">
+    <input type="checkbox" ${attr}="${esc(o.key)}" ${checked ? 'checked' : ''}>
+    <span class="nm" title="${esc(o.label)}">${esc(o.label)}${S.report.merged ? `<span class="pt">${esc(o.part.title)}</span>` : ''}</span>
+    <span class="cs">${esc(fa(o.cost))}</span>${extra || '<span></span>'}</label>`;
+}
+function renderSettings(R){
   destroyCharts();
-  const cfg = S.cfg, defs = metricDefs(p), d = S.data;
+  const cfg = S.cfg, defs = metricDefs(R), d = S.data;
   const per = cfg.period || {preset:'lastWeek'};
-  const win = d.win || {from:p.minDate, to:p.maxDate};
-  const sel = campaignSelection(p);
-  const opts = campaignOptions(p, win);
+  const win = d.win || {from:R.minDate, to:R.maxDate};
+  const sel = campaignSelection(R);
+  const opts = campaignOptions(R, win);
   const shown = opts.filter(o => o.active || (sel !== 'ALL' && sel.has(o.key)));
   const mediumNames = Array.from(new Set(['درون‌اپلیکیشنی', 'پویا', 'همسان', 'ویدیویی', 'بنری', 'پوش', 'پیامکی', 'پیام روبیکا', 'کافه بازار', 'سایر',
     ...Object.values(cfg.mediums || {})]));
-  const budget = p.kind === 'budget';
-  const mediumRows = budget
-    ? Array.from(new Map(d.rows.map(r => [r.campaign, r.campaignLabel || r.campaign])).entries())
-    : null;
-  const medInput = key => `<input class="inp" list="mediumList" data-medium="${esc(key)}" value="${esc((cfg.mediums || {})[key] || '')}" placeholder="${esc(autoMedium(p, key))}" aria-label="مدیوم">`;
+  const budgetOnly = R.parts.every(p => p.kind === 'budget');
+  const someBudget = anyBudget(R);
+  // Budget parts pick by Campaign Name, so their campaigns' mediums get a list of their own.
+  const mediumRows = someBudget
+    ? Array.from(new Map(allRows(R).filter(r => r.cname && r.date >= win.from && r.date <= win.to).map(r => [r.campaign, r.campaignLabel || r.raw])).entries())
+    : [];
+  const medInput = key => `<input class="inp" list="mediumList" data-medium="${esc(key)}" value="${esc((cfg.mediums || {})[key] || '')}" placeholder="${esc(autoMedium(R, key))}" aria-label="مدیوم">`;
+  const isBudgetKey = key => splitKey(R, key).part.kind === 'budget';
   const slideOpts = (s, i) => {
-    const mets = s.type === 'cover' || s.type === 'text' ? '' : `
+    const mets = ['cover', 'text', 'campaigns'].includes(s.type) ? '' : `
       <div class="field"><span>متریک‌ها${s.type === 'chart' ? ' (نمودار: دو تای اول؛ دایره‌ای: فقط اولی)' : ''}</span><div class="metric-checks">
         ${defs.filter(m => m.ok && !(m.groupOnly && s.type === 'kpis')).map(m => `<label class="check"><input type="checkbox" data-s="${i}" data-metric="${m.id}" ${(s.metrics || []).includes(m.id) ? 'checked' : ''}>${esc(m.label)}</label>`).join('')}
       </div></div>`;
     const dims = s.type === 'chart' || s.type === 'table' ? `<div class="field"><span>بُعد</span><select class="inp" data-s="${i}" data-prop="dim">
-        ${dimDefs(p).map(dm => `<option value="${dm.id}" ${s.dim === dm.id ? 'selected' : ''}>${esc(dm.label)}</option>`).join('')}</select></div>` : '';
+        ${dimDefs(R).map(dm => `<option value="${dm.id}" ${s.dim === dm.id ? 'selected' : ''}>${esc(dm.label)}</option>`).join('')}</select></div>` : '';
+    const level = s.type === 'campaigns' ? `<div class="field"><span>چی لیست بشه</span><select class="inp" data-s="${i}" data-prop="level">
+        ${Object.entries(LIST_LEVELS).map(([k, v]) => `<option value="${k}" ${(s.level || 'medium') === k ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select></div>` : '';
     const ctype = s.type === 'chart' ? `<div class="field"><span>نوع نمودار</span><select class="inp" data-s="${i}" data-prop="chart">
         ${Object.entries(CHART_TYPES).map(([k, v]) => `<option value="${k}" ${s.chart === k ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select></div>` : '';
-    const rows = s.type === 'table' || s.type === 'campaigns' ? `<div class="field"><span>حداکثر ردیف</span>
+    const rows = s.type === 'table' ? `<div class="field"><span>حداکثر ردیف</span>
         <input class="inp" type="number" min="2" max="20" data-s="${i}" data-prop="maxRows" value="${esc(s.maxRows || 10)}"></div>` : '';
     const cols = s.type === 'text' ? `<div class="field"><span>تعداد ستون</span><select class="inp" data-s="${i}" data-prop="ncols">
         ${[1, 2, 3].map(n => `<option value="${n}" ${(s.cols || []).length === n ? 'selected' : ''}>${fa(n)}</option>`).join('')}</select></div>` : '';
+    const own = Array.isArray(s.campaigns);
+    const ownSet = new Set(own ? s.campaigns : []);
+    const camps = s.type === 'cover' ? '' : `
+      <div class="field"><span>کمپین‌هایی که تو دیتای این اسلاید شمرده می‌شن</span>
+        <select class="inp" data-s="${i}" data-prop="campMode" style="max-width:340px">
+          <option value="report" ${own ? '' : 'selected'}>مثل کل گزارش</option>
+          <option value="own" ${own ? 'selected' : ''}>انتخاب دستی برای همین اسلاید</option></select></div>
+      ${own ? `<div class="row" style="margin-bottom:8px"><button type="button" class="btn sm" data-sall="${i}">همه</button><button type="button" class="btn sm" data-snone="${i}">هیچ‌کدوم</button></div>
+        <div class="camp-list sm">${opts.filter(o => o.active || ownSet.has(o.key)).map(o => campRow(o, ownSet.has(o.key), `data-s="${i}" data-scamp`)).join('')
+          || '<div class="camp-row"><span></span><span>توی این بازه کمپینی نیست</span></div>'}</div>` : ''}`;
     return `<details class="slide-set ${s.on === false ? 'off' : ''}" id="set-${esc(s.id)}" ${S.focusSlide === s.id ? 'open' : ''}>
-      <summary><span class="num">${fa(i + 1)}</span><span class="t">${esc(s.title || SLIDE_TYPES[s.type])}<span class="ty">${esc(SLIDE_TYPES[s.type])}</span></span>
+      <summary><span class="num">${fa(i + 1)}</span><span class="t">${esc(s.title || SLIDE_TYPES[s.type])}<span class="ty">${esc(SLIDE_TYPES[s.type])}${own ? ' — کمپین‌های انتخابی' : ''}</span></span>
         <label class="check" onclick="event.stopPropagation()"><input type="checkbox" data-s="${i}" data-prop="on" ${s.on !== false ? 'checked' : ''}>نمایش</label></summary>
       <div class="body">
         ${s.type === 'cover' ? '<p class="hint">عنوان، برچسب و لوگوی جلد از بخش «عنوان و ظاهر» بالا میاد؛ روی خود اسلاید هم قابل ویرایشه.</p>'
-          : `<div class="row"><div class="field"><span>عنوان اسلاید</span><input class="inp" data-s="${i}" data-prop="title" value="${esc(s.title)}"></div>${dims}${ctype}${rows}${cols}</div>`}
-        ${mets}
+          : `<div class="row"><div class="field"><span>عنوان اسلاید</span><input class="inp" data-s="${i}" data-prop="title" value="${esc(s.title)}"></div>${dims}${level}${ctype}${rows}${cols}</div>`}
+        ${mets}${camps}
         <div class="set-foot">
           <button type="button" class="btn sm" data-move="${i}" data-dir="-1" ${i === 0 ? 'disabled' : ''}>${ICON.up}بالا</button>
           <button type="button" class="btn sm" data-move="${i}" data-dir="1" ${i === cfg.slides.length - 1 ? 'disabled' : ''}>${ICON.down}پایین</button>
@@ -1264,91 +1562,98 @@ function renderSettings(p){
         </div>
       </div></details>`;
   };
+  const tplN = templateCount();
 
-  $('#view').innerHTML = backBar(p) + `<div class="set-grid">
-    <section class="card"><h3>بازه‌ی گزارش</h3><p class="hint">دیتای شیت از ${esc(jFull(p.minDate))} تا ${esc(jFull(p.maxDate))}ه. امروز هیچ‌وقت حساب نمی‌شه.</p>
+  $('#view').innerHTML = backBar(R) + `<div class="set-grid">
+    <section class="card"><h3>بازه‌ی گزارش</h3><p class="hint">دیتای شیت از ${esc(jFull(R.minDate))} تا ${esc(jFull(R.maxDate))}ه. امروز هیچ‌وقت حساب نمی‌شه.</p>
       <div class="chips">${PRESETS.map(([k, v]) => `<button type="button" class="chip ${per.preset === k ? 'on' : ''}" data-preset="${k}">${esc(v)}</button>`).join('')}</div>
       <div class="row">
-        <label class="field"><span>از</span><input class="inp" type="date" id="pFrom" value="${esc(ymdToIso(win.from))}" min="${esc(ymdToIso(p.minDate))}" max="${esc(ymdToIso(p.maxDate))}"></label>
-        <label class="field"><span>تا</span><input class="inp" type="date" id="pTo" value="${esc(ymdToIso(win.to))}" min="${esc(ymdToIso(p.minDate))}" max="${esc(ymdToIso(p.maxDate))}"></label>
+        <label class="field"><span>از</span><input class="inp" type="date" id="pFrom" value="${esc(ymdToIso(win.from))}" min="${esc(ymdToIso(R.minDate))}" max="${esc(ymdToIso(R.maxDate))}"></label>
+        <label class="field"><span>تا</span><input class="inp" type="date" id="pTo" value="${esc(ymdToIso(win.to))}" min="${esc(ymdToIso(R.minDate))}" max="${esc(ymdToIso(R.maxDate))}"></label>
         <div class="field" style="flex:2 1 260px"><span>بازه‌ی انتخاب‌شده</span><div style="padding:9px 0;font-weight:700">${esc(periodLabel(win.from, win.to))} — ${fa(daysBetween(win.from, win.to))} روز</div></div>
       </div>
-      <label class="check"><input type="checkbox" id="cmpToggle" ${cfg.compare ? 'checked' : ''}>مقایسه با بازه‌ی هم‌طولِ قبل (درصد تغییر روی کارت‌ها و تحلیل)</label>
+      <label class="check"><input type="checkbox" id="cmpToggle" ${cfg.compare ? 'checked' : ''}>مقایسه با بازه‌ی هم‌طولِ قبل (درصد تغییر روی کارت‌ها)</label>
     </section>
 
-    <section class="card"><h3>عنوان و ظاهر</h3><p class="hint">هر متنی روی اسلایدها رو می‌شه مستقیم روی خود اسلاید هم عوض کرد.</p>
+    <section class="card"><h3>عنوان و ظاهر</h3><p class="hint">هر متنی روی اسلایدها رو می‌شه مستقیم روی خود اسلاید هم عوض کرد و با «ذخیره قالب» نگهش داشت.</p>
       <div class="row">
         <label class="field"><span>عنوان گزارش</span><input class="inp" data-cfg="title" value="${esc(cfg.title)}"></label>
         <label class="field"><span>برچسب جلد</span><input class="inp" data-cfg="kicker" value="${esc(cfg.kicker || '')}" placeholder="خودکار: گزارش هفتگی کمپین‌ها"></label>
-        <label class="field"><span>اسم اکشن (تبدیل اصلی)</span><input class="inp" data-cfg="actionLabel" value="${esc(cfg.actionLabel || '')}" placeholder="${esc(defaultActionLabel(p, core.messageFields(p)))}"></label>
+        <label class="field"><span>اسم اکشن (تبدیل اصلی)</span><input class="inp" data-cfg="actionLabel" value="${esc(cfg.actionLabel || '')}" placeholder="${esc(defaultActionLabel(R))}"></label>
       </div>
       <div class="row" style="align-items:center">
-        <span class="client-logo" style="width:56px;height:56px">${logoHtml(p, '')}</span>
+        <span class="client-logo" style="width:56px;height:56px">${logoHtml(R, '')}</span>
         <button type="button" class="btn sm" id="logoPick">عوض کردن لوگو</button>
         ${cfg.logo ? '<button type="button" class="btn sm" id="logoReset">لوگوی پیش‌فرض</button>' : ''}
+        ${R.merged ? `<a class="btn sm" href="#${esc(R.id)}/parts">${ICON.merge}بخش‌های این گزارش ترکیبی</a>` : ''}
       </div>
     </section>
 
-    <section class="card"><h3>${budget ? 'Campaign Nameها' : 'کمپین‌ها و مدیوم'}</h3>
-      <p class="hint">${budget ? 'گزارش فقط Campaign Nameهای تیک‌خورده رو می‌شمره.' : 'گزارش فقط کمپین‌های تیک‌خورده رو می‌شمره.'} لیست: کمپین‌هایی که تو این بازه دیتا دارن، به ترتیب هزینه.
-        ${budget ? '' : ' مدیوم هر کمپین از ستون Campaign Type شیت (اگه باشه) یا اسم کمپین حدس زده می‌شه؛ برای عوض کردنش بنویس.'}</p>
+    <section class="card"><h3>${budgetOnly ? 'Campaign Nameها' : 'کمپین‌ها و مدیوم'} (کل گزارش)</h3>
+      <p class="hint">گزارش فقط ${budgetOnly ? 'Campaign Nameهای' : 'کمپین‌های'} تیک‌خورده رو می‌شمره؛ هر اسلاید می‌تونه انتخاب خودش رو داشته باشه (پایین، تنظیمات همون اسلاید). لیست: کمپین‌هایی که تو این بازه دیتا دارن، به ترتیب هزینه.
+        مدیوم هر کمپین از ستون Campaign Type شیت (اگه باشه) یا اسم کمپین حدس زده می‌شه؛ برای عوض کردنش بنویس.</p>
       <div class="row" style="margin-bottom:10px">
         <input class="search" id="campSearch" type="search" placeholder="جست‌وجو…" aria-label="جست‌وجوی کمپین" style="flex:1">
         <button type="button" class="btn sm" id="campAll">همه</button>
         <button type="button" class="btn sm" id="campNone">هیچ‌کدوم</button>
         ${Array.isArray(cfg.campaigns) ? '<button type="button" class="btn sm" id="campDefault">پیش‌فرض</button>' : ''}
       </div>
-      <div class="camp-list">
-        <div class="camp-row camp-head"><span></span><span>${budget ? 'Campaign Name' : 'کمپین'}</span><span class="cs">هزینه‌ی بازه</span>${budget ? '<span></span>' : '<span>مدیوم</span>'}</div>
-        ${shown.length ? shown.map(o => `<label class="camp-row" data-q="${esc(o.label.toLowerCase())}">
-          <input type="checkbox" data-camp="${esc(o.key)}" ${sel === 'ALL' || sel.has(o.key) ? 'checked' : ''}>
-          <span class="nm" title="${esc(o.label)}">${esc(o.label)}</span><span class="cs">${esc(fa(o.cost))}</span>
-          ${budget ? '<span></span>' : medInput(o.key)}</label>`).join('') : '<div class="camp-row"><span></span><span>توی این بازه کمپینی نیست</span></div>'}
+      <div class="camp-list" id="reportCamps">
+        <div class="camp-row camp-head"><span></span><span>کمپین</span><span class="cs">هزینه‌ی بازه</span><span>مدیوم</span></div>
+        ${shown.length ? shown.map(o => campRow(o, sel === 'ALL' || sel.has(o.key), 'data-camp', isBudgetKey(o.key) ? '<span></span>' : medInput(o.key))).join('')
+          : '<div class="camp-row"><span></span><span>توی این بازه کمپینی نیست</span></div>'}
       </div>
-      ${budget && mediumRows.length ? `<h3 style="margin-top:18px">مدیوم کمپین‌ها</h3><div class="camp-list">${mediumRows.map(([k, l]) => `<div class="camp-row"><span></span><span class="nm">${esc(l)}</span><span class="cs"></span>${medInput(k)}</div>`).join('')}</div>` : ''}
+      ${mediumRows.length ? `<h3 style="margin-top:18px">مدیوم کمپین‌ها${someBudget && !budgetOnly ? ' (بخش‌های بودجه‌ای)' : ''}</h3><div class="camp-list">${mediumRows.map(([k, l]) => `<div class="camp-row"><span></span><span class="nm">${esc(l)}</span><span class="cs"></span>${medInput(k)}</div>`).join('')}</div>` : ''}
       <datalist id="mediumList">${mediumNames.map(m => `<option value="${esc(m)}">`).join('')}</datalist>
     </section>
 
-    <section class="card"><h3>اسلایدها، متریک‌ها و ابعاد</h3><p class="hint">ترتیب، نمایش، عنوان، متریک‌ها، بُعد و نوع نمودار هر اسلاید. تغییرها همون لحظه روی گزارش این مشتری ذخیره می‌شن.</p>
+    <section class="card"><h3>اسلایدها، متریک‌ها، ابعاد و کمپین‌ها</h3><p class="hint">ترتیب، نمایش، عنوان، متریک‌ها، بُعد، نوع نمودار و کمپین‌های هر اسلاید. تغییرها همون لحظه ذخیره می‌شن.</p>
       ${cfg.slides.map(slideOpts).join('')}
       <div class="set-foot" style="margin-top:12px">${['chart', 'table', 'kpis', 'campaigns', 'text'].map(t => `<button type="button" class="btn sm" data-add="${t}">+ ${esc(SLIDE_TYPES[t])}</button>`).join('')}</div>
     </section>
 
-    <section class="card"><h3>ذخیره و انتقال</h3><p class="hint">تنظیمات و ویرایش‌ها تو همین مرورگر ذخیره می‌شن. برای بردن به یه مرورگر دیگه، خروجی بگیر و اونجا وارد کن.</p>
+    <section class="card"><h3>قالب، ذخیره و انتقال</h3><p class="hint">${esc(savedLabel())}${tplN ? ` — ${fa(tplN)} متن ویرایش‌شده تو قالب` : ''}. تنظیمات این صفحه خودکار ذخیره می‌شن؛ متن‌هایی که روی اسلایدها عوض می‌کنی با «ذخیره قالب» (بالای اسلایدها) تو قالب این مشتری می‌مونن. همه‌چیز تو همین مرورگره؛ برای مرورگر دیگه خروجی بگیر و اونجا وارد کن.</p>
       <div class="set-foot">
-        <a class="btn primary" href="#${esc(p.id)}">دیدن گزارش</a>
-        <button type="button" class="btn" id="cfgExport">خروجی تنظیمات (JSON)</button>
-        <button type="button" class="btn" id="cfgImport">وارد کردن تنظیمات</button>
+        <a class="btn primary" href="#${esc(R.id)}">دیدن گزارش</a>
+        <button type="button" class="btn" id="cfgExport">خروجی قالب و تنظیمات (JSON)</button>
+        <button type="button" class="btn" id="cfgImport">وارد کردن</button>
+        ${tplN ? '<button type="button" class="btn danger" id="tplClear">پاک کردن متن‌های قالب</button>' : ''}
         <button type="button" class="btn danger" id="cfgReset">برگشت به ساختار پیش‌فرض</button>
       </div>
       <input type="file" id="cfgFile" accept="application/json,.json" hidden>
     </section>
   </div>`;
-  $('#deckActions').innerHTML = `<a class="btn primary" href="#${esc(p.id)}">${ICON.play}<span class="t">دیدن گزارش</span></a>`;
+  $('#deckActions').innerHTML = `<a class="btn primary" href="#${esc(R.id)}">${ICON.play}<span class="t">دیدن گزارش</span></a>`;
   if(S.focusSlide){
     const el = document.getElementById('set-' + S.focusSlide);
     if(el) el.scrollIntoView({block:'center'});
     S.focusSlide = null;
   }
-  wireSettings(p);
+  wireSettings(R);
 }
 
-function wireSettings(p){
+function wireSettings(R){
   // The grid is rebuilt on every render, so its listeners never pile up.
   const cfg = S.cfg, view = $('.set-grid');
-  const refresh = () => { S.data = computeData(p); loadEdits(); renderSettings(p); };
-  const keepOpen = () => $$('.slide-set[open]').map(d => d.id);
-  const reopen = ids => ids.forEach(id => { const d = document.getElementById(id); if(d) d.open = true; });
+  const rerender = extraOpen => {
+    const open = $$('.slide-set[open]').map(x => x.id).concat(extraOpen || []);
+    const y = window.scrollY;
+    S.cache = {};
+    S.data = computeData(R, campaignSelection(R)); loadEdits();
+    renderSettings(R);
+    open.forEach(id => { const x = document.getElementById(id); if(x) x.open = true; });
+    window.scrollTo(0, y);
+  };
   $$('[data-preset]').forEach(b => b.addEventListener('click', () => {
     cfg.period = {preset:b.dataset.preset};
     if(b.dataset.preset === 'custom' && S.data.win) Object.assign(cfg.period, S.data.win);
-    saveCfg(); refresh();
+    saveCfg(); rerender();
   }));
   const setCustom = () => {
     const f = $('#pFrom').value, t = $('#pTo').value;
     if(!f || !t) return;
     cfg.period = {preset:'custom', from:isoToYmd(f), to:isoToYmd(t)};
-    saveCfg(); refresh();
+    saveCfg(); rerender();
   };
   $('#pFrom').addEventListener('change', setCustom);
   $('#pTo').addEventListener('change', setCustom);
@@ -1356,32 +1661,31 @@ function wireSettings(p){
   $$('[data-cfg]').forEach(inp => inp.addEventListener('change', () => { cfg[inp.dataset.cfg] = inp.value.trim(); saveCfg(); }));
   $('#logoPick').addEventListener('click', () => $('#logoFile').click());
   const lr = $('#logoReset');
-  if(lr) lr.addEventListener('click', () => { cfg.logo = null; saveCfg(); refresh(); });
+  if(lr) lr.addEventListener('click', () => { cfg.logo = null; saveCfg(); rerender(); });
 
-  // Campaigns: an explicit list once anything is unticked; null means "all"
-  // (or the dashboard's default campaigns for that section).
+  // Report campaigns: an explicit list once anything is unticked; null means
+  // "all" (or the dashboard's default campaigns of the section).
   const writeCamps = () => {
     const boxes = $$('[data-camp]');
     const checked = boxes.filter(b => b.checked).map(b => b.dataset.camp);
-    const sel = campaignSelection(p);
+    const sel = campaignSelection(R);
     // Campaigns outside this period's list keep whatever they were.
     const listed = new Set(boxes.map(b => b.dataset.camp));
-    const keepOut = sel === 'ALL' ? campaignOptions(p, null).map(o => o.key).filter(k => !listed.has(k)) : Array.from(sel).filter(k => !listed.has(k));
-    const all = checked.length === boxes.length && sel === 'ALL';
-    cfg.campaigns = all ? null : checked.concat(keepOut);
+    const keepOut = sel === 'ALL' ? campaignOptions(R, null).map(o => o.key).filter(k => !listed.has(k)) : Array.from(sel).filter(k => !listed.has(k));
+    cfg.campaigns = checked.length === boxes.length && sel === 'ALL' ? null : checked.concat(keepOut);
     saveCfg();
-    S.data = computeData(p); loadEdits();
+    S.data = computeData(R, campaignSelection(R)); loadEdits();
   };
   $$('[data-camp]').forEach(b => b.addEventListener('change', writeCamps));
   $('#campSearch').addEventListener('input', e => {
     const q = e.target.value.trim().toLowerCase();
-    $$('label.camp-row[data-q]').forEach(r => { r.hidden = q && !r.dataset.q.includes(q); });
+    $$('#reportCamps label.camp-row').forEach(r => { r.hidden = q && !r.dataset.q.includes(q); });
   });
-  const setAllVisible = v => { $$('label.camp-row[data-q]').filter(r => !r.hidden).forEach(r => { $('input', r).checked = v; }); writeCamps(); };
+  const setAllVisible = v => { $$('#reportCamps label.camp-row').filter(r => !r.hidden).forEach(r => { $('input', r).checked = v; }); writeCamps(); };
   $('#campAll').addEventListener('click', () => setAllVisible(true));
   $('#campNone').addEventListener('click', () => setAllVisible(false));
   const cd = $('#campDefault');
-  if(cd) cd.addEventListener('click', () => { cfg.campaigns = null; saveCfg(); refresh(); });
+  if(cd) cd.addEventListener('click', () => { cfg.campaigns = null; saveCfg(); rerender(); });
   $$('[data-medium]').forEach(inp => inp.addEventListener('change', () => {
     cfg.mediums = cfg.mediums || {};
     const v = inp.value.trim();
@@ -1392,13 +1696,24 @@ function wireSettings(p){
   // Slides
   view.addEventListener('change', e => {
     const el = e.target;
-    if(el.dataset.s === undefined) return;
+    if(el.dataset.s === undefined || el.dataset.camp !== undefined) return;
     const s = cfg.slides[+el.dataset.s];
     if(el.dataset.metric){
       const set = new Set(s.metrics || []);
       el.checked ? set.add(el.dataset.metric) : set.delete(el.dataset.metric);
       // Keep the order of the metric list, which is the order on the slide.
-      s.metrics = metricDefs(p).map(m => m.id).filter(id => set.has(id));
+      s.metrics = metricDefs(R).map(m => m.id).filter(id => set.has(id));
+    }else if(el.dataset.scamp !== undefined){
+      const set = new Set(s.campaigns || []);
+      el.checked ? set.add(el.dataset.scamp) : set.delete(el.dataset.scamp);
+      s.campaigns = Array.from(set);
+    }else if(el.dataset.prop === 'campMode'){
+      if(el.value === 'own'){
+        // Start from what the report counts now.
+        const sel = campaignSelection(R);
+        s.campaigns = sel === 'ALL' ? campaignOptions(R, null).map(o => o.key) : Array.from(sel);
+      }else delete s.campaigns;
+      saveCfg(); rerender(['set-' + s.id]); return;
     }else if(el.dataset.prop === 'on'){
       s.on = el.checked;
       el.closest('.slide-set').classList.toggle('off', !el.checked);
@@ -1414,10 +1729,17 @@ function wireSettings(p){
     saveCfg();
   });
   view.addEventListener('click', e => {
-    const b = e.target.closest('[data-move],[data-dup],[data-del],[data-add]');
+    const b = e.target.closest('[data-move],[data-dup],[data-del],[data-add],[data-sall],[data-snone]');
     if(!b) return;
-    const open = keepOpen();
-    if(b.dataset.add){ const s = addSlide(p, b.dataset.add); open.push('set-' + s.id); }
+    const extra = [];
+    if(b.dataset.sall !== undefined || b.dataset.snone !== undefined){
+      const i = +(b.dataset.sall !== undefined ? b.dataset.sall : b.dataset.snone);
+      const s = cfg.slides[i];
+      const listed = $$(`[data-s="${i}"][data-scamp]`).map(x => x.dataset.scamp);
+      const set = new Set(s.campaigns || []);
+      listed.forEach(k => b.dataset.sall !== undefined ? set.add(k) : set.delete(k));
+      s.campaigns = Array.from(set);
+    }else if(b.dataset.add){ const s = addSlide(R, b.dataset.add); extra.push('set-' + s.id); }
     else if(b.dataset.move !== undefined){
       const i = +b.dataset.move, j = i + +b.dataset.dir;
       if(j < 0 || j >= cfg.slides.length) return;
@@ -1428,19 +1750,20 @@ function wireSettings(p){
       copy.id = copy.type + '-' + Date.now().toString(36);
       copy.title = (copy.title || '') + ' (کپی)';
       cfg.slides.splice(i + 1, 0, copy);
-      open.push('set-' + copy.id);
+      if(cfg.tpl[cfg.slides[i].id]) cfg.tpl[copy.id] = JSON.parse(JSON.stringify(cfg.tpl[cfg.slides[i].id]));
+      extra.push('set-' + copy.id);
     }else if(b.dataset.del !== undefined){
       const i = +b.dataset.del;
       if(!confirm(`اسلاید «${cfg.slides[i].title || SLIDE_TYPES[cfg.slides[i].type]}» حذف بشه؟`)) return;
+      delete cfg.tpl[cfg.slides[i].id];
       cfg.slides.splice(i, 1);
     }
     saveCfg();
-    const y = window.scrollY;
-    renderSettings(p); reopen(open); window.scrollTo(0, y);
+    rerender(extra);
   });
 
   $('#cfgExport').addEventListener('click', () => {
-    download(`${p.id}-slides-settings.json`, JSON.stringify({project:p.id, cfg}, null, 2), 'application/json');
+    download(`${R.id}-slides-template.json`, JSON.stringify({report:R.id, merge:R.merged ? R.def : undefined, cfg}, null, 2), 'application/json');
   });
   $('#cfgImport').addEventListener('click', () => $('#cfgFile').click());
   $('#cfgFile').addEventListener('change', e => {
@@ -1450,13 +1773,18 @@ function wireSettings(p){
       const j = JSON.parse(txt);
       const c = j.cfg || j;
       if(!Array.isArray(c.slides)) throw new Error('bad');
-      S.cfg = Object.assign(defaultCfg(p), c);
-      saveCfg(); refresh(); toast('تنظیمات وارد شد');
-    }).catch(() => toast('این فایل تنظیمات گزارش نیست'));
+      S.cfg = Object.assign(defaultCfg(), c);
+      saveCfg(); rerender(); toast('قالب و تنظیمات وارد شد');
+    }).catch(() => toast('این فایل قالب گزارش نیست'));
+  });
+  const tc = $('#tplClear');
+  if(tc) tc.addEventListener('click', () => {
+    if(!confirm('متن‌های ذخیره‌شده تو قالب پاک بشن؟ (اسلایدها و تنظیمات می‌مونن)')) return;
+    cfg.tpl = {}; cfg.tplSavedAt = null; saveCfg(); rerender();
   });
   $('#cfgReset').addEventListener('click', () => {
-    if(!confirm('همه‌ی تنظیمات این مشتری (بازه، کمپین‌ها، مدیوم‌ها، اسلایدها، لوگو) به حالت پیش‌فرض برگرده؟')) return;
-    store.del(cfgKey(p)); loadCfg(p); refresh();
+    if(!confirm('همه‌ی تنظیمات و قالب این گزارش (بازه، کمپین‌ها، مدیوم‌ها، اسلایدها، متن‌ها، لوگو) به حالت پیش‌فرض برگرده؟')) return;
+    store.del(cfgKey(R)); loadCfg(R); rerender();
   });
 }
 
@@ -1541,7 +1869,7 @@ window.addEventListener('resize', showPresent);
 
 function fileBase(){
   const w = S.data.win;
-  return `${S.project.id}-slides${w ? '-' + w.from + '-' + w.to : ''}`;
+  return `${S.report.id}-slides${w ? '-' + w.from + '-' + w.to : ''}`;
 }
 function exportPdf(){
   const box = $('#printDeck');
@@ -1569,11 +1897,11 @@ function download(name, text, type){
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
 }
 function exportHtml(){
-  const p = S.project;
+  const R = S.report;
   const frames = deckSnapshots().map(sl => `<div class="x-frame">${sl.outerHTML}</div>`).join('\n');
   const doc = `<!DOCTYPE html>
 <html lang="fa" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${esc(p.title + ' — ' + S.cfg.title + (S.data.win ? ' — ' + periodLabel(S.data.win.from, S.data.win.to) : ''))}</title>
+<title>${esc(R.title + ' — ' + S.cfg.title + (S.data.win ? ' — ' + periodLabel(S.data.win.from, S.data.win.to) : ''))}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>${$('#slideCss').textContent}
