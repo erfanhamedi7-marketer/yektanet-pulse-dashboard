@@ -207,6 +207,20 @@
   .client-card.new{border-style:dashed;border-width:2px;border-color:var(--border-strong);box-shadow:none;background:transparent;justify-content:center;font-weight:700;color:var(--text-muted);}
   .client-card.new svg{width:20px;height:20px;flex-shrink:0;}
   .client-card{text-decoration:none;}
+  .swatches{display:flex;gap:8px;flex-wrap:wrap;}
+  .sw{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--border);border-radius:999px;padding:5px 12px 5px 6px;
+    background:var(--surface-2);cursor:pointer;font-size:12.5px;font-weight:600;color:var(--text);}
+  span.sw{cursor:default;}
+  .sw i{width:20px;height:20px;border-radius:50%;flex-shrink:0;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08);}
+  .sw.on{border-color:var(--text);box-shadow:inset 0 0 0 1px var(--text);background:#fff;}
+  .inp.color{height:42px;padding:4px 6px;cursor:pointer;}
+  .th-preview{flex:1 1 260px;display:flex;align-items:center;gap:12px;height:64px;border:1px solid var(--border);border-radius:16px;padding:0 16px;background:#fff;overflow:hidden;}
+  .tp-bar{width:6px;height:34px;border-radius:6px;background:var(--grad);flex-shrink:0;}
+  .tp-title{font-weight:800;font-size:15px;}
+  .tp-pill{background:var(--soft);color:var(--ink);font-weight:700;font-size:12px;border-radius:999px;padding:4px 12px;white-space:nowrap;}
+  .tp-cols{position:relative;display:flex;align-items:flex-end;gap:5px;height:40px;margin-right:auto;}
+  .tp-cols i{display:block;width:12px;border-radius:4px 4px 0 0;background:var(--accent);}
+  .tp-cols b{position:absolute;left:-4px;right:-4px;top:12px;height:20px;border-top:3px solid;border-radius:50%;transform:rotate(-8deg);}
   .badge{display:inline-block;font-size:10.5px;font-weight:700;background:var(--surface-3);color:var(--text-muted);border-radius:999px;padding:1px 8px;margin-right:4px;}
   .home-sec{margin:26px 0 12px;font-size:14px;font-weight:800;color:var(--text-muted);}
   .btn.saved{background:var(--positive-soft);border-color:transparent;color:var(--positive);}
@@ -645,8 +659,32 @@ function groupTitles(){
   core.PROJECTS.forEach(p => { if(p.group && p.groupTitle) m[p.group] = p.groupTitle; });
   return m;
 }
-function themeOf(R){
-  const t = R.theme || {accent:'#2563EB', ink:'#1D4ED8', accent2:'#1B1F27', accentSoft:'rgba(37,99,235,.10)'};
+// A report can swap its brand colours for a palette of its own (settings →
+// «رنگ‌بندی»): a main colour, and a second one for the second chart series.
+const THEME_PRESETS = [
+  ['teal', 'فیروزه‌ای', '#0EA5B7'], ['blue', 'آبی', '#2563EB'], ['navy', 'سرمه‌ای', '#1E3A8A'],
+  ['green', 'سبز', '#16A34A'], ['purple', 'بنفش', '#7C3AED'], ['pink', 'صورتی', '#DB2777'],
+  ['red', 'قرمز', '#DC2626'], ['orange', 'نارنجی', '#EA580C'], ['gold', 'طلایی', '#C9A13B'], ['slate', 'خاکستری', '#475569']
+];
+const DEFAULT_SECOND = '#1B1F27';
+function hexRgb(hex){
+  const h = String(hex || '').replace('#', '');
+  return h.length === 6 ? [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16)) : [0, 0, 0];
+}
+const toHex = rgb => '#' + rgb.map(v => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0')).join('');
+const mixHex = (a, b, t) => { const x = hexRgb(a), y = hexRgb(b); return toHex(x.map((v, i) => v + (y[i] - v) * t)); };
+const luminance = hex => { const [r, g, b] = hexRgb(hex); return (0.299 * r + 0.587 * g + 0.114 * b) / 255; };
+// The same shape as a BRANDS entry: a light colour gets a much darker ink so
+// text drawn in it still reads on white.
+function paletteTheme(c){
+  const light = luminance(c.accent) > 0.6;
+  const [r, g, b] = hexRgb(c.accent);
+  return {accent:c.accent, ink:mixHex(c.accent, '#000000', light ? 0.45 : 0.2),
+          accent2:c.second || DEFAULT_SECOND, accentSoft:`rgba(${r},${g},${b},${light ? 0.2 : 0.12})`};
+}
+function themeOf(R, brandOnly){
+  const custom = !brandOnly && S.report === R && S.cfg && S.cfg.theme && S.cfg.theme.accent;
+  const t = (custom ? paletteTheme(S.cfg.theme) : R.theme) || {accent:'#2563EB', ink:'#1D4ED8', accent2:'#1B1F27', accentSoft:'rgba(37,99,235,.10)'};
   const grad = t.grad ? `linear-gradient(135deg, ${t.grad[0]}, ${t.grad[1]})` : `linear-gradient(135deg, ${t.accent}, ${t.ink})`;
   // A near-black second colour reads as a neutral line next to brand columns.
   const second = t.accent2 && t.accent2 !== t.accent ? t.accent2 : t.ink;
@@ -1415,6 +1453,7 @@ async function openReport(R, view){
     const mins = R.parts.map(p => p.minDate).filter(Boolean).sort(), maxs = R.parts.map(p => p.maxDate).filter(Boolean).sort();
     R.minDate = mins[0] || null; R.maxDate = maxs[maxs.length - 1] || null;
     loadCfg(R);
+    document.body.style.setProperty('--page-accent', themeOf(R).accent);
   }else R = S.report;   // route() builds a fresh object each time; keep the loaded one
   S.cache = {};
   S.data = computeData(R, campaignSelection(R));
@@ -1718,6 +1757,20 @@ function renderSettings(R){
         ${cfg.logo ? '<button type="button" class="btn sm" id="logoReset">لوگوی پیش‌فرض</button>' : ''}
         ${R.merged ? `<a class="btn sm" href="#${esc(R.id)}/parts">${ICON.merge}بخش‌های این گزارش ترکیبی</a>` : ''}
       </div>
+      <div class="field" style="margin-top:6px"><span>رنگ‌بندی گزارش</span>
+        <div class="swatches">
+          <button type="button" class="sw ${!cfg.theme ? 'on' : ''}" data-theme="brand"><i style="background:${esc(themeOf(R, true).grad)}"></i>رنگ برند</button>
+          ${THEME_PRESETS.map(([k, label, c]) => `<button type="button" class="sw ${cfg.theme && cfg.theme.preset === k ? 'on' : ''}" data-theme="${k}"><i style="background:${c}"></i>${esc(label)}</button>`).join('')}
+          <span class="sw ${cfg.theme && cfg.theme.preset === 'custom' ? 'on' : ''}"><i style="background:conic-gradient(#EF4444,#F59E0B,#10B981,#3B82F6,#8B5CF6,#EF4444)"></i>دلخواه: رنگ‌ها رو پایین انتخاب کن</span>
+        </div></div>
+      <div class="row" style="align-items:center">
+        <label class="field" style="flex:0 1 150px"><span>رنگ اصلی</span><input class="inp color" type="color" id="thA" value="${esc(themeOf(R).accent)}"></label>
+        <label class="field" style="flex:0 1 150px"><span>رنگ دوم (سری دوم نمودار)</span><input class="inp color" type="color" id="thB" value="${esc(/^#[0-9a-f]{6}$/i.test(themeOf(R).second) ? themeOf(R).second : DEFAULT_SECOND)}"></label>
+        <div class="th-preview" style="${themeVars(R)}" aria-hidden="true">
+          <span class="tp-bar"></span><span class="tp-title">پیش‌نمایش</span><span class="tp-pill">گزارش هفتگی</span>
+          <span class="tp-cols"><i style="height:60%"></i><i style="height:90%"></i><i style="height:45%"></i><i style="height:75%"></i><b style="border-color:${esc(themeOf(R).second)}"></b></span>
+        </div>
+      </div>
     </section>
 
     <section class="card"><h3>${budgetOnly ? 'Campaign Nameها' : 'کمپین‌ها و مدیوم'} (کل گزارش)</h3>
@@ -1791,6 +1844,20 @@ function wireSettings(R){
   $('#cmpToggle').addEventListener('change', e => { cfg.compare = e.target.checked; saveCfg(); });
   $$('[data-cfg]').forEach(inp => inp.addEventListener('change', () => { cfg[inp.dataset.cfg] = inp.value.trim(); saveCfg(); }));
   $('#logoPick').addEventListener('click', () => $('#logoFile').click());
+  const setTheme = theme => {
+    cfg.theme = theme;
+    saveCfg();
+    document.body.style.setProperty('--page-accent', themeOf(R).accent);
+    rerender();
+  };
+  $$('[data-theme]').forEach(b => b.addEventListener('click', () => {
+    if(b.dataset.theme === 'brand') return setTheme(null);
+    const preset = THEME_PRESETS.find(x => x[0] === b.dataset.theme);
+    setTheme({preset:preset[0], accent:preset[2], second:(cfg.theme && cfg.theme.second) || DEFAULT_SECOND});
+  }));
+  const pickColors = () => setTheme({preset:'custom', accent:$('#thA').value, second:$('#thB').value});
+  $('#thA').addEventListener('change', pickColors);
+  $('#thB').addEventListener('change', pickColors);
   const lr = $('#logoReset');
   if(lr) lr.addEventListener('click', () => { cfg.logo = null; saveCfg(); rerender(); });
 
