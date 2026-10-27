@@ -437,11 +437,120 @@ function toast(msg){
   document.body.appendChild(t);
   setTimeout(()=>t.remove(), 2600);
 }
-const store = {
+// This browser's copy. Everything a report keeps is also sent to the server
+// (api/store.js, a Google Sheet), so another browser signed in sees the same
+// reports; this copy is what the page reads and is filled from the server
+// whenever a report is opened.
+const local = {
   get(k, fallback){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : fallback; }catch(e){ return fallback; } },
   set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); return true; }catch(e){ return false; } },
-  del(k){ try{ localStorage.removeItem(k); }catch(e){} }
+  del(k){ try{ localStorage.removeItem(k); }catch(e){} },
+  keys(){ try{ return Object.keys(localStorage); }catch(e){ return []; } }
 };
+const store = {
+  get: local.get,
+  // Kept on the server even when this browser's storage is full.
+  set(k, v){ const ok = local.set(k, v); queueRemote(k, v); return ok || remote.state === 'on'; },
+  del(k){ local.del(k); queueRemote(k, null); }
+};
+
+// ---------- Shared storage (api/store.js) ----------
+// Server keys: "<report>|cfg", "<report>|edits|<from>-<to>", "_|merges", so one
+// read by "<report>|" brings a report's settings, template and every period's
+// edits.
+function remoteKey(k){
+  let m;
+  if((m = /^slides:cfg:(.+)$/.exec(k))) return m[1] + '|cfg';
+  if((m = /^slides:edits:([^:]+):(.+)$/.exec(k))) return m[1] + '|edits|' + m[2];
+  if(k === 'slides:merges') return '_|merges';
+  return null;
+}
+function localKeyOf(rk){
+  const p = rk.split('|');
+  if(p[0] === '_' && p[1] === 'merges') return 'slides:merges';
+  if(p[1] === 'cfg') return 'slides:cfg:' + p[0];
+  if(p[1] === 'edits') return 'slides:edits:' + p[0] + ':' + p.slice(2).join('|');
+  return null;
+}
+const remote = {state:'unknown', reason:null, pending:new Map(), timer:null, busy:false, savedAt:null};
+const SYNCED_KEY = 'slides:synced';
+function syncStatus(kind){
+  if(kind === 'pending') setStatus('loading', 'در حال ذخیره…');
+  else if(kind === 'saved') setStatus('live', 'ذخیره شد — ' + new Date().toLocaleTimeString('fa-IR', {hour:'2-digit', minute:'2-digit'}));
+  else if(kind === 'error') setStatus('err', 'ذخیره روی سرور نشد — دوباره امتحان می‌کنه');
+  else if(kind === 'off') setStatus('err', remote.reason === 'no_store' ? 'ذخیره‌ی مشترک هنوز وصل نشده — فقط تو همین مرورگر'
+                                       : remote.reason === 'no_access' ? 'شیت ذخیره با Service Account شیر نشده — فقط تو همین مرورگر'
+                                       : 'سرور ذخیره در دسترس نیست — فقط تو همین مرورگر');
+}
+// Brings everything the server keeps under a prefix into this browser. What
+// the server has wins. Keys only this browser has go up the first time a
+// prefix is synced (edits made before the server kept anything); after that,
+// a key missing on the server was deleted elsewhere and is dropped here too.
+async function remoteLoad(prefix){
+  try{
+    const res = await fetch('/api/store?prefix=' + encodeURIComponent(prefix), {credentials:'same-origin', cache:'no-store'});
+    if(res.status === 401){ window.dashAuth.expired(); return false; }
+    if(!res.ok){
+      remote.state = 'off';
+      remote.reason = (await res.json().catch(() => ({}))).code || null;
+      syncStatus('off');
+      return false;
+    }
+    const items = (await res.json()).items || {};
+    remote.state = 'on';
+    const seen = new Set();
+    Object.entries(items).forEach(([rk, it]) => {
+      const lk = localKeyOf(rk);
+      if(!lk) return;
+      seen.add(lk);
+      if(!remote.pending.has(rk)) local.set(lk, it.value);
+    });
+    const synced = new Set(local.get(SYNCED_KEY, []));
+    local.keys().filter(lk => { const rk = remoteKey(lk); return rk && rk.startsWith(prefix) && !seen.has(lk); })
+      .forEach(lk => { synced.has(prefix) ? local.del(lk) : queueRemote(lk, local.get(lk, null)); });
+    synced.add(prefix);
+    local.set(SYNCED_KEY, Array.from(synced));
+    return true;
+  }catch(e){
+    remote.state = 'off'; remote.reason = null; syncStatus('off');
+    return false;
+  }
+}
+function queueRemote(lk, value){
+  const rk = remoteKey(lk);
+  if(!rk || (remote.state === 'off' && remote.reason === 'no_store')) return;
+  remote.pending.set(rk, value === undefined ? null : value);
+  clearTimeout(remote.timer);
+  // Typing sends one save a few seconds after it stops, not one per letter:
+  // Google allows the service account 60 requests a minute.
+  remote.timer = setTimeout(() => flushRemote(), 2500);
+  syncStatus('pending');
+}
+async function flushRemote(keepalive){
+  if(remote.busy || !remote.pending.size) return;
+  clearTimeout(remote.timer);
+  const items = Array.from(remote.pending, ([key, value]) => ({key, value}));
+  remote.pending.clear();
+  remote.busy = true;
+  try{
+    const res = await fetch('/api/store', {method:'POST', credentials:'same-origin', keepalive:!!keepalive,
+      headers:{'Content-Type':'application/json'}, body:JSON.stringify({items})});
+    if(res.status === 401){ window.dashAuth.expired(); return; }
+    if(!res.ok) throw new Error(res.status);
+    remote.state = 'on';
+    syncStatus('saved');
+  }catch(e){
+    items.forEach(it => { if(!remote.pending.has(it.key)) remote.pending.set(it.key, it.value); });
+    syncStatus('error');
+    remote.timer = setTimeout(() => flushRemote(), 15000);
+  }finally{
+    remote.busy = false;
+    if(remote.pending.size && !remote.timer) remote.timer = setTimeout(() => flushRemote(), 2500);
+  }
+}
+// Leaving the page sends whatever is still waiting.
+document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'hidden') flushRemote(); });
+window.addEventListener('pagehide', () => flushRemote(true));
 
 // ---------- Numbers and dates (Persian) ----------
 const NF = {};
@@ -871,6 +980,7 @@ function saveTemplate(){
   S.cfg.tplSavedAt = Date.now();
   saveCfg();
   store.set(S.editKey, S.edits);
+  flushRemote();
 }
 const E = (k, html, ph, tag, cls) =>
   `<${tag || 'div'} class="${cls || ''}" data-k="${esc(k)}"${ph ? ` data-ph="${esc(ph)}"` : ''}>${html}</${tag || 'div'}>`;
@@ -1292,6 +1402,9 @@ async function openReport(R, view){
       await Promise.all(todo.map(async p => { await core.loadProject(p); p._loaded = !p.error; }));
       if(S.report !== R) return;
     }
+    // This report's settings, template and edits as the server has them.
+    await remoteLoad(R.id + '|');
+    if(S.report !== R) return;
     const bad = R.parts.filter(p => p.error);
     if(bad.length){
       $('#view').innerHTML = `${backBar(R)}${bad.map(p => `<div class="error-box">${esc(p.title)}: ${esc(p.error)}</div>`).join('')}`;
@@ -1306,7 +1419,8 @@ async function openReport(R, view){
   S.cache = {};
   S.data = computeData(R, campaignSelection(R));
   loadEdits();
-  setStatus('live', 'همگام‌سازی شد — ' + new Date().toLocaleTimeString('fa-IR', {hour:'2-digit', minute:'2-digit'}));
+  if(remote.state === 'off') syncStatus('off');
+  else if(!remote.pending.size) setStatus('live', 'همگام‌سازی شد — ' + new Date().toLocaleTimeString('fa-IR', {hour:'2-digit', minute:'2-digit'}));
   view === 'settings' ? renderSettings(R) : renderDeck(R);
 }
 function backBar(R){
@@ -1963,6 +2077,7 @@ async function init(){
   Chart.defaults.color = '#5E6270';
   // Charts are drawn once (no animation), so the font has to be there first.
   try{ await Promise.all([document.fonts.load('600 15px Vazirmatn'), document.fonts.load('800 15px Vazirmatn')]); }catch(e){}
+  await remoteLoad('_|');           // the merged-report list
   window.addEventListener('hashchange', route);
   route();
 }
