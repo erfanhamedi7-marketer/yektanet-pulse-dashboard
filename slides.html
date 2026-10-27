@@ -835,10 +835,10 @@ function dataFor(s){
 }
 
 // ---------- Edits and the report template ----------
-// Typed-over text is kept per period (a week's analysis must not reappear on
-// next week's report). "ذخیره قالب" copies the parts of it that aren't
-// figures — titles, headings, labels, notes, hidden rows — into the report's
-// settings, where every later period starts from them.
+// Typed-over text is kept per period as a draft. "ذخیره قالب" moves every
+// edit into the report's settings, where every later period starts from it —
+// all text, the analysis included; only the figures of KPI cards and table
+// cells stay with their own period, since next week they'd be wrong.
 function editsKey(){
   const w = S.data && S.data.win;
   return 'slides:edits:' + S.report.id + ':' + (w ? w.from + '-' + w.to : 'none');
@@ -850,11 +850,8 @@ function saveEdits(){
   editTimer = setTimeout(()=>{ if(!store.set(S.editKey, S.edits)) toast('ذخیره نشد — حافظه‌ی مرورگر پر یا بسته‌ست'); }, 250);
 }
 function isTemplateKey(s, k){
-  if(/^(c:|v:|d:)/.test(k) || k === 'period') return false;
-  if(s.type === 'cover') return k !== 'foot';          // the date it was made
-  if(k === 'kicker') return false;                      // the period line
-  if(/^b\d+$/.test(k)){ const col = (s.cols || [])[+k.slice(1)]; return !(col && col.auto); }
-  return true;
+  if(/^c:.*:name$/.test(k)) return true;               // a renamed row is text
+  return !/^(c:|v:|d:)/.test(k);
 }
 function templateCount(){
   return Object.values(S.cfg.tpl || {}).reduce((n, e) => n + Object.keys(e).length, 0);
@@ -1334,12 +1331,12 @@ function renderDeck(R){
   $('#view').innerHTML = backBar(R) + `<div class="deck" id="deck">${slides.map((s, i) => `
     <div class="slide-item" data-sid="${esc(s.id)}">
       <div class="slide-tools">
-        <span class="lbl"><b>${fa(i + 1)}</b>${esc(SLIDE_TYPES[s.type] || s.type)}${Array.isArray(s.campaigns) ? ` — <span title="این اسلاید فقط کمپین‌های انتخابی خودش رو می‌شمره">${fa(s.campaigns.length)} کمپین انتخابی</span>` : ''}</span>
+        <span class="lbl"><b>${fa(i + 1)}</b>${esc(SLIDE_TYPES[s.type] || s.type)}${isEdited(s.id) ? ' <span class="badge">ویرایش‌شده</span>' : ''}${Array.isArray(s.campaigns) ? ` — <span title="این اسلاید فقط کمپین‌های انتخابی خودش رو می‌شمره">${fa(s.campaigns.length)} کمپین انتخابی</span>` : ''}</span>
         <span class="grp">
           <button type="button" class="btn sm icon" data-act="up" title="جابه‌جایی به بالا" aria-label="بالا" ${i === 0 ? 'disabled' : ''}>${ICON.up}</button>
           <button type="button" class="btn sm icon" data-act="down" title="جابه‌جایی به پایین" aria-label="پایین" ${i === slides.length - 1 ? 'disabled' : ''}>${ICON.down}</button>
           <button type="button" class="btn sm icon" data-act="hide" title="پنهان کردن این اسلاید" aria-label="پنهان کردن">${ICON.eyeOff}</button>
-          <button type="button" class="btn sm icon" data-act="reset" title="برگردوندن ویرایش‌های این بازه (قالب می‌مونه)" aria-label="برگردوندن ویرایش‌ها">${ICON.reset}</button>
+          <button type="button" class="btn sm" data-act="default" title="برگشت این اسلاید به نسخه‌ی پیش‌فرض (متن‌ها و تنظیماتش)">${ICON.reset}پیش‌فرض</button>
           <a class="btn sm icon" href="#${esc(R.id)}/settings" data-act="cfg" title="تنظیمات این اسلاید (متریک‌ها، کمپین‌ها…)" aria-label="تنظیمات">${ICON.gear}</a>
           <button type="button" class="btn sm icon" data-act="present" title="ارائه از این اسلاید" aria-label="ارائه">${ICON.play}</button>
         </span>
@@ -1353,7 +1350,7 @@ function renderDeck(R){
     <button type="button" class="btn ${S.cfg.tplSavedAt ? 'saved' : ''}" id="saveTpl" title="${esc(savedLabel())}">${ICON.save}<span class="t">ذخیره قالب</span></button>
     <a class="btn" href="#${esc(R.id)}/settings">${ICON.gear}<span class="t">تنظیمات</span></a>
     <button type="button" class="btn ${editing ? 'on' : ''}" id="editToggle" aria-pressed="${editing}">${ICON.pen}<span class="t">ویرایش</span></button>
-    <button type="button" class="btn" id="resetAll" title="ویرایش‌های این بازه پاک بشه و از دیتا و قالب ساخته بشه">${ICON.reset}<span class="t">بازسازی</span></button>
+    <button type="button" class="btn" id="resetAll" title="ویرایش‌های ذخیره‌نشده‌ی این بازه پاک بشه و اسلایدها از دیتا و قالب ساخته بشن">${ICON.reset}<span class="t">بازسازی</span></button>
     <button type="button" class="btn" id="presentBtn">${ICON.play}<span class="t">ارائه</span></button>
     <button type="button" class="btn" id="pdfBtn">${ICON.pdf}<span class="t">PDF</span></button>
     <button type="button" class="btn primary" id="htmlBtn">${ICON.html}<span class="t">HTML</span></button>`;
@@ -1437,7 +1434,9 @@ function wireDeck(R){
         saveCfg(); renderDeck(R); break;
       }
       case 'hide': list[idx].on = false; saveCfg(); renderDeck(R); toast('پنهان شد — از تنظیمات برمی‌گرده'); break;
-      case 'reset': delete S.edits[sid]; saveEdits(); renderDeck(R); break;
+      case 'default':
+        if(!confirm('این اسلاید به نسخه‌ی پیش‌فرض برگرده؟ متن‌های ویرایش‌شده (تو قالب و این بازه) و تنظیماتش (متریک‌ها، کمپین‌ها، نمودار…) پاک می‌شن.')) return;
+        resetSlide(R, sid); renderDeck(R); toast('اسلاید به نسخه‌ی پیش‌فرض برگشت'); break;
       case 'cfg': S.focusSlide = sid; break;
       case 'present': openPresent(enabledSlides().findIndex(s => s.id === sid)); break;
     }
@@ -1445,7 +1444,7 @@ function wireDeck(R){
   $('#saveTpl').addEventListener('click', () => {
     saveTemplate();
     renderDeck(R);
-    toast('قالب این گزارش ذخیره شد — بازه‌های بعدی با همین اسلایدها و متن‌ها ساخته می‌شن');
+    toast('قالب ذخیره شد — همه‌ی متن‌ها می‌مونن و بازه‌های بعدی هم با همین‌ها ساخته می‌شن');
   });
   $('#editToggle').addEventListener('click', () => {
     document.body.classList.toggle('editing');
@@ -1482,20 +1481,37 @@ $('#logoFile').addEventListener('change', e => {
   reader.readAsDataURL(f);
 });
 
-function addSlide(R, type){
+function newSlide(R, type, id){
   const defs = defsById(R), ok = id => defs[id] && defs[id].ok;
   const main = mainAction(ok);
-  const id = type + '-' + Date.now().toString(36);
-  const base = {id, type, on:true, title:SLIDE_TYPES[type]};
+  const base = {id: id || type + '-' + Date.now().toString(36), type, on:true, title:SLIDE_TYPES[type]};
   if(type === 'chart') Object.assign(base, {title:'نمودار', dim:'day', chart:'combo', metrics:['cost', main]});
   if(type === 'table') Object.assign(base, {title:'جدول مقایسه', dim:'campaign', maxRows:10, metrics:['cost', 'costShare', main].filter(ok)});
   if(type === 'kpis') Object.assign(base, {title:'آمار کلی', metrics:['cost', main].filter(ok)});
   if(type === 'campaigns') Object.assign(base, {title:'کمپین‌های اجرا شده', level:'medium'});
   if(type === 'text') Object.assign(base, {title:'یادداشت', cols:[{h:'', auto:null, icon:'note'}]});
+  return base;
+}
+function addSlide(R, type){
+  const base = newSlide(R, type);
   S.cfg.slides.push(base);
   saveCfg();
   return base;
 }
+// Back to how the slide first came: its settings (metrics, dimension, chart,
+// campaigns…) and its text, both the template's and this period's edits.
+function resetSlide(R, sid){
+  const list = S.cfg.slides, i = list.findIndex(s => s.id === sid);
+  if(i < 0) return;
+  const s = list[i];
+  const builtIn = defaultSlides(R).find(d => d.id === sid);
+  list[i] = Object.assign(builtIn || newSlide(R, s.type, sid), {on: s.on !== false});
+  if(S.cfg.tpl) delete S.cfg.tpl[sid];
+  delete S.edits[sid];
+  saveCfg();
+  store.set(S.editKey, S.edits);
+}
+const isEdited = sid => !!((S.cfg.tpl && S.cfg.tpl[sid] && Object.keys(S.cfg.tpl[sid]).length) || (S.edits[sid] && Object.keys(S.edits[sid]).length));
 
 // ---------- Settings page ----------
 function campRow(o, checked, attr, extra){
@@ -1558,6 +1574,7 @@ function renderSettings(R){
           <button type="button" class="btn sm" data-move="${i}" data-dir="-1" ${i === 0 ? 'disabled' : ''}>${ICON.up}بالا</button>
           <button type="button" class="btn sm" data-move="${i}" data-dir="1" ${i === cfg.slides.length - 1 ? 'disabled' : ''}>${ICON.down}پایین</button>
           <button type="button" class="btn sm" data-dup="${i}">کپی</button>
+          <button type="button" class="btn sm" data-default="${i}">پیش‌فرض</button>
           <button type="button" class="btn sm danger" data-del="${i}">حذف</button>
         </div>
       </div></details>`;
@@ -1729,9 +1746,14 @@ function wireSettings(R){
     saveCfg();
   });
   view.addEventListener('click', e => {
-    const b = e.target.closest('[data-move],[data-dup],[data-del],[data-add],[data-sall],[data-snone]');
+    const b = e.target.closest('[data-move],[data-dup],[data-del],[data-add],[data-sall],[data-snone],[data-default]');
     if(!b) return;
     const extra = [];
+    if(b.dataset.default !== undefined){
+      const sid = cfg.slides[+b.dataset.default].id;
+      if(!confirm('این اسلاید به نسخه‌ی پیش‌فرض برگرده؟ متن‌های ویرایش‌شده و تنظیماتش پاک می‌شن.')) return;
+      resetSlide(R, sid); rerender(['set-' + sid]); return;
+    }
     if(b.dataset.sall !== undefined || b.dataset.snone !== undefined){
       const i = +(b.dataset.sall !== undefined ? b.dataset.sall : b.dataset.snone);
       const s = cfg.slides[i];
