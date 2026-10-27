@@ -4702,12 +4702,13 @@ function messageRows(project, window){
     const inRange = d => (!from || d >= from) && (!to || d <= to);
     const inName = budgetNameFilter(project), inCampaign = budgetCampaignFilter(project);
     return (project.rawBlend || []).filter(r => inRange(r.date) && inName(r.campaignName) && inCampaign(r.campaign))
-      .map(r => ({campaign: r.campaign, campaignName: r.campaignName, cost: r.cost, impressions: r.impressions, clicks: r.clicks,
+      .map(r => ({date: r.date, campaign: r.campaign, campaignLabel: r.campaignLabel, campaignName: r.campaignName,
+                  cost: r.cost, impressions: r.impressions, clicks: r.clicks,
                   sessions: r.sessions, installs: 0, action: 0}));
   }
   const spec = messageSpec(project);
   return computeSection(project, window).joined.map(r => ({
-    campaign: r.campaign, cost: r.cost, impressions: r.impressions || 0, clicks: r.clicks || 0,
+    date: r.date, campaign: r.campaign, campaignLabel: r.campaignLabel, cost: r.cost, impressions: r.impressions || 0, clicks: r.clicks || 0,
     sessions: spec.sessions ? spec.sessions(r) : 0,
     installs: spec.installs ? spec.installs(r) : 0,
     action: spec.action ? spec.action(r) : 0
@@ -5436,8 +5437,17 @@ async function init(){
   setStatus(anyError?'err':'live', anyError ? 'بعضی پروژه‌ها خطا دادن — جزئیات توی همون سکشن' : 'همگام‌سازی شد — ' + new Date().toLocaleTimeString('fa-IR',{hour:'2-digit',minute:'2-digit'}));
 }
 
-// Nothing is read until someone is signed in (auth.js).
-window.dashAuth.ready().then(init);
+// slides.html loads this page in a hidden frame (`/index.html?core`) to read
+// sheets with the same project rules; there it only hands them over and never
+// draws the dashboard.
+if(window.frameElement && /[?&]core\b/.test(location.search)){
+  window.dashCore = {PROJECTS, BRANDS, projectState, loadProject, messageRows, messageFields, messageSpec,
+                     campaignTypes, campaignTypeGroup, lastWeekWithin, yesterdayWithin, weekStartFor,
+                     localIso, toInputDate, fromInputDate, todayStr, normCampaign};
+}else{
+  // Nothing is read until someone is signed in (auth.js).
+  window.dashAuth.ready().then(init);
+}
 })();
 
 </script>

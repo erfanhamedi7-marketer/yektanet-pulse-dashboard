@@ -1,0 +1,1623 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Weekly Slides</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="alternate icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#F7F3EA">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="/auth.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#F7F3EA;
+    --surface:#FFFFFF;
+    --surface-2:#FAF7F0;
+    --surface-3:#F2ECE1;
+    --border:#EAE3D5;
+    --border-strong:#DCD2C0;
+    --text:#15171C;
+    --text-muted:#5E6270;
+    --text-faint:#6B6E7C;
+    --positive:#0E7A4F;
+    --positive-soft:rgba(14,122,79,0.10);
+    --negative:#C62026;
+    --negative-soft:rgba(198,32,38,0.09);
+    --amber:#B45309;
+    --amber-soft:rgba(180,83,9,0.12);
+    --accent:#2563EB;
+    --accent-ink:#1D4ED8;
+    --accent-soft:rgba(37,99,235,0.10);
+    --radius:24px;
+    --font-ui:'Vazirmatn',system-ui,-apple-system,sans-serif;
+    --shadow-card:0 1px 2px rgba(58,46,24,.04), 0 14px 30px -22px rgba(58,46,24,.26);
+    --shadow-pop:0 16px 40px -14px rgba(58,46,24,.24), 0 2px 6px rgba(58,46,24,.07);
+    --gutter:24px;
+  }
+  *{box-sizing:border-box;}
+  ::selection{background:rgba(245,209,59,.45);color:var(--text);}
+  html{background:var(--bg);color-scheme:light;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(1000px 470px at 88% -12%, color-mix(in srgb, var(--page-accent, #F5D13B) 15%, transparent), transparent 62%),
+      radial-gradient(900px 460px at 12% -10%, rgba(245,209,59,.34), transparent 58%),
+      linear-gradient(180deg,#FCF8EF 0%, var(--bg) 42%, #F2EDE1 100%);
+    background-attachment:fixed;
+    color:var(--text);font-family:var(--font-ui);font-size:14px;line-height:1.55;
+    -webkit-font-smoothing:antialiased;min-height:100vh;
+  }
+  :focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px;border-radius:6px;}
+  [hidden]{display:none !important;}
+  button{font-family:inherit;}
+  .wrap{max-width:1280px;margin:0 auto;padding:28px var(--gutter) 72px;}
+
+  /* Topbar — same family as the dashboard's */
+  .topbar{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;margin-bottom:22px;flex-wrap:wrap;}
+  .brand{display:flex;align-items:center;gap:12px;}
+  .brand-mark{
+    width:40px;height:40px;border-radius:14px;flex-shrink:0;background:linear-gradient(135deg,#FFFFFF,#F7F1E4);
+    border:1px solid #E7DECB;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px -10px rgba(58,46,24,.4);
+  }
+  .brand-mark svg{width:18px;height:18px;color:var(--text);}
+  .topbar h1{font-size:19px;font-weight:800;margin:0;letter-spacing:-0.01em;}
+  .topbar .sub{color:var(--text-muted);font-size:12.5px;margin-top:2px;}
+  .topbar-right{display:flex;align-items:center;gap:10px;}
+  .status-pill{
+    display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);
+    border-radius:999px;padding:7px 14px;font-size:12.5px;color:var(--text-muted);box-shadow:var(--shadow-card);
+  }
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--text-faint);flex-shrink:0;}
+  .dot.live{background:var(--positive);box-shadow:0 0 0 4px var(--positive-soft);}
+  .dot.err{background:var(--negative);box-shadow:0 0 0 4px var(--negative-soft);}
+  .dot.loading{background:var(--amber);box-shadow:0 0 0 4px var(--amber-soft);animation:pulse 1.1s infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+  /* Buttons */
+  .btn{
+    display:inline-flex;align-items:center;gap:7px;border:1px solid var(--border);background:var(--surface);
+    color:var(--text);border-radius:999px;padding:8px 15px;font-size:13px;font-weight:600;cursor:pointer;
+    transition:background .15s,border-color .15s,transform .15s;white-space:nowrap;text-decoration:none;
+  }
+  .btn:hover{background:var(--surface-2);border-color:var(--border-strong);}
+  .btn svg{width:15px;height:15px;flex-shrink:0;}
+  .btn.primary{background:var(--text);border-color:var(--text);color:#fff;}
+  .btn.primary:hover{background:#2A2D35;}
+  .btn.on{background:var(--accent-soft);border-color:transparent;color:var(--accent-ink);}
+  .btn.sm{padding:5px 11px;font-size:12px;}
+  .btn.icon{padding:7px;}
+  .btn.danger{color:var(--negative);}
+  .btn:disabled{opacity:.45;cursor:default;}
+
+  /* Customer picker */
+  .home-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px;}
+  .home-head h2{margin:0;font-size:22px;font-weight:800;}
+  .home-head p{margin:4px 0 0;color:var(--text-muted);font-size:13px;}
+  .search{
+    border:1px solid var(--border);background:var(--surface);border-radius:999px;padding:9px 16px;
+    font-family:inherit;font-size:13.5px;min-width:240px;color:var(--text);
+  }
+  .search:focus{outline:none;border-color:var(--text);}
+  .client-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;}
+  .client-card{
+    display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--border);
+    border-radius:20px;padding:14px 16px;cursor:pointer;text-align:right;color:var(--text);
+    box-shadow:var(--shadow-card);transition:transform .15s, box-shadow .15s;font-size:14px;
+  }
+  .client-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-pop);}
+  .client-logo{
+    width:44px;height:44px;border-radius:14px;flex-shrink:0;background:#fff;border:1px solid var(--border);
+    display:flex;align-items:center;justify-content:center;overflow:hidden;font-weight:800;font-size:18px;
+  }
+  .client-logo img{width:100%;height:100%;object-fit:contain;padding:5px;}
+  .client-name{font-weight:700;line-height:1.35;}
+  .client-group{font-size:11.5px;color:var(--text-faint);}
+
+  /* Deck view */
+  .deck-bar{
+    position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+    background:rgba(255,255,255,.86);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+    border:1px solid var(--border);border-radius:22px;padding:10px 12px;margin-bottom:22px;box-shadow:var(--shadow-card);
+  }
+  .deck-id{display:flex;align-items:center;gap:10px;min-width:0;}
+  .deck-id .client-logo{width:38px;height:38px;border-radius:12px;}
+  .deck-id b{font-size:15px;display:block;line-height:1.3;}
+  .deck-id span{font-size:12px;color:var(--text-muted);}
+  .deck-actions{display:flex;gap:6px;flex-wrap:wrap;}
+  .deck{display:flex;flex-direction:column;gap:26px;}
+  .slide-item{display:flex;flex-direction:column;gap:8px;}
+  .slide-tools{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 4px;}
+  .slide-tools .lbl{font-size:12.5px;color:var(--text-muted);font-weight:600;}
+  .slide-tools .lbl b{color:var(--text);margin-left:6px;}
+  .slide-tools .grp{display:flex;gap:4px;}
+  .s-frame{
+    position:relative;width:100%;aspect-ratio:16/9;border-radius:18px;overflow:hidden;
+    box-shadow:0 1px 2px rgba(58,46,24,.06), 0 24px 48px -28px rgba(58,46,24,.38);background:#fff;
+  }
+  .s-frame > .slide{position:absolute;top:0;right:0;transform-origin:top right;transform:scale(var(--k,1));}
+  .add-slide{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;padding:18px;border:2px dashed var(--border-strong);border-radius:22px;}
+  .add-slide span{width:100%;text-align:center;font-size:13px;color:var(--text-muted);font-weight:600;}
+  .loading-box{
+    background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:60px 20px;text-align:center;
+    color:var(--text-muted);box-shadow:var(--shadow-card);
+  }
+  .spinner{display:inline-block;width:16px;height:16px;border-radius:50%;border:2px solid var(--border);border-top-color:var(--text);
+    animation:spin .8s linear infinite;vertical-align:middle;margin-left:8px;}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .error-box{background:var(--negative-soft);color:var(--negative);border-radius:18px;padding:18px 22px;font-weight:600;}
+
+  /* Editing affordances (only on the page, never in an export) */
+  body.editing .slide [data-k]{outline:1.5px dashed transparent;outline-offset:3px;border-radius:6px;transition:outline-color .15s;cursor:text;}
+  body.editing .slide [data-k]:hover{outline-color:rgba(37,99,235,.45);}
+  body.editing .slide [data-k]:focus{outline:2px solid var(--accent-ink);background:rgba(255,255,255,.6);}
+  body.editing .slide [data-k]:empty::before{content:attr(data-ph);color:#A3A6B1;font-weight:400;}
+  body.editing .slide .s-logo-btn{cursor:pointer;}
+  body.editing .slide .s-logo-btn:hover{outline:1.5px dashed rgba(37,99,235,.5);outline-offset:4px;border-radius:12px;}
+  .row-x{
+    display:none;position:absolute;left:-30px;top:50%;transform:translateY(-50%);width:22px;height:22px;border-radius:50%;
+    border:1px solid var(--border);background:#fff;color:var(--negative);font-size:13px;line-height:1;cursor:pointer;padding:0;
+  }
+  body.editing .s-table tbody tr:hover .row-x{display:block;}
+
+  /* Settings */
+  .set-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:18px;}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:22px 24px;box-shadow:var(--shadow-card);}
+  .card h3{margin:0 0 4px;font-size:16px;font-weight:800;}
+  .card .hint{margin:0 0 16px;font-size:12.5px;color:var(--text-muted);}
+  .field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;}
+  .field > span{font-size:12px;font-weight:700;color:var(--text-muted);}
+  .inp, select.inp{
+    border:1px solid var(--border);background:var(--surface-2);border-radius:12px;padding:9px 12px;font-family:inherit;
+    font-size:13.5px;color:var(--text);width:100%;
+  }
+  .inp:focus{outline:none;border-color:var(--text);background:#fff;}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;}
+  .row > .field{flex:1 1 180px;}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
+  .chip{border:1px solid var(--border);background:var(--surface-2);border-radius:999px;padding:6px 13px;font-size:12.5px;cursor:pointer;font-weight:600;color:var(--text);}
+  .chip.on{background:var(--text);border-color:var(--text);color:#fff;}
+  .check{display:inline-flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;user-select:none;}
+  .check input{width:16px;height:16px;accent-color:var(--text);margin:0;}
+  .metric-checks{display:flex;flex-wrap:wrap;gap:8px 16px;}
+  .camp-list{max-height:420px;overflow:auto;border:1px solid var(--border);border-radius:16px;}
+  .camp-row{display:grid;grid-template-columns:auto minmax(0,1fr) 120px 160px;gap:10px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--surface-3);font-size:13px;}
+  .camp-row:last-child{border-bottom:none;}
+  .camp-row .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:ltr;text-align:right;}
+  .camp-row .cs{color:var(--text-muted);font-size:12px;text-align:left;direction:ltr;}
+  .camp-row .inp{padding:6px 10px;font-size:12.5px;}
+  .camp-head{background:var(--surface-2);font-weight:700;color:var(--text-muted);font-size:12px;position:sticky;top:0;z-index:1;}
+  .slide-set{border:1px solid var(--border);border-radius:18px;margin-bottom:10px;background:var(--surface);}
+  .slide-set[open]{box-shadow:var(--shadow-card);}
+  .slide-set summary{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;list-style:none;}
+  .slide-set summary::-webkit-details-marker{display:none;}
+  .slide-set summary .num{width:28px;height:28px;border-radius:9px;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12.5px;flex-shrink:0;}
+  .slide-set summary .t{flex:1;font-weight:700;min-width:0;}
+  .slide-set summary .ty{font-size:11.5px;color:var(--text-faint);font-weight:500;margin-right:6px;}
+  .slide-set .body{padding:4px 16px 16px;border-top:1px solid var(--surface-3);}
+  .slide-set.off summary .t{color:var(--text-faint);text-decoration:line-through;}
+  .set-foot{display:flex;gap:8px;flex-wrap:wrap;}
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--text);color:#fff;padding:10px 18px;border-radius:999px;font-size:13px;z-index:200;box-shadow:var(--shadow-pop);}
+
+  /* Presentation */
+  #present{position:fixed;inset:0;z-index:100;background:#F2EDE1;display:flex;align-items:center;justify-content:center;}
+  #present .p-stage{position:relative;box-shadow:0 30px 70px -30px rgba(0,0,0,.35);background:#fff;overflow:hidden;}
+  #present .p-stage > .slide{position:absolute;top:0;right:0;transform-origin:top right;}
+  #present .p-ctrl{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);display:flex;gap:8px;align-items:center;
+    background:rgba(255,255,255,.92);border:1px solid var(--border);border-radius:999px;padding:5px 8px;font-size:13px;font-weight:700;opacity:.25;transition:opacity .2s;}
+  #present:hover .p-ctrl{opacity:1;}
+  #printDeck{display:none;}
+
+  @media (max-width:640px){
+    :root{--gutter:12px;}
+    .wrap{padding-top:16px;}
+    .topbar .sub{display:none;}
+    .search{min-width:0;width:100%;}
+    .client-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+    .client-card{padding:10px;gap:8px;font-size:13px;}
+    .client-logo{width:36px;height:36px;}
+    .deck-bar{position:static;border-radius:18px;}
+    .deck-actions .btn .t{display:none;}
+    .deck-actions .btn{padding:8px;}
+    .s-frame{border-radius:10px;}
+    .card{padding:18px 16px;}
+    .camp-row{grid-template-columns:auto minmax(0,1fr) 110px;}
+    .camp-row .cs{display:none;}
+    .row-x{display:none !important;}
+  }
+  @media print{
+    @page{size:1280px 720px;margin:0;}
+    html,body{background:#fff !important;}
+    body > *:not(#printDeck){display:none !important;}
+    #printDeck{display:block !important;}
+    #printDeck .p-page{width:1280px;height:720px;overflow:hidden;break-after:page;page-break-after:always;position:relative;}
+    #printDeck .p-page:last-child{break-after:auto;page-break-after:auto;}
+    *{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  }
+</style>
+<!-- Everything a slide looks like. Kept in its own block so the HTML export
+     carries exactly this and nothing of the page around it. -->
+<style id="slideCss">
+  .slide{
+    width:1280px;height:720px;background:#fff;color:#15171C;position:relative;overflow:hidden;
+    font-family:'Vazirmatn',system-ui,sans-serif;direction:rtl;padding:50px 64px 0;line-height:1.5;
+    -webkit-font-smoothing:antialiased;box-sizing:border-box;
+  }
+  .slide *{box-sizing:border-box;}
+  .slide::before{
+    content:'';position:absolute;left:-200px;top:-260px;width:620px;height:620px;border-radius:50%;
+    background:radial-gradient(circle, var(--soft), transparent 68%);pointer-events:none;
+  }
+  .slide img{display:block;}
+  .s-head{position:relative;display:flex;justify-content:space-between;align-items:flex-start;gap:28px;height:96px;}
+  .s-titles{display:flex;gap:18px;align-items:stretch;min-width:0;}
+  .s-bar{width:8px;border-radius:8px;background:var(--grad);flex-shrink:0;}
+  .s-titles h2{margin:0;font-size:38px;font-weight:800;line-height:1.3;letter-spacing:-.01em;color:#15171C;}
+  .s-kicker{font-size:17px;color:#6B6E7C;font-weight:500;margin-top:2px;}
+  .s-logo-btn{flex-shrink:0;height:60px;display:flex;align-items:center;}
+  .s-logo{height:60px;max-width:190px;object-fit:contain;}
+  .s-initial{width:60px;height:60px;border-radius:18px;background:var(--grad);color:#fff;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:800;}
+  .s-body{position:absolute;top:166px;right:64px;left:64px;bottom:84px;}
+  .s-foot{
+    position:absolute;bottom:0;right:0;left:0;height:62px;padding:0 64px;display:flex;align-items:center;justify-content:space-between;
+    font-size:14px;color:#6B6E7C;border-top:1px solid #EFEAE0;background:#fff;
+  }
+  .s-num{font-weight:800;color:var(--ink);font-size:16px;letter-spacing:.04em;}
+  .s-empty{height:100%;display:flex;align-items:center;justify-content:center;color:#6B6E7C;font-size:22px;font-weight:600;
+    background:#FAF7F0;border-radius:24px;border:1px dashed #E3DACA;}
+  .s-note{position:absolute;bottom:0;right:0;left:0;font-size:15px;color:#5E6270;min-height:24px;}
+
+  /* Cover */
+  .slide-cover{padding:0;}
+  .slide-cover::before{display:none;}
+  .cv-panel{position:absolute;left:0;top:0;bottom:0;width:480px;background:var(--grad);overflow:hidden;}
+  .cv-ring{position:absolute;border-radius:50%;border:2px solid rgba(255,255,255,.28);}
+  .cv-ring.r1{width:560px;height:560px;left:-160px;top:-180px;}
+  .cv-ring.r2{width:380px;height:380px;left:220px;bottom:-200px;border-color:rgba(255,255,255,.2);}
+  .cv-ring.r3{width:120px;height:120px;left:330px;top:70px;background:rgba(255,255,255,.14);border:none;}
+  .cv-logo{
+    position:absolute;left:110px;top:50%;margin-top:-130px;width:260px;height:260px;background:#fff;border-radius:52px;
+    box-shadow:0 36px 70px -34px rgba(20,20,30,.55);display:flex;align-items:center;justify-content:center;padding:38px;
+  }
+  .cv-logo .s-logo{height:auto;width:100%;max-width:100%;max-height:184px;}
+  .cv-logo .s-logo-btn{height:auto;width:100%;justify-content:center;}
+  .cv-logo .s-initial{width:150px;height:150px;font-size:72px;border-radius:40px;}
+  /* Centred with flex, not a transform: print pagination works on the
+     untransformed position and would push the period onto a page of its own. */
+  .cv-text{position:absolute;right:92px;top:0;bottom:24px;width:620px;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;}
+  .cv-kicker{display:inline-block;padding:8px 20px;border-radius:999px;background:var(--soft);color:var(--ink);font-weight:700;font-size:19px;}
+  .cv-text h1{font-size:66px;font-weight:900;line-height:1.22;margin:26px 0 14px;letter-spacing:-.02em;color:#15171C;}
+  .cv-client{font-size:34px;font-weight:700;color:var(--ink);}
+  .cv-period{margin-top:40px;display:inline-flex;align-items:center;gap:14px;font-size:23px;font-weight:600;color:#30343D;
+    background:#FAF7F0;border:1px solid #EFE8DA;border-radius:18px;padding:14px 22px;}
+  .cv-period svg{width:26px;height:26px;color:var(--ink);flex-shrink:0;}
+  .cv-foot{position:absolute;right:92px;bottom:42px;font-size:15px;color:#6B6E7C;}
+
+  /* KPI tiles */
+  .kpi-grid{display:grid;gap:20px;height:100%;align-content:center;grid-template-columns:repeat(var(--cols),minmax(0,1fr));}
+  .kpi-t{
+    position:relative;background:#FAF7F0;border:1px solid #EFE8DA;border-radius:26px;padding:26px 28px 24px;overflow:hidden;
+    display:flex;flex-direction:column;gap:6px;min-height:var(--th,200px);justify-content:center;
+  }
+  .kpi-t::after{content:'';position:absolute;top:0;right:28px;width:56px;height:5px;border-radius:0 0 6px 6px;background:var(--grad);}
+  .kpi-l{font-size:18px;font-weight:600;color:#5E6270;}
+  .kpi-v{font-size:42px;font-weight:800;color:#15171C;line-height:1.25;letter-spacing:-.01em;white-space:nowrap;}
+  .kpi-u{font-size:16px;color:#6B6E7C;font-weight:500;}
+  .kpi-d{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;margin-top:8px;font-size:15px;font-weight:700;padding:5px 12px;border-radius:999px;background:#EFEAE0;color:#5E6270;}
+  .kpi-d.up-good,.kpi-d.down-good{background:rgba(14,122,79,.11);color:#0E7A4F;}
+  .kpi-d.up-bad,.kpi-d.down-bad{background:rgba(198,32,38,.10);color:#C62026;}
+  .kpi-d small{font-weight:500;font-size:13px;opacity:.85;}
+  .dense .kpi-v{font-size:36px;}
+  .dense .kpi-t{padding:22px 24px 20px;}
+
+  /* Tables */
+  .s-table{width:100%;border-collapse:separate;border-spacing:0;font-size:17px;}
+  .s-table th{
+    background:var(--soft);color:var(--ink);font-weight:700;font-size:15px;padding:13px 16px;text-align:right;white-space:nowrap;
+  }
+  .s-table th:first-child{border-radius:0 16px 16px 0;}
+  .s-table th:last-child{border-radius:16px 0 0 16px;}
+  .s-table th.n{text-align:left;}
+  .s-table td{padding:11px 16px;border-bottom:1px solid #F0EBE1;color:#2A2D35;position:relative;}
+  .s-table td.n{text-align:left;font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap;}
+  .s-table td.nm{font-weight:700;color:#15171C;max-width:380px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .s-table td.nm.ltr{direction:ltr;text-align:right;}
+  .s-table td.ix{color:#9A9DA8;font-weight:700;width:44px;}
+  .s-table tr.tot td{background:#FAF7F0;font-weight:800;color:#15171C;border-bottom:none;}
+  .s-table tr.tot td:first-child{border-radius:0 14px 14px 0;}
+  .s-table tr.tot td:last-child{border-radius:14px 0 0 14px;}
+  .s-table tr.oth td{color:#6B6E7C;}
+  .s-table.dense{font-size:15px;}
+  .s-table.dense td{padding:8px 14px;}
+  .s-table.dense th{padding:10px 14px;font-size:14px;}
+  .pill{display:inline-block;padding:3px 12px;border-radius:999px;background:var(--soft);color:var(--ink);font-size:14px;font-weight:700;white-space:nowrap;}
+  .bar-cell{display:flex;align-items:center;gap:10px;justify-content:flex-end;}
+  .bar-cell i{display:block;height:8px;border-radius:8px;background:var(--grad);min-width:2px;}
+
+  /* Charts */
+  .s-chart{position:absolute;top:0;right:0;left:0;bottom:40px;}
+  .s-chart canvas,.s-chart img{width:100% !important;height:100% !important;}
+  .s-chart img{object-fit:contain;}
+
+  /* Text / analysis */
+  .an-grid{display:grid;gap:24px;height:100%;grid-template-columns:repeat(var(--cols),minmax(0,1fr));grid-template-rows:minmax(0,1fr);}
+  .an-col{background:#FAF7F0;border:1px solid #EFE8DA;border-radius:26px;padding:28px 34px;overflow:hidden;}
+  .an-h{display:flex;align-items:center;gap:12px;font-size:23px;font-weight:800;color:#15171C;margin-bottom:12px;}
+  .an-h i{width:38px;height:38px;border-radius:12px;background:var(--grad);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .an-h i svg{width:20px;height:20px;color:#fff;}
+  .an-body{font-size:19px;line-height:1.85;color:#2A2D35;}
+  .an-body ul{margin:0;padding:0 22px 0 0;}
+  .an-body li{margin-bottom:6px;}
+  .an-body li::marker{color:var(--accent);}
+  .an-body b{color:#15171C;}
+</style>
+</head>
+<body class="editing">
+<div class="wrap">
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/><path d="M7 13l3-3 2 2 4-4"/></svg>
+      </div>
+      <div>
+        <h1>Weekly Slides</h1>
+        <div class="sub">گزارش اسلایدی هفتگی برای مشتری — دیتا از همون شیت‌های داشبورد</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <a class="btn sm" href="/">داشبورد</a>
+      <div class="status-pill"><span class="dot loading" id="statusDot"></span><span id="statusText">در حال بارگذاری…</span></div>
+    </div>
+  </div>
+  <main id="view"><div class="loading-box"><span class="spinner"></span>در حال آماده‌سازی…</div></main>
+</div>
+<div id="printDeck"></div>
+<input type="file" id="logoFile" accept="image/*" hidden>
+
+<script>
+(function(){
+"use strict";
+
+// ---------- Small helpers ----------
+const $ = (s, r) => (r || document).querySelector(s);
+const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
+const esc = s => String(s === null || s === undefined ? '' : s)
+  .replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const ICON = {
+  back:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>',
+  gear:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
+  play:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>',
+  pdf:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 18v-6M9 15l3 3 3-3"/></svg>',
+  html:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg>',
+  pen:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+  reset:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>',
+  up:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15l-6-6-6 6"/></svg>',
+  down:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>',
+  eyeOff:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.9 17.9A10 10 0 0 1 12 20c-7 0-10-8-10-8a18 18 0 0 1 5.1-5.9M9.9 4.2A9 9 0 0 1 12 4c7 0 10 8 10 8a18 18 0 0 1-2.2 3.2M1 1l22 22"/></svg>',
+  cal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
+  chart:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-5 4 4 8-9"/></svg>',
+  flag:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg>',
+  note:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>'
+};
+
+function setStatus(kind, text){
+  $('#statusDot').className = 'dot ' + kind;
+  $('#statusText').textContent = text;
+}
+function toast(msg){
+  const t = document.createElement('div');
+  t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(), 2200);
+}
+const store = {
+  get(k, fallback){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : fallback; }catch(e){ return fallback; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); return true; }catch(e){ return false; } },
+  del(k){ try{ localStorage.removeItem(k); }catch(e){} }
+};
+
+// ---------- Numbers and dates (Persian) ----------
+const NF = {};
+function fa(n, d){
+  if(n === null || n === undefined || !isFinite(n)) return '—';
+  d = d || 0;
+  const f = NF[d] || (NF[d] = new Intl.NumberFormat('fa-IR', {maximumFractionDigits:d, minimumFractionDigits:0}));
+  return f.format(d ? n : Math.round(n));
+}
+const faPct = n => (n === null || n === undefined || !isFinite(n)) ? '—' : fa(n, Math.abs(n) < 1 ? 2 : 1) + '٪';
+function faCompact(n){
+  if(n === null || n === undefined || !isFinite(n)) return '';
+  const a = Math.abs(n);
+  if(a >= 1e9) return fa(n/1e9, 1) + ' میلیارد';
+  if(a >= 1e6) return fa(n/1e6, a >= 1e8 ? 0 : 1) + ' میلیون';
+  if(a >= 1e4) return fa(n/1e3, 0) + ' هزار';
+  return fa(n, a < 10 ? 2 : 0);
+}
+const ymdDate = s => new Date(+s.slice(0,4), +s.slice(4,6)-1, +s.slice(6,8), 12);
+const dateYmd = d => String(d.getFullYear()) + String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0');
+function addDays(ymd, n){ const d = ymdDate(ymd); d.setDate(d.getDate() + n); return dateYmd(d); }
+const daysBetween = (a, b) => Math.round((ymdDate(b) - ymdDate(a)) / 86400000) + 1;
+const isoToYmd = iso => iso.replace(/-/g, '');
+const ymdToIso = s => s.slice(0,4) + '-' + s.slice(4,6) + '-' + s.slice(6,8);
+const JF = {};
+function jalali(ymd, opts, key){
+  try{
+    const f = JF[key] || (JF[key] = new Intl.DateTimeFormat('fa-IR-u-ca-persian', opts));
+    return f.format(ymdDate(ymd));
+  }catch(e){ return ymdToIso(ymd); }
+}
+const jDay = ymd => jalali(ymd, {day:'numeric', month:'long'}, 'dm');
+const jYear = ymd => jalali(ymd, {year:'numeric'}, 'y');
+const jFull = ymd => jDay(ymd) + ' ' + jYear(ymd);
+function periodLabel(from, to){
+  if(!from || !to) return '';
+  if(from === to) return jFull(from);
+  return jYear(from) === jYear(to) ? `${jDay(from)} تا ${jFull(to)}` : `${jFull(from)} تا ${jFull(to)}`;
+}
+
+// ---------- The dashboard's own sheet reading ----------
+// index.html opened with ?core in a hidden frame hands over its projects,
+// sheet loader and row builder, so a report always follows the exact rules
+// (campaign filters, joins, columns) of the matching dashboard section.
+function loadCore(){
+  return new Promise((resolve, reject)=>{
+    const f = document.createElement('iframe');
+    f.src = '/index.html?core';
+    f.hidden = true; f.tabIndex = -1; f.setAttribute('aria-hidden', 'true'); f.title = 'core';
+    f.onload = ()=>{
+      const c = f.contentWindow && f.contentWindow.dashCore;
+      c ? resolve(c) : reject(new Error('موتور داشبورد لود نشد'));
+    };
+    f.onerror = ()=>reject(new Error('موتور داشبورد لود نشد'));
+    document.body.appendChild(f);
+  });
+}
+
+let core = null;
+const S = {project:null, cfg:null, edits:{}, editKey:null, data:null, charts:[]};
+let PROJ = [];
+
+function groupTitles(){
+  const m = {};
+  core.PROJECTS.forEach(p => { if(p.group && p.groupTitle) m[p.group] = p.groupTitle; });
+  return m;
+}
+function themeOf(p){
+  const t = p.theme || {accent:'#2563EB', ink:'#1D4ED8', accent2:'#1B1F27', accentSoft:'rgba(37,99,235,.10)'};
+  const grad = t.grad ? `linear-gradient(135deg, ${t.grad[0]}, ${t.grad[1]})` : `linear-gradient(135deg, ${t.accent}, ${t.ink})`;
+  // A near-black second colour reads as a neutral line next to brand columns.
+  const second = t.accent2 && t.accent2 !== t.accent ? t.accent2 : t.ink;
+  return {accent:t.accent, ink:t.ink, second, soft:t.accentSoft, grad};
+}
+function themeVars(p){
+  const t = themeOf(p);
+  return `--accent:${t.accent};--ink:${t.ink};--soft:${t.soft};--grad:${t.grad};`;
+}
+function logoHtml(p, cls){
+  const src = (S.project === p && S.cfg && S.cfg.logo) || p.logo;
+  return src ? `<img class="${cls || 's-logo'}" src="${esc(src)}" alt="">`
+             : `<div class="s-initial">${esc((p.title || '?').trim().charAt(0))}</div>`;
+}
+
+// ---------- Metrics, dimensions, mediums ----------
+const isSessionsCol = c => /^sessions?$/i.test(String(c || ''));
+function defaultActionLabel(p, has){
+  if(p.messageActionLabel) return p.messageActionLabel;
+  const further = (p.costPerMetrics || [])[0];
+  if(isSessionsCol(p.conversionCol) || p.kind === 'cpi') return further ? (further.label || further.col) : 'اکشن';
+  return p.conversionLabel || p.conversionCol || 'اکشن';
+}
+function metricDefs(p){
+  const has = p._has || (p._has = core.messageFields(p));
+  const act = (S.cfg && S.cfg.actionLabel) || defaultActionLabel(p, has);
+  return [
+    {id:'cost',        label:'هزینه', money:true, good:0, ok:true},
+    {id:'impressions', label:'نمایش', good:1, ok:has.impressions},
+    {id:'clicks',      label:'کلیک', good:1, ok:has.clicks},
+    {id:'ctr',         label:'نرخ کلیک (CTR)', pct:true, good:1, ok:has.impressions && has.clicks},
+    {id:'sessions',    label:'سشن', good:1, ok:has.sessions},
+    {id:'cps',         label:'هزینه به ازای سشن', money:true, good:-1, ok:has.sessions},
+    {id:'stc',         label:'نرخ سشن به کلیک (STC)', pct:true, good:1, ok:has.sessions && has.clicks},
+    {id:'installs',    label:'نصب', good:1, ok:has.installs},
+    {id:'cpi',         label:'هزینه به ازای نصب (CPI)', money:true, good:-1, ok:has.installs},
+    {id:'actions',     label:act, good:1, ok:has.action},
+    {id:'cpa',         label:'هزینه به ازای ' + act, money:true, good:-1, ok:has.action},
+    {id:'costShare',   label:'سهم از هزینه', pct:true, good:0, ok:true, groupOnly:true}
+  ];
+}
+const defsById = p => Object.fromEntries(metricDefs(p).map(m => [m.id, m]));
+function metricValue(id, t, all){
+  const div = (a, b) => b > 0 ? a / b : null;
+  switch(id){
+    case 'cost': return t.cost;
+    case 'impressions': return t.impressions;
+    case 'clicks': return t.clicks;
+    case 'ctr': return t.impressions > 0 ? t.clicks / t.impressions * 100 : null;
+    case 'sessions': return t.sessions;
+    case 'cps': return div(t.cost, t.sessions);
+    case 'stc': return t.clicks > 0 ? t.sessions / t.clicks * 100 : null;
+    case 'installs': return t.installs;
+    case 'cpi': return div(t.cost, t.installs);
+    case 'actions': return t.action;
+    case 'cpa': return div(t.cost, t.action);
+    case 'costShare': return all && all.cost > 0 ? t.cost / all.cost * 100 : null;
+  }
+  return null;
+}
+function fmtMetric(def, v){
+  if(v === null || v === undefined || !isFinite(v)) return '—';
+  return def.pct ? faPct(v) : fa(v);
+}
+function totals(rows){
+  const t = {cost:0, impressions:0, clicks:0, sessions:0, installs:0, action:0};
+  rows.forEach(r => { for(const k in t) t[k] += r[k] || 0; });
+  return t;
+}
+
+// Yektanet's Campaign Type when the sheet has it; otherwise a guess from the
+// campaign's name; a medium set by hand in the settings wins over both.
+const MEDIUM_GUESS = [
+  [/(^|[-_\s])(inapp|inap|in-app)/, 'درون‌اپلیکیشنی'], [/push/, 'پوش'], [/sms|پیامک/, 'پیامکی'],
+  [/rubika|روبیکا/, 'پیام روبیکا'], [/(^|[-_\s])(vid|video)/, 'ویدیویی'], [/bnr|banner|بنر/, 'بنری'],
+  [/native|ntv|پویا/, 'پویا'], [/(^|[-_\s])(cafe|cb)([-_\s]|$)|bazaar/, 'کافه بازار'], [/hamsan|همسان/, 'همسان']
+];
+function guessMedium(key){
+  const k = String(key || '').toLowerCase();
+  for(const [re, m] of MEDIUM_GUESS) if(re.test(k)) return m;
+  return null;
+}
+function autoMedium(p, key){
+  const types = core.campaignTypes(p);
+  return (types[key] && core.campaignTypeGroup(types[key])) || guessMedium(key) || 'سایر';
+}
+function mediumOf(p, key){
+  return (S.cfg.mediums && S.cfg.mediums[key]) || autoMedium(p, key);
+}
+function dimDefs(p){
+  const d = [
+    {id:'day', label:'روز', chrono:true, key:r => r.date, name:k => jDay(k)},
+    {id:'week', label:'هفته', chrono:true, key:r => isoToYmd(core.weekStartFor(r.date)), name:k => 'هفته‌ی ' + jDay(k)},
+    {id:'campaign', label:'کمپین', ltr:true, key:r => r.campaign, name:(k, r) => r.campaignLabel || k},
+    {id:'medium', label:'مدیوم', key:r => mediumOf(p, r.campaign), name:k => k}
+  ];
+  if(p.kind === 'budget') d.splice(3, 0, {id:'campaignName', label:'Campaign Name', ltr:true, key:r => core.normCampaign(r.campaignName), name:(k, r) => r.campaignName || k});
+  return d;
+}
+function groupRows(p, rows, dimId){
+  const dim = dimDefs(p).find(d => d.id === dimId) || dimDefs(p)[0];
+  const map = new Map();
+  rows.forEach(r => {
+    const k = dim.key(r);
+    if(!map.has(k)) map.set(k, {key:k, name:dim.name(k, r), rows:[]});
+    map.get(k).rows.push(r);
+  });
+  const groups = Array.from(map.values()).map(g => ({...g, t:totals(g.rows)}));
+  if(dim.chrono) groups.sort((a, b) => a.key < b.key ? -1 : 1);
+  else groups.sort((a, b) => b.t.cost - a.t.cost || b.t.action - a.t.action);
+  return {dim, groups};
+}
+
+// ---------- Settings per customer ----------
+const cfgKey = p => 'slides:cfg:' + p.id;
+const SLIDE_TYPES = {
+  cover:'جلد', campaigns:'کمپین‌های اجرا شده', kpis:'آمار کلی (کارت‌ها)', chart:'نمودار', table:'جدول مقایسه', text:'متن / تحلیل'
+};
+const CHART_TYPES = {combo:'ستونی + خطی', bar:'ستونی', hbar:'ستونی افقی', line:'خطی', doughnut:'دایره‌ای'};
+const PRESETS = [
+  ['lastWeek', 'هفته قبل'], ['last7', '۷ روز اخیر'], ['last30', '۳۰ روز اخیر'], ['sinceSat', 'از شنبه'],
+  ['yesterday', 'دیروز'], ['all', 'کل بازه'], ['custom', 'دلخواه']
+];
+function mainAction(ok){
+  return ok('actions') ? 'actions' : ok('installs') ? 'installs' : ok('sessions') ? 'sessions' : 'clicks';
+}
+function defaultSlides(p){
+  const defs = defsById(p);
+  const ok = id => defs[id] && defs[id].ok;
+  const pick = (ids, n) => ids.filter(ok).slice(0, n);
+  const main = mainAction(ok);
+  const eff = {actions:'cpa', installs:'cpi', sessions:'cps', clicks:'ctr'}[main];
+  const mediums = new Set(allRows(p).map(r => mediumOf(p, r.campaign)));
+  return [
+    {id:'cover', type:'cover', title:'', on:true},
+    {id:'campaigns', type:'campaigns', title:'کمپین‌های اجرا شده', on:true, metrics:pick(['cost', main], 2), maxRows:8},
+    {id:'kpis', type:'kpis', title:'آمار کلی کمپین‌ها', on:true,
+     metrics:pick(['cost', 'impressions', 'clicks', 'ctr', 'sessions', 'cps', 'installs', 'cpi', 'actions', 'cpa'], 8)},
+    {id:'chart1', type:'chart', title:'نمودار شماره ۱', on:true, dim:'day', chart:'combo', metrics:['cost', main]},
+    {id:'chart2', type:'chart', title:'نمودار شماره ۲', on:true, dim:mediums.size > 1 ? 'medium' : 'day',
+     chart:mediums.size > 1 ? 'bar' : 'line', metrics:mediums.size > 1 ? ['cost', eff] : [eff]},
+    {id:'mediums', type:'table', title:'جدول مقایسه مدیوم‌ها', on:true, dim:'medium',
+     metrics:pick(Array.from(new Set(['cost', 'costShare', main, eff, 'impressions', 'clicks', 'ctr', 'sessions', 'installs', 'cpi', 'actions', 'cpa'])), 7), maxRows:10},
+    {id:'analysis', type:'text', title:'تحلیل کلی و اقدامات پیش رو', on:true,
+     cols:[{h:'تحلیل کلی', auto:'analysis', icon:'chart'}, {h:'اقدامات پیش رو', auto:'next', icon:'flag'}]}
+  ];
+}
+function defaultCfg(p){
+  return {v:1, period:{preset:'lastWeek'}, compare:true, campaigns:null, title:'گزارش عملکرد کمپین‌ها',
+          kicker:'', actionLabel:'', logo:null, mediums:{}, slides:null};
+}
+function loadCfg(p){
+  const cfg = Object.assign(defaultCfg(p), store.get(cfgKey(p), {}));
+  S.cfg = cfg;
+  if(!Array.isArray(cfg.slides) || !cfg.slides.length) cfg.slides = defaultSlides(p);
+  return cfg;
+}
+function saveCfg(){
+  if(!store.set(cfgKey(S.project), S.cfg)) toast('ذخیره نشد — حافظه‌ی مرورگر پر یا بسته‌ست');
+}
+
+// ---------- The report's rows ----------
+function campaignSelection(p){
+  const c = S.cfg.campaigns;
+  if(Array.isArray(c)) return new Set(c);
+  if(p.defaultCampaigns && p.defaultCampaigns.length){
+    const wanted = new Set(p.defaultCampaigns.map(core.normCampaign));
+    const opts = campaignOptions(p, null).map(o => o.key);
+    const matched = opts.filter(k => wanted.has(k));
+    if(matched.length && matched.length < opts.length) return new Set(matched);
+  }
+  return 'ALL';
+}
+function rowsFor(p, win, sel){
+  core.projectState[p.id] = {campaigns: sel === undefined ? campaignSelection(p) : sel, subCampaigns:'ALL',
+                             from: win.from, to: win.to};
+  return core.messageRows(p, {from: win.from, to: win.to});
+}
+function allRows(p){
+  return rowsFor(p, {from:p.minDate, to:p.maxDate}, 'ALL');
+}
+// The campaigns a report can be narrowed to: Campaign Names for the budget
+// sections (their filter works on those), campaigns everywhere else; ordered
+// by spend in the given window.
+function campaignOptions(p, win){
+  const inWin = d => !win || (d >= win.from && d <= win.to);
+  const m = new Map();
+  const add = (key, label, cost, d) => {
+    if(!key) return;
+    if(!m.has(key)) m.set(key, {key, label, cost:0, active:false});
+    const o = m.get(key);
+    if(inWin(d)){ o.cost += cost; o.active = true; }
+  };
+  if(p.kind === 'budget') (p.rawBlend || []).forEach(r => add(core.normCampaign(r.campaignName), r.campaignName, r.cost, r.date));
+  else{
+    (p.rawCost || []).forEach(r => add(r.campaign, r.campaignLabel || r.campaign, r.cost, r.date));
+    (p.rawRef || []).forEach(r => add(r.campaign, r.campaignLabel || r.campaign, 0, r.date));
+  }
+  return Array.from(m.values()).sort((a, b) => b.cost - a.cost || (a.label < b.label ? -1 : 1));
+}
+function resolvePeriod(p){
+  const per = S.cfg.period || {preset:'lastWeek'};
+  const min = p.minDate, max = p.maxDate;
+  if(!min || !max) return null;
+  const clamp = w => ({from: w.from < min ? min : w.from, to: w.to > max ? max : w.to});
+  switch(per.preset){
+    case 'lastWeek': { const w = core.lastWeekWithin(min, max); return {from:isoToYmd(w.from), to:isoToYmd(w.to)}; }
+    case 'last7': return clamp({from:addDays(max, -6), to:max});
+    case 'last30': return clamp({from:addDays(max, -29), to:max});
+    case 'sinceSat': return clamp({from:isoToYmd(core.weekStartFor(max)), to:max});
+    case 'yesterday': { const d = isoToYmd(core.yesterdayWithin(min, max)); return {from:d, to:d}; }
+    case 'all': return {from:min, to:max};
+    case 'custom': {
+      const f = per.from || min, t = per.to || max;
+      return f <= t ? {from:f, to:t} : {from:t, to:f};
+    }
+  }
+  return {from:min, to:max};
+}
+function computeData(p){
+  const win = resolvePeriod(p);
+  if(!win) return {win:null, rows:[], prevRows:[], t:totals([]), pt:null};
+  const days = daysBetween(win.from, win.to);
+  const prev = {from:addDays(win.from, -days), to:addDays(win.from, -1)};
+  const rows = rowsFor(p, win);
+  const prevRows = rowsFor(p, prev);
+  return {win, prev, days, rows, prevRows, t:totals(rows), pt:prevRows.length ? totals(prevRows) : null};
+}
+
+// ---------- Edits (everything on a slide can be typed over) ----------
+// Kept per customer and per period: a week's hand-written analysis must not
+// reappear on next week's report, and changing the period starts clean.
+function editsKey(){
+  const w = S.data && S.data.win;
+  return 'slides:edits:' + S.project.id + ':' + (w ? w.from + '-' + w.to : 'none');
+}
+function loadEdits(){ S.editKey = editsKey(); S.edits = store.get(S.editKey, {}); }
+let editTimer = null;
+function saveEdits(){
+  clearTimeout(editTimer);
+  editTimer = setTimeout(()=>{ if(!store.set(S.editKey, S.edits)) toast('ذخیره نشد — حافظه‌ی مرورگر پر یا بسته‌ست'); }, 250);
+}
+const E = (k, html, ph, tag, cls) =>
+  `<${tag || 'div'} class="${cls || ''}" data-k="${esc(k)}"${ph ? ` data-ph="${esc(ph)}"` : ''}>${html}</${tag || 'div'}>`;
+function applyEdits(el, sid){
+  const ed = S.edits[sid] || {};
+  $$('[data-k]', el).forEach(n => { if(ed[n.dataset.k] !== undefined) n.innerHTML = ed[n.dataset.k]; });
+  $$('tr[data-row]', el).forEach(tr => { if(ed['hide:' + tr.dataset.row]) tr.remove(); });
+  if(document.body.classList.contains('editing')) $$('[data-k]', el).forEach(n => n.setAttribute('contenteditable', 'true'));
+}
+
+// ---------- Slides ----------
+function slideHead(p, s, kicker){
+  return `<header class="s-head">
+    <div class="s-titles"><span class="s-bar"></span><div>
+      ${E('title', esc(s.title), 'عنوان اسلاید', 'h2')}
+      ${E('kicker', esc(kicker), 'زیرعنوان')}
+    </div></div>
+    <div class="s-logo-btn" data-logo title="برای عوض کردن لوگو کلیک کن">${logoHtml(p)}</div>
+  </header>`;
+}
+function slideFoot(p, num){
+  return `<footer class="s-foot">${E('foot', esc(p.title + ' · ' + S.cfg.title))}<span class="s-num">${fa(num).padStart(2, '۰')}</span></footer>`;
+}
+function deltaHtml(def, now, before){
+  if(!S.cfg.compare || before === null || before === undefined || !isFinite(before) || before === 0 || now === null || !isFinite(now)) return '';
+  const pct = (now - before) / Math.abs(before) * 100;
+  if(!isFinite(pct)) return '';
+  const up = pct > 0.05, down = pct < -0.05;
+  const cls = !up && !down ? '' : def.good === 0 ? '' : (up ? 'up-' : 'down-') + ((up ? def.good > 0 : def.good < 0) ? 'good' : 'bad');
+  const arrow = up ? '▲' : down ? '▼' : '●';
+  const days = S.data.days;
+  const label = days === 7 ? 'نسبت به هفته‌ی قبل' : days === 1 ? 'نسبت به روز قبل' : 'نسبت به بازه‌ی قبل';
+  return `<span class="kpi-d ${cls}">${arrow} ${fa(Math.abs(pct), Math.abs(pct) < 10 ? 1 : 0)}٪ <small>${label}</small></span>`;
+}
+
+function renderCover(p, s){
+  const d = S.data;
+  const kicker = S.cfg.kicker || (d.days === 7 ? 'گزارش هفتگی کمپین‌ها' : d.days === 1 ? 'گزارش روزانه کمپین‌ها' : 'گزارش دوره‌ای کمپین‌ها');
+  const made = jFull(dateYmd(new Date()));
+  return `<section class="slide slide-cover">
+    <div class="cv-panel"><span class="cv-ring r1"></span><span class="cv-ring r2"></span><span class="cv-ring r3"></span></div>
+    <div class="cv-logo"><div class="s-logo-btn" data-logo title="برای عوض کردن لوگو کلیک کن">${logoHtml(p)}</div></div>
+    <div class="cv-text">
+      ${E('kicker', esc(kicker), 'برچسب', 'div', 'cv-kicker')}
+      ${E('title', esc(S.cfg.title), 'عنوان گزارش', 'h1')}
+      ${E('client', esc(p.title), 'اسم مشتری', 'div', 'cv-client')}
+      <div class="cv-period">${ICON.cal}${E('period', esc(d.win ? periodLabel(d.win.from, d.win.to) : ''), 'بازه‌ی گزارش', 'span')}</div>
+    </div>
+    ${E('foot', esc('تاریخ تهیه: ' + made), '', 'div', 'cv-foot')}
+  </section>`;
+}
+function renderKpis(p, s, num){
+  const defs = defsById(p), d = S.data;
+  const ms = (s.metrics || []).filter(id => defs[id] && defs[id].ok && !defs[id].groupOnly);
+  const n = ms.length;
+  const cols = n <= 3 ? Math.max(n, 1) : n === 4 ? 4 : n <= 6 ? 3 : 4;
+  const rows = Math.ceil(n / cols) || 1;
+  const tiles = ms.map(id => {
+    const def = defs[id];
+    const v = metricValue(id, d.t, d.t), pv = d.pt ? metricValue(id, d.pt, d.pt) : null;
+    return `<div class="kpi-t">
+      ${E('l:' + id, esc(def.label), '', 'div', 'kpi-l')}
+      ${E('v:' + id, esc(fmtMetric(def, v)), '', 'div', 'kpi-v')}
+      ${def.money ? E('u:' + id, 'تومان', '', 'div', 'kpi-u') : ''}
+      ${E('d:' + id, deltaHtml(def, v, pv), '', 'div')}
+    </div>`;
+  }).join('');
+  return `<section class="slide">${slideHead(p, s, d.win ? periodLabel(d.win.from, d.win.to) : '')}
+    <div class="s-body">${n ? `<div class="kpi-grid ${rows > 1 && cols > 3 ? 'dense' : ''}" style="--cols:${cols};--th:${rows > 1 ? 196 : 260}px">${tiles}</div>`
+                           : '<div class="s-empty">متریکی برای این اسلاید انتخاب نشده</div>'}</div>
+    ${slideFoot(p, num)}</section>`;
+}
+function tableHtml(p, s, groups, metricIds, opts){
+  const defs = defsById(p), all = S.data.t;
+  const max = Math.max(1, +s.maxRows || 10);
+  let shown = groups, rest = [];
+  if(groups.length > max){ shown = groups.slice(0, max - 1); rest = groups.slice(max - 1); }
+  const head = [
+    opts.numbered ? '<th>#</th>' : '',
+    `<th>${E('h:dim', esc(opts.dimLabel), '', 'span')}</th>`,
+    opts.medium ? `<th>${E('h:medium', 'مدیوم', '', 'span')}</th>` : '',
+    ...metricIds.map(id => `<th class="n">${E('h:' + id, esc(defs[id].label + (defs[id].money ? ' (تومان)' : '')), '', 'span')}</th>`)
+  ].join('');
+  const cells = (rowKey, t) => metricIds.map(id => {
+    const v = metricValue(id, t, all);
+    const bar = id === 'costShare' && v !== null ? `<i style="width:${Math.max(2, Math.round(v * 0.9))}px"></i>` : '';
+    return `<td class="n">${bar ? `<div class="bar-cell">${bar}${E('c:' + rowKey + ':' + id, esc(fmtMetric(defs[id], v)), '', 'span')}</div>`
+                                : E('c:' + rowKey + ':' + id, esc(fmtMetric(defs[id], v)), '', 'span')}</td>`;
+  }).join('');
+  const rk = k => String(k).replace(/[^\w؀-ۿ-]/g, '_');
+  const body = shown.map((g, i) => {
+    const key = rk(g.key);
+    return `<tr data-row="${esc(key)}">
+      ${opts.numbered ? `<td class="ix">${fa(i + 1)}</td>` : ''}
+      <td class="nm ${opts.ltr ? 'ltr' : ''}">${E('c:' + key + ':name', esc(g.name), '', 'span')}<button type="button" class="row-x" data-hide="${esc(key)}" title="حذف این ردیف از اسلاید">×</button></td>
+      ${opts.medium ? `<td>${E('c:' + key + ':medium', `<span class="pill">${esc(mediumOf(p, g.key))}</span>`, '', 'span')}</td>` : ''}
+      ${cells(key, g.t)}</tr>`;
+  }).join('');
+  const other = rest.length ? (() => {
+    const t = totals(rest.flatMap(g => g.rows));
+    return `<tr class="oth" data-row="__rest">${opts.numbered ? '<td class="ix"></td>' : ''}
+      <td class="nm">${E('c:__rest:name', esc(`سایر (${fa(rest.length)} مورد)`), '', 'span')}<button type="button" class="row-x" data-hide="__rest" title="حذف این ردیف از اسلاید">×</button></td>
+      ${opts.medium ? '<td></td>' : ''}${cells('__rest', t)}</tr>`;
+  })() : '';
+  const tot = `<tr class="tot">${opts.numbered ? '<td></td>' : ''}<td>${E('c:__tot:name', 'مجموع', '', 'span')}</td>
+      ${opts.medium ? '<td></td>' : ''}${cells('__tot', all)}</tr>`;
+  const dense = shown.length + (rest.length ? 1 : 0) > 8 || metricIds.length > 6;
+  return `<table class="s-table ${dense ? 'dense' : ''}"><thead><tr>${head}</tr></thead><tbody>${body}${other}${tot}</tbody></table>`;
+}
+function renderTableSlide(p, s, num, campaigns){
+  const defs = defsById(p), d = S.data;
+  const ms = (s.metrics || []).filter(id => defs[id] && defs[id].ok);
+  const dimId = campaigns ? (p.kind === 'budget' ? 'campaignName' : 'campaign') : (s.dim || 'medium');
+  const {dim, groups} = groupRows(p, d.rows, dimId);
+  const body = !d.rows.length ? '<div class="s-empty">توی این بازه دیتایی نیست</div>'
+    : tableHtml(p, s, groups, ms, {numbered:campaigns, medium:campaigns && dimId === 'campaign', dimLabel:dim.label, ltr:dim.ltr});
+  const kicker = campaigns
+    ? `${fa(groups.length)} کمپین فعال — ${d.win ? periodLabel(d.win.from, d.win.to) : ''}`
+    : (d.win ? periodLabel(d.win.from, d.win.to) : '');
+  return `<section class="slide">${slideHead(p, s, kicker)}<div class="s-body">${body}</div>${slideFoot(p, num)}</section>`;
+}
+function renderChartSlide(p, s, num){
+  const d = S.data;
+  return `<section class="slide">${slideHead(p, s, d.win ? periodLabel(d.win.from, d.win.to) : '')}
+    <div class="s-body">${d.rows.length ? `<div class="s-chart"><canvas data-chart="${esc(s.id)}"></canvas></div>
+      ${E('note', '', 'توضیح نمودار (اختیاری)', 'div', 's-note')}` : '<div class="s-empty">توی این بازه دیتایی نیست</div>'}</div>
+    ${slideFoot(p, num)}</section>`;
+}
+
+// A first draft of the analysis, from the figures themselves; it is meant to
+// be rewritten on the slide.
+function analysisDraft(p){
+  const d = S.data, defs = defsById(p), t = d.t;
+  if(!d.rows.length) return '<ul><li>توی این بازه دیتایی ثبت نشده.</li></ul>';
+  const ok = id => defs[id] && defs[id].ok;
+  const main = mainAction(ok);
+  const eff = {actions:'cpa', installs:'cpi', sessions:'cps', clicks:'ctr'}[main];
+  const mDef = defs[main], eDef = defs[eff];
+  const out = [];
+  const effTxt = v => eDef.pct ? faPct(v) : fa(v) + ' تومان';
+  out.push(`در این بازه مجموعاً <b>${fa(t.cost)} تومان</b> هزینه شد و <b>${fa(metricValue(main, t))}</b> ${esc(mDef.label)} ثبت شد`
+    + (metricValue(eff, t) !== null ? ` (${esc(eDef.label)}: <b>${effTxt(metricValue(eff, t))}</b>).` : '.'));
+  if(d.pt){
+    const ch = (a, b) => b > 0 ? (a - b) / b * 100 : null;
+    const c1 = ch(metricValue(main, t), metricValue(main, d.pt)), c2 = ch(metricValue(eff, t) || 0, metricValue(eff, d.pt) || 0);
+    const word = c => c > 0 ? 'افزایش' : 'کاهش';
+    const parts = [];
+    if(c1 !== null && isFinite(c1)) parts.push(`تعداد ${esc(mDef.label)} <b>${fa(Math.abs(c1), 1)}٪ ${word(c1)}</b>`);
+    if(c2 !== null && isFinite(c2) && metricValue(eff, d.pt)) parts.push(`${esc(eDef.label)} <b>${fa(Math.abs(c2), 1)}٪ ${word(c2)}</b>`);
+    if(parts.length) out.push(`نسبت به بازه‌ی قبل، ${parts.join(' و ')} داشت.`);
+  }
+  const med = groupRows(p, d.rows, 'medium').groups.filter(g => metricValue(main, g.t) > 0);
+  if(med.length > 1 && eDef.money){
+    const best = med.slice().sort((a, b) => metricValue(eff, a.t) - metricValue(eff, b.t))[0];
+    out.push(`بهترین بازدهی مربوط به مدیوم <b>${esc(best.name)}</b> بود (${esc(eDef.label)}: <b>${effTxt(metricValue(eff, best.t))}</b>).`);
+  }
+  const camps = groupRows(p, d.rows, p.kind === 'budget' ? 'campaignName' : 'campaign').groups;
+  const top = camps.slice().sort((a, b) => metricValue(main, b.t) - metricValue(main, a.t))[0];
+  if(top && metricValue(main, top.t) > 0 && metricValue(main, t) > 0){
+    out.push(`کمپین <b dir="auto">${esc(top.name)}</b> با <b>${fa(metricValue(main, top.t))}</b> ${esc(mDef.label)} بیشترین سهم را داشت (${faPct(metricValue(main, top.t) / metricValue(main, t) * 100)} از کل).`);
+  }
+  return '<ul>' + out.map(x => `<li>${x}</li>`).join('') + '</ul>';
+}
+function nextDraft(){
+  return '<ul><li>…</li><li>…</li><li>…</li></ul>';
+}
+function renderTextSlide(p, s, num){
+  const cols = s.cols && s.cols.length ? s.cols : [{h:'', auto:null, icon:'note'}];
+  const body = cols.map((c, i) => `<div class="an-col">
+      ${c.h !== undefined ? `<div class="an-h"><i>${ICON[c.icon] || ICON.note}</i>${E('h' + i, esc(c.h), 'تیتر', 'span')}</div>` : ''}
+      ${E('b' + i, c.auto === 'analysis' ? analysisDraft(p) : c.auto === 'next' ? nextDraft() : '', 'متن رو اینجا بنویس…', 'div', 'an-body')}
+    </div>`).join('');
+  return `<section class="slide">${slideHead(p, s, S.data.win ? periodLabel(S.data.win.from, S.data.win.to) : '')}
+    <div class="s-body"><div class="an-grid" style="--cols:${cols.length}">${body}</div></div>${slideFoot(p, num)}</section>`;
+}
+function renderSlide(p, s, num){
+  switch(s.type){
+    case 'cover': return renderCover(p, s);
+    case 'kpis': return renderKpis(p, s, num);
+    case 'campaigns': return renderTableSlide(p, s, num, true);
+    case 'table': return renderTableSlide(p, s, num, false);
+    case 'chart': return renderChartSlide(p, s, num);
+    case 'text': return renderTextSlide(p, s, num);
+  }
+  return '';
+}
+
+// ---------- Charts ----------
+const FONT = "'Vazirmatn', system-ui, -apple-system, sans-serif";
+const PIE = ['#F59E0B', '#10B981', '#6366F1', '#EC4899', '#14B8A6', '#94A3B8', '#EF4444', '#8B5CF6'];
+function alpha(hex, a){
+  const h = String(hex).replace('#', '');
+  if(h.length !== 6) return hex;
+  return `rgba(${parseInt(h.slice(0,2),16)},${parseInt(h.slice(2,4),16)},${parseInt(h.slice(4,6),16)},${a})`;
+}
+function drawChart(p, s, canvas){
+  const defs = defsById(p), th = themeOf(p);
+  const ms = (s.metrics || []).filter(id => defs[id] && defs[id].ok).slice(0, s.chart === 'doughnut' ? 1 : 2);
+  if(!ms.length) return null;
+  let {dim, groups} = groupRows(p, S.data.rows, s.dim || 'day');
+  const all = S.data.t;
+  if(!dim.chrono && groups.length > 10){
+    const rest = groups.slice(9);
+    groups = groups.slice(0, 9).concat([{key:'__rest', name:'سایر', t:totals(rest.flatMap(g => g.rows))}]);
+  }
+  const labels = groups.map(g => g.name);
+  const colors = [th.accent, th.second];
+  const font = {family:FONT, size:15};
+  const tick = def => v => def.pct ? faPct(v) : faCompact(v);
+  const type = s.chart || 'combo';
+  let config;
+  if(type === 'doughnut'){
+    const def = defs[ms[0]];
+    config = {type:'doughnut', data:{labels, datasets:[{data:groups.map(g => metricValue(ms[0], g.t, all) || 0),
+      backgroundColor:groups.map((g, i) => i === 0 ? th.accent : i === 1 ? th.second : PIE[(i - 2) % PIE.length]), borderColor:'#fff', borderWidth:3}]},
+      options:{cutout:'58%', plugins:{legend:{position:'left', rtl:true, labels:{font:{...font, size:16}, padding:16, boxWidth:16, boxHeight:16,
+        generateLabels(chart){
+          const ds = chart.data.datasets[0], sum = ds.data.reduce((a, b) => a + b, 0);
+          return chart.data.labels.map((l, i) => ({text:`${l} — ${def.pct ? faPct(ds.data[i]) : faCompact(ds.data[i])}${sum > 0 && !def.pct ? ` (${faPct(ds.data[i] / sum * 100)})` : ''}`,
+            fillStyle:ds.backgroundColor[i], strokeStyle:ds.backgroundColor[i], index:i}));
+        }}},
+        tooltip:{rtl:true, callbacks:{label:c => `${c.label}: ${fmtMetric(def, c.raw)}`}}}}};
+  }else{
+    const horizontal = type === 'hbar';
+    const datasets = ms.map((id, i) => {
+      const def = defs[id];
+      const asLine = type === 'line' || (type === 'combo' && i === 1);
+      return {
+        type: asLine ? 'line' : 'bar', label:def.label,
+        data:groups.map(g => metricValue(id, g.t, all)),
+        backgroundColor: asLine ? colors[i] : alpha(colors[i], i === 0 ? 0.9 : 0.75),
+        borderColor: colors[i], borderWidth: asLine ? 3 : 0, borderRadius: asLine ? 0 : 8, maxBarThickness:56,
+        pointRadius: asLine ? (groups.length > 20 ? 2 : 4) : 0, pointBackgroundColor:'#fff', pointBorderWidth:2, tension:.3,
+        spanGaps:true, yAxisID: horizontal ? undefined : (i === 0 ? 'y' : 'y1'), xAxisID: horizontal ? (i === 0 ? 'x' : 'x1') : undefined,
+        order: asLine ? 0 : 1
+      };
+    });
+    const valAxis = (id, i) => ({
+      position: horizontal ? (i === 0 ? 'bottom' : 'top') : (i === 0 ? 'right' : 'left'),
+      beginAtZero:true, grid:{display:i === 0, color:'#F0EBE1'}, border:{display:false},
+      ticks:{font, color:'#6B6E7C', callback:tick(defs[id]), maxTicksLimit:6},
+      title:{display:true, text:defs[id].label + (defs[id].money ? ' (تومان)' : ''), font:{...font, size:14, weight:'600'}, color:colors[i]}
+    });
+    const catAxis = {grid:{display:false}, border:{color:'#E5DFD2'},
+      ticks:{font, color:'#3E424C', autoSkip:true, maxRotation:0, autoSkipPadding:14,
+             callback(v){ const l = this.getLabelForValue(v); return String(l).length > 22 ? String(l).slice(0, 21) + '…' : l; }}};
+    const scales = horizontal ? {y:{...catAxis, position:'right'}, x:valAxis(ms[0], 0)} : {x:catAxis, y:valAxis(ms[0], 0)};
+    if(ms[1]) scales[horizontal ? 'x1' : 'y1'] = valAxis(ms[1], 1);
+    config = {type:'bar', data:{labels, datasets}, options:{indexAxis: horizontal ? 'y' : 'x', scales,
+      plugins:{legend:{position:'top', align:'start', rtl:true, labels:{font:{...font, size:16}, boxWidth:14, boxHeight:14, usePointStyle:true, padding:18}},
+        tooltip:{rtl:true, callbacks:{label:c => `${c.dataset.label}: ${fmtMetric(defs[ms[c.datasetIndex]], c.raw)}`}}}}};
+  }
+  // Sized from the slide's own 1280×720 layout: a responsive chart would
+  // measure the scaled-down frame on a phone and draw itself a quarter size.
+  const box = canvas.parentElement;
+  canvas.width = box.offsetWidth; canvas.height = box.offsetHeight;
+  config.options = Object.assign(config.options, {responsive:false, maintainAspectRatio:false, animation:false, devicePixelRatio:2,
+    layout:{padding:{top:4, left:6, right:6}}, interaction:{mode:'index', intersect:false}});
+  return new Chart(canvas, config);
+}
+
+// ---------- Views ----------
+function route(){
+  const h = decodeURIComponent(location.hash.replace(/^#\/?/, ''));
+  const [pid, sub] = h.split('/');
+  const p = PROJ.find(x => x.id === pid);
+  closePresent();
+  if(!p) return renderHome();
+  openProject(p, sub === 'settings' ? 'settings' : 'deck');
+}
+function renderHome(){
+  S.project = null;
+  document.body.style.removeProperty('--page-accent');
+  const gt = groupTitles();
+  $('#view').innerHTML = `
+    <div class="home-head"><div><h2>انتخاب مشتری</h2><p>برای هر مشتری یه گزارش اسلایدی ساخته می‌شه؛ بازه، متریک‌ها و اسلایدها از «تنظیمات» همون مشتری.</p></div>
+      <input class="search" id="clientSearch" type="search" placeholder="جست‌وجوی مشتری…" aria-label="جست‌وجوی مشتری"></div>
+    <div class="client-grid" id="clientGrid">${PROJ.map(p => `
+      <button type="button" class="client-card" data-pid="${esc(p.id)}" data-q="${esc((p.title + ' ' + (gt[p.group] || '')).toLowerCase())}">
+        <span class="client-logo" style="color:${themeOf(p).ink}">${p.logo ? `<img src="${esc(p.logo)}" alt="">` : esc(p.title.charAt(0))}</span>
+        <span><span class="client-name">${esc(p.title)}</span>${p.group && gt[p.group] && gt[p.group] !== p.title ? `<span class="client-group" style="display:block">${esc(gt[p.group])}</span>` : ''}</span>
+      </button>`).join('')}</div>`;
+  $$('.client-card').forEach(b => b.addEventListener('click', () => { location.hash = '#' + b.dataset.pid; }));
+  $('#clientSearch').addEventListener('input', e => {
+    const q = e.target.value.trim().toLowerCase();
+    $$('.client-card').forEach(b => { b.hidden = q && !b.dataset.q.includes(q); });
+  });
+  setStatus('live', 'آماده');
+}
+
+async function openProject(p, view){
+  if(S.project !== p){
+    S.project = p;
+    S.data = null;
+    document.body.style.setProperty('--page-accent', themeOf(p).accent);
+    if(!p._loaded){
+      $('#view').innerHTML = `<div class="loading-box"><span class="spinner"></span>در حال خوندن شیت‌های ${esc(p.title)}…</div>`;
+      setStatus('loading', 'در حال خوندن شیت…');
+      await core.loadProject(p);
+      p._loaded = !p.error;
+      if(S.project !== p) return;
+    }
+    if(p.error){
+      $('#view').innerHTML = `${backBar(p)}<div class="error-box">${esc(p.error)}</div>`;
+      setStatus('err', 'خطا در خوندن شیت');
+      p._loaded = false;
+      return;
+    }
+    loadCfg(p);
+  }
+  S.data = computeData(p);
+  loadEdits();
+  setStatus('live', 'همگام‌سازی شد — ' + new Date().toLocaleTimeString('fa-IR', {hour:'2-digit', minute:'2-digit'}));
+  view === 'settings' ? renderSettings(p) : renderDeck(p);
+}
+function backBar(p){
+  return `<div class="deck-bar"><div class="deck-id">
+    <a class="btn icon" href="#" title="همه‌ی مشتری‌ها" aria-label="همه‌ی مشتری‌ها">${ICON.back}</a>
+    <span class="client-logo">${p.logo ? `<img src="${esc(p.logo)}" alt="">` : esc(p.title.charAt(0))}</span>
+    <div><b>${esc(p.title)}</b><span>${S.data && S.data.win ? esc(periodLabel(S.data.win.from, S.data.win.to)) : ''}</span></div>
+  </div><div class="deck-actions" id="deckActions"></div></div>`;
+}
+
+function enabledSlides(){ return S.cfg.slides.filter(s => s.on !== false); }
+function destroyCharts(){ S.charts.forEach(c => c.destroy()); S.charts = []; }
+
+function renderDeck(p){
+  destroyCharts();
+  const editing = document.body.classList.contains('editing');
+  const slides = enabledSlides();
+  const hiddenCount = S.cfg.slides.length - slides.length;
+  $('#view').innerHTML = backBar(p) + `<div class="deck" id="deck">${slides.map((s, i) => `
+    <div class="slide-item" data-sid="${esc(s.id)}">
+      <div class="slide-tools">
+        <span class="lbl"><b>${fa(i + 1)}</b>${esc(SLIDE_TYPES[s.type] || s.type)}</span>
+        <span class="grp">
+          <button type="button" class="btn sm icon" data-act="up" title="جابه‌جایی به بالا" aria-label="بالا" ${i === 0 ? 'disabled' : ''}>${ICON.up}</button>
+          <button type="button" class="btn sm icon" data-act="down" title="جابه‌جایی به پایین" aria-label="پایین" ${i === slides.length - 1 ? 'disabled' : ''}>${ICON.down}</button>
+          <button type="button" class="btn sm icon" data-act="hide" title="پنهان کردن این اسلاید" aria-label="پنهان کردن">${ICON.eyeOff}</button>
+          <button type="button" class="btn sm icon" data-act="reset" title="برگردوندن ویرایش‌های این اسلاید" aria-label="برگردوندن ویرایش‌ها">${ICON.reset}</button>
+          <a class="btn sm icon" href="#${esc(p.id)}/settings" data-act="cfg" title="تنظیمات این اسلاید" aria-label="تنظیمات">${ICON.gear}</a>
+          <button type="button" class="btn sm icon" data-act="present" title="ارائه از این اسلاید" aria-label="ارائه">${ICON.play}</button>
+        </span>
+      </div>
+      <div class="s-frame" style="${themeVars(p)}">${renderSlide(p, s, i + 1)}</div>
+    </div>`).join('')}
+    <div class="add-slide"><span>افزودن اسلاید${hiddenCount ? ` — ${fa(hiddenCount)} اسلاید پنهان تو تنظیمات` : ''}</span>
+      ${['chart', 'table', 'kpis', 'campaigns', 'text'].map(t => `<button type="button" class="btn sm" data-add="${t}">+ ${esc(SLIDE_TYPES[t])}</button>`).join('')}
+    </div></div>`;
+  $('#deckActions').innerHTML = `
+    <a class="btn" href="#${esc(p.id)}/settings">${ICON.gear}<span class="t">تنظیمات</span></a>
+    <button type="button" class="btn ${editing ? 'on' : ''}" id="editToggle" aria-pressed="${editing}">${ICON.pen}<span class="t">ویرایش</span></button>
+    <button type="button" class="btn" id="resetAll" title="همه‌ی ویرایش‌های این بازه پاک بشه و از دیتا ساخته بشه">${ICON.reset}<span class="t">بازسازی</span></button>
+    <button type="button" class="btn" id="presentBtn">${ICON.play}<span class="t">ارائه</span></button>
+    <button type="button" class="btn" id="pdfBtn">${ICON.pdf}<span class="t">PDF</span></button>
+    <button type="button" class="btn primary" id="htmlBtn">${ICON.html}<span class="t">HTML</span></button>`;
+
+  $$('.slide-item').forEach(item => {
+    const sid = item.dataset.sid;
+    const slideEl = $('.slide', item);
+    slideEl.dataset.sid = sid;
+    applyEdits(slideEl, sid);
+    const s = S.cfg.slides.find(x => x.id === sid);
+    const cv = $('canvas[data-chart]', slideEl);
+    if(cv){ const c = drawChart(p, s, cv); if(c){ S.charts.push(c); cv._chart = c; } }
+  });
+  fitFrames();
+  $$('#deck .slide').forEach(fitSlideText);
+  wireDeck(p);
+}
+
+// A figure too wide for its tile, or an analysis longer than its box, is
+// stepped down in size rather than cut off.
+function fitSlideText(slide){
+  $$('.kpi-v', slide).forEach(el => {
+    el.style.fontSize = '';
+    let size = parseFloat(getComputedStyle(el).fontSize);
+    while(el.scrollWidth > el.clientWidth + 1 && size > 18){ size -= 2; el.style.fontSize = size + 'px'; }
+  });
+  $$('.an-body', slide).forEach(el => {
+    el.style.fontSize = '';
+    const box = el.parentElement;
+    let size = parseFloat(getComputedStyle(el).fontSize);
+    while(box.scrollHeight > box.clientHeight + 1 && size > 12){ size -= 1; el.style.fontSize = size + 'px'; }
+  });
+}
+
+function fitFrames(root){
+  $$('.s-frame', root).forEach(f => f.style.setProperty('--k', f.clientWidth / 1280));
+}
+const ro = window.ResizeObserver ? new ResizeObserver(() => fitFrames()) : null;
+
+function wireDeck(p){
+  const deck = $('#deck');
+  if(ro){ ro.disconnect(); ro.observe(deck); }
+  deck.addEventListener('input', e => {
+    const n = e.target.closest('[data-k]');
+    const slide = e.target.closest('.slide');
+    if(!n || !slide) return;
+    const sid = slide.dataset.sid;
+    (S.edits[sid] = S.edits[sid] || {})[n.dataset.k] = n.innerHTML;
+    saveEdits();
+    fitSlideText(slide);
+  });
+  // Pasting keeps the words, not the formatting of wherever they came from.
+  deck.addEventListener('paste', e => {
+    if(!e.target.closest('[data-k]')) return;
+    e.preventDefault();
+    document.execCommand('insertText', false, (e.clipboardData || window.clipboardData).getData('text/plain'));
+  });
+  deck.addEventListener('click', e => {
+    const hide = e.target.closest('[data-hide]');
+    if(hide){
+      const sid = hide.closest('.slide').dataset.sid;
+      (S.edits[sid] = S.edits[sid] || {})['hide:' + hide.dataset.hide] = 1;
+      saveEdits();
+      hide.closest('tr').remove();
+      return;
+    }
+    const logo = e.target.closest('[data-logo]');
+    if(logo && document.body.classList.contains('editing')){ $('#logoFile').click(); return; }
+    const add = e.target.closest('[data-add]');
+    if(add){ addSlide(p, add.dataset.add); renderDeck(p); toast('اسلاید اضافه شد — تنظیماتش تو صفحه‌ی تنظیمات'); return; }
+    const act = e.target.closest('[data-act]');
+    if(!act) return;
+    const sid = act.closest('.slide-item').dataset.sid;
+    const list = S.cfg.slides, idx = list.findIndex(s => s.id === sid);
+    switch(act.dataset.act){
+      case 'up': case 'down': {
+        const vis = enabledSlides(), vi = vis.findIndex(s => s.id === sid);
+        const other = vis[vi + (act.dataset.act === 'up' ? -1 : 1)];
+        if(!other) return;
+        const oi = list.indexOf(other);
+        [list[idx], list[oi]] = [list[oi], list[idx]];
+        saveCfg(); renderDeck(p); break;
+      }
+      case 'hide': list[idx].on = false; saveCfg(); renderDeck(p); toast('پنهان شد — از تنظیمات برمی‌گرده'); break;
+      case 'reset': delete S.edits[sid]; saveEdits(); renderDeck(p); break;
+      case 'cfg': S.focusSlide = sid; break;
+      case 'present': openPresent(enabledSlides().findIndex(s => s.id === sid)); break;
+    }
+  });
+  $('#editToggle').addEventListener('click', () => {
+    document.body.classList.toggle('editing');
+    renderDeck(p);
+  });
+  $('#resetAll').addEventListener('click', () => {
+    if(!confirm('همه‌ی متن‌هایی که روی اسلایدهای این بازه عوض کردی پاک بشه؟')) return;
+    S.edits = {}; store.del(S.editKey); renderDeck(p);
+  });
+  $('#presentBtn').addEventListener('click', () => openPresent(0));
+  $('#pdfBtn').addEventListener('click', exportPdf);
+  $('#htmlBtn').addEventListener('click', exportHtml);
+}
+
+$('#logoFile').addEventListener('change', e => {
+  const f = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if(!f || !S.project) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    // Shrunk to fit: browser storage holds a few megabytes for everything.
+    const img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, 480 / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      S.cfg.logo = c.toDataURL('image/png');
+      saveCfg();
+      route();
+    };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(f);
+});
+
+function addSlide(p, type){
+  const defs = defsById(p), ok = id => defs[id] && defs[id].ok;
+  const main = mainAction(ok);
+  const id = type + '-' + Date.now().toString(36);
+  const base = {id, type, on:true, title:SLIDE_TYPES[type]};
+  if(type === 'chart') Object.assign(base, {title:'نمودار', dim:'day', chart:'combo', metrics:['cost', main]});
+  if(type === 'table') Object.assign(base, {title:'جدول مقایسه', dim:'campaign', maxRows:10, metrics:['cost', 'costShare', main].filter(ok)});
+  if(type === 'kpis') Object.assign(base, {title:'آمار کلی', metrics:['cost', main].filter(ok)});
+  if(type === 'campaigns') Object.assign(base, {title:'کمپین‌ها', maxRows:8, metrics:['cost', main].filter(ok)});
+  if(type === 'text') Object.assign(base, {title:'یادداشت', cols:[{h:'', auto:null, icon:'note'}]});
+  S.cfg.slides.push(base);
+  saveCfg();
+  return base;
+}
+
+// ---------- Settings page ----------
+function renderSettings(p){
+  destroyCharts();
+  const cfg = S.cfg, defs = metricDefs(p), d = S.data;
+  const per = cfg.period || {preset:'lastWeek'};
+  const win = d.win || {from:p.minDate, to:p.maxDate};
+  const sel = campaignSelection(p);
+  const opts = campaignOptions(p, win);
+  const shown = opts.filter(o => o.active || (sel !== 'ALL' && sel.has(o.key)));
+  const mediumNames = Array.from(new Set(['درون‌اپلیکیشنی', 'پویا', 'همسان', 'ویدیویی', 'بنری', 'پوش', 'پیامکی', 'پیام روبیکا', 'کافه بازار', 'سایر',
+    ...Object.values(cfg.mediums || {})]));
+  const budget = p.kind === 'budget';
+  const mediumRows = budget
+    ? Array.from(new Map(d.rows.map(r => [r.campaign, r.campaignLabel || r.campaign])).entries())
+    : null;
+  const medInput = key => `<input class="inp" list="mediumList" data-medium="${esc(key)}" value="${esc((cfg.mediums || {})[key] || '')}" placeholder="${esc(autoMedium(p, key))}" aria-label="مدیوم">`;
+  const slideOpts = (s, i) => {
+    const mets = s.type === 'cover' || s.type === 'text' ? '' : `
+      <div class="field"><span>متریک‌ها${s.type === 'chart' ? ' (نمودار: دو تای اول؛ دایره‌ای: فقط اولی)' : ''}</span><div class="metric-checks">
+        ${defs.filter(m => m.ok && !(m.groupOnly && s.type === 'kpis')).map(m => `<label class="check"><input type="checkbox" data-s="${i}" data-metric="${m.id}" ${(s.metrics || []).includes(m.id) ? 'checked' : ''}>${esc(m.label)}</label>`).join('')}
+      </div></div>`;
+    const dims = s.type === 'chart' || s.type === 'table' ? `<div class="field"><span>بُعد</span><select class="inp" data-s="${i}" data-prop="dim">
+        ${dimDefs(p).map(dm => `<option value="${dm.id}" ${s.dim === dm.id ? 'selected' : ''}>${esc(dm.label)}</option>`).join('')}</select></div>` : '';
+    const ctype = s.type === 'chart' ? `<div class="field"><span>نوع نمودار</span><select class="inp" data-s="${i}" data-prop="chart">
+        ${Object.entries(CHART_TYPES).map(([k, v]) => `<option value="${k}" ${s.chart === k ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select></div>` : '';
+    const rows = s.type === 'table' || s.type === 'campaigns' ? `<div class="field"><span>حداکثر ردیف</span>
+        <input class="inp" type="number" min="2" max="20" data-s="${i}" data-prop="maxRows" value="${esc(s.maxRows || 10)}"></div>` : '';
+    const cols = s.type === 'text' ? `<div class="field"><span>تعداد ستون</span><select class="inp" data-s="${i}" data-prop="ncols">
+        ${[1, 2, 3].map(n => `<option value="${n}" ${(s.cols || []).length === n ? 'selected' : ''}>${fa(n)}</option>`).join('')}</select></div>` : '';
+    return `<details class="slide-set ${s.on === false ? 'off' : ''}" id="set-${esc(s.id)}" ${S.focusSlide === s.id ? 'open' : ''}>
+      <summary><span class="num">${fa(i + 1)}</span><span class="t">${esc(s.title || SLIDE_TYPES[s.type])}<span class="ty">${esc(SLIDE_TYPES[s.type])}</span></span>
+        <label class="check" onclick="event.stopPropagation()"><input type="checkbox" data-s="${i}" data-prop="on" ${s.on !== false ? 'checked' : ''}>نمایش</label></summary>
+      <div class="body">
+        ${s.type === 'cover' ? '<p class="hint">عنوان، برچسب و لوگوی جلد از بخش «عنوان و ظاهر» بالا میاد؛ روی خود اسلاید هم قابل ویرایشه.</p>'
+          : `<div class="row"><div class="field"><span>عنوان اسلاید</span><input class="inp" data-s="${i}" data-prop="title" value="${esc(s.title)}"></div>${dims}${ctype}${rows}${cols}</div>`}
+        ${mets}
+        <div class="set-foot">
+          <button type="button" class="btn sm" data-move="${i}" data-dir="-1" ${i === 0 ? 'disabled' : ''}>${ICON.up}بالا</button>
+          <button type="button" class="btn sm" data-move="${i}" data-dir="1" ${i === cfg.slides.length - 1 ? 'disabled' : ''}>${ICON.down}پایین</button>
+          <button type="button" class="btn sm" data-dup="${i}">کپی</button>
+          <button type="button" class="btn sm danger" data-del="${i}">حذف</button>
+        </div>
+      </div></details>`;
+  };
+
+  $('#view').innerHTML = backBar(p) + `<div class="set-grid">
+    <section class="card"><h3>بازه‌ی گزارش</h3><p class="hint">دیتای شیت از ${esc(jFull(p.minDate))} تا ${esc(jFull(p.maxDate))}ه. امروز هیچ‌وقت حساب نمی‌شه.</p>
+      <div class="chips">${PRESETS.map(([k, v]) => `<button type="button" class="chip ${per.preset === k ? 'on' : ''}" data-preset="${k}">${esc(v)}</button>`).join('')}</div>
+      <div class="row">
+        <label class="field"><span>از</span><input class="inp" type="date" id="pFrom" value="${esc(ymdToIso(win.from))}" min="${esc(ymdToIso(p.minDate))}" max="${esc(ymdToIso(p.maxDate))}"></label>
+        <label class="field"><span>تا</span><input class="inp" type="date" id="pTo" value="${esc(ymdToIso(win.to))}" min="${esc(ymdToIso(p.minDate))}" max="${esc(ymdToIso(p.maxDate))}"></label>
+        <div class="field" style="flex:2 1 260px"><span>بازه‌ی انتخاب‌شده</span><div style="padding:9px 0;font-weight:700">${esc(periodLabel(win.from, win.to))} — ${fa(daysBetween(win.from, win.to))} روز</div></div>
+      </div>
+      <label class="check"><input type="checkbox" id="cmpToggle" ${cfg.compare ? 'checked' : ''}>مقایسه با بازه‌ی هم‌طولِ قبل (درصد تغییر روی کارت‌ها و تحلیل)</label>
+    </section>
+
+    <section class="card"><h3>عنوان و ظاهر</h3><p class="hint">هر متنی روی اسلایدها رو می‌شه مستقیم روی خود اسلاید هم عوض کرد.</p>
+      <div class="row">
+        <label class="field"><span>عنوان گزارش</span><input class="inp" data-cfg="title" value="${esc(cfg.title)}"></label>
+        <label class="field"><span>برچسب جلد</span><input class="inp" data-cfg="kicker" value="${esc(cfg.kicker || '')}" placeholder="خودکار: گزارش هفتگی کمپین‌ها"></label>
+        <label class="field"><span>اسم اکشن (تبدیل اصلی)</span><input class="inp" data-cfg="actionLabel" value="${esc(cfg.actionLabel || '')}" placeholder="${esc(defaultActionLabel(p, core.messageFields(p)))}"></label>
+      </div>
+      <div class="row" style="align-items:center">
+        <span class="client-logo" style="width:56px;height:56px">${logoHtml(p, '')}</span>
+        <button type="button" class="btn sm" id="logoPick">عوض کردن لوگو</button>
+        ${cfg.logo ? '<button type="button" class="btn sm" id="logoReset">لوگوی پیش‌فرض</button>' : ''}
+      </div>
+    </section>
+
+    <section class="card"><h3>${budget ? 'Campaign Nameها' : 'کمپین‌ها و مدیوم'}</h3>
+      <p class="hint">${budget ? 'گزارش فقط Campaign Nameهای تیک‌خورده رو می‌شمره.' : 'گزارش فقط کمپین‌های تیک‌خورده رو می‌شمره.'} لیست: کمپین‌هایی که تو این بازه دیتا دارن، به ترتیب هزینه.
+        ${budget ? '' : ' مدیوم هر کمپین از ستون Campaign Type شیت (اگه باشه) یا اسم کمپین حدس زده می‌شه؛ برای عوض کردنش بنویس.'}</p>
+      <div class="row" style="margin-bottom:10px">
+        <input class="search" id="campSearch" type="search" placeholder="جست‌وجو…" aria-label="جست‌وجوی کمپین" style="flex:1">
+        <button type="button" class="btn sm" id="campAll">همه</button>
+        <button type="button" class="btn sm" id="campNone">هیچ‌کدوم</button>
+        ${Array.isArray(cfg.campaigns) ? '<button type="button" class="btn sm" id="campDefault">پیش‌فرض</button>' : ''}
+      </div>
+      <div class="camp-list">
+        <div class="camp-row camp-head"><span></span><span>${budget ? 'Campaign Name' : 'کمپین'}</span><span class="cs">هزینه‌ی بازه</span>${budget ? '<span></span>' : '<span>مدیوم</span>'}</div>
+        ${shown.length ? shown.map(o => `<label class="camp-row" data-q="${esc(o.label.toLowerCase())}">
+          <input type="checkbox" data-camp="${esc(o.key)}" ${sel === 'ALL' || sel.has(o.key) ? 'checked' : ''}>
+          <span class="nm" title="${esc(o.label)}">${esc(o.label)}</span><span class="cs">${esc(fa(o.cost))}</span>
+          ${budget ? '<span></span>' : medInput(o.key)}</label>`).join('') : '<div class="camp-row"><span></span><span>توی این بازه کمپینی نیست</span></div>'}
+      </div>
+      ${budget && mediumRows.length ? `<h3 style="margin-top:18px">مدیوم کمپین‌ها</h3><div class="camp-list">${mediumRows.map(([k, l]) => `<div class="camp-row"><span></span><span class="nm">${esc(l)}</span><span class="cs"></span>${medInput(k)}</div>`).join('')}</div>` : ''}
+      <datalist id="mediumList">${mediumNames.map(m => `<option value="${esc(m)}">`).join('')}</datalist>
+    </section>
+
+    <section class="card"><h3>اسلایدها، متریک‌ها و ابعاد</h3><p class="hint">ترتیب، نمایش، عنوان، متریک‌ها، بُعد و نوع نمودار هر اسلاید. تغییرها همون لحظه روی گزارش این مشتری ذخیره می‌شن.</p>
+      ${cfg.slides.map(slideOpts).join('')}
+      <div class="set-foot" style="margin-top:12px">${['chart', 'table', 'kpis', 'campaigns', 'text'].map(t => `<button type="button" class="btn sm" data-add="${t}">+ ${esc(SLIDE_TYPES[t])}</button>`).join('')}</div>
+    </section>
+
+    <section class="card"><h3>ذخیره و انتقال</h3><p class="hint">تنظیمات و ویرایش‌ها تو همین مرورگر ذخیره می‌شن. برای بردن به یه مرورگر دیگه، خروجی بگیر و اونجا وارد کن.</p>
+      <div class="set-foot">
+        <a class="btn primary" href="#${esc(p.id)}">دیدن گزارش</a>
+        <button type="button" class="btn" id="cfgExport">خروجی تنظیمات (JSON)</button>
+        <button type="button" class="btn" id="cfgImport">وارد کردن تنظیمات</button>
+        <button type="button" class="btn danger" id="cfgReset">برگشت به ساختار پیش‌فرض</button>
+      </div>
+      <input type="file" id="cfgFile" accept="application/json,.json" hidden>
+    </section>
+  </div>`;
+  $('#deckActions').innerHTML = `<a class="btn primary" href="#${esc(p.id)}">${ICON.play}<span class="t">دیدن گزارش</span></a>`;
+  if(S.focusSlide){
+    const el = document.getElementById('set-' + S.focusSlide);
+    if(el) el.scrollIntoView({block:'center'});
+    S.focusSlide = null;
+  }
+  wireSettings(p);
+}
+
+function wireSettings(p){
+  // The grid is rebuilt on every render, so its listeners never pile up.
+  const cfg = S.cfg, view = $('.set-grid');
+  const refresh = () => { S.data = computeData(p); loadEdits(); renderSettings(p); };
+  const keepOpen = () => $$('.slide-set[open]').map(d => d.id);
+  const reopen = ids => ids.forEach(id => { const d = document.getElementById(id); if(d) d.open = true; });
+  $$('[data-preset]').forEach(b => b.addEventListener('click', () => {
+    cfg.period = {preset:b.dataset.preset};
+    if(b.dataset.preset === 'custom' && S.data.win) Object.assign(cfg.period, S.data.win);
+    saveCfg(); refresh();
+  }));
+  const setCustom = () => {
+    const f = $('#pFrom').value, t = $('#pTo').value;
+    if(!f || !t) return;
+    cfg.period = {preset:'custom', from:isoToYmd(f), to:isoToYmd(t)};
+    saveCfg(); refresh();
+  };
+  $('#pFrom').addEventListener('change', setCustom);
+  $('#pTo').addEventListener('change', setCustom);
+  $('#cmpToggle').addEventListener('change', e => { cfg.compare = e.target.checked; saveCfg(); });
+  $$('[data-cfg]').forEach(inp => inp.addEventListener('change', () => { cfg[inp.dataset.cfg] = inp.value.trim(); saveCfg(); }));
+  $('#logoPick').addEventListener('click', () => $('#logoFile').click());
+  const lr = $('#logoReset');
+  if(lr) lr.addEventListener('click', () => { cfg.logo = null; saveCfg(); refresh(); });
+
+  // Campaigns: an explicit list once anything is unticked; null means "all"
+  // (or the dashboard's default campaigns for that section).
+  const writeCamps = () => {
+    const boxes = $$('[data-camp]');
+    const checked = boxes.filter(b => b.checked).map(b => b.dataset.camp);
+    const sel = campaignSelection(p);
+    // Campaigns outside this period's list keep whatever they were.
+    const listed = new Set(boxes.map(b => b.dataset.camp));
+    const keepOut = sel === 'ALL' ? campaignOptions(p, null).map(o => o.key).filter(k => !listed.has(k)) : Array.from(sel).filter(k => !listed.has(k));
+    const all = checked.length === boxes.length && sel === 'ALL';
+    cfg.campaigns = all ? null : checked.concat(keepOut);
+    saveCfg();
+    S.data = computeData(p); loadEdits();
+  };
+  $$('[data-camp]').forEach(b => b.addEventListener('change', writeCamps));
+  $('#campSearch').addEventListener('input', e => {
+    const q = e.target.value.trim().toLowerCase();
+    $$('label.camp-row[data-q]').forEach(r => { r.hidden = q && !r.dataset.q.includes(q); });
+  });
+  const setAllVisible = v => { $$('label.camp-row[data-q]').filter(r => !r.hidden).forEach(r => { $('input', r).checked = v; }); writeCamps(); };
+  $('#campAll').addEventListener('click', () => setAllVisible(true));
+  $('#campNone').addEventListener('click', () => setAllVisible(false));
+  const cd = $('#campDefault');
+  if(cd) cd.addEventListener('click', () => { cfg.campaigns = null; saveCfg(); refresh(); });
+  $$('[data-medium]').forEach(inp => inp.addEventListener('change', () => {
+    cfg.mediums = cfg.mediums || {};
+    const v = inp.value.trim();
+    if(v) cfg.mediums[inp.dataset.medium] = v; else delete cfg.mediums[inp.dataset.medium];
+    saveCfg();
+  }));
+
+  // Slides
+  view.addEventListener('change', e => {
+    const el = e.target;
+    if(el.dataset.s === undefined) return;
+    const s = cfg.slides[+el.dataset.s];
+    if(el.dataset.metric){
+      const set = new Set(s.metrics || []);
+      el.checked ? set.add(el.dataset.metric) : set.delete(el.dataset.metric);
+      // Keep the order of the metric list, which is the order on the slide.
+      s.metrics = metricDefs(p).map(m => m.id).filter(id => set.has(id));
+    }else if(el.dataset.prop === 'on'){
+      s.on = el.checked;
+      el.closest('.slide-set').classList.toggle('off', !el.checked);
+    }else if(el.dataset.prop === 'maxRows'){
+      s.maxRows = Math.max(2, Math.min(20, +el.value || 10));
+    }else if(el.dataset.prop === 'ncols'){
+      const n = +el.value, cur = s.cols || [];
+      s.cols = Array.from({length:n}, (_, i) => cur[i] || {h:'', auto:null, icon:'note'});
+    }else{
+      s[el.dataset.prop] = el.value;
+      if(el.dataset.prop === 'title') $('.t', el.closest('.slide-set')).firstChild.textContent = el.value || SLIDE_TYPES[s.type];
+    }
+    saveCfg();
+  });
+  view.addEventListener('click', e => {
+    const b = e.target.closest('[data-move],[data-dup],[data-del],[data-add]');
+    if(!b) return;
+    const open = keepOpen();
+    if(b.dataset.add){ const s = addSlide(p, b.dataset.add); open.push('set-' + s.id); }
+    else if(b.dataset.move !== undefined){
+      const i = +b.dataset.move, j = i + +b.dataset.dir;
+      if(j < 0 || j >= cfg.slides.length) return;
+      [cfg.slides[i], cfg.slides[j]] = [cfg.slides[j], cfg.slides[i]];
+    }else if(b.dataset.dup !== undefined){
+      const i = +b.dataset.dup;
+      const copy = JSON.parse(JSON.stringify(cfg.slides[i]));
+      copy.id = copy.type + '-' + Date.now().toString(36);
+      copy.title = (copy.title || '') + ' (کپی)';
+      cfg.slides.splice(i + 1, 0, copy);
+      open.push('set-' + copy.id);
+    }else if(b.dataset.del !== undefined){
+      const i = +b.dataset.del;
+      if(!confirm(`اسلاید «${cfg.slides[i].title || SLIDE_TYPES[cfg.slides[i].type]}» حذف بشه؟`)) return;
+      cfg.slides.splice(i, 1);
+    }
+    saveCfg();
+    const y = window.scrollY;
+    renderSettings(p); reopen(open); window.scrollTo(0, y);
+  });
+
+  $('#cfgExport').addEventListener('click', () => {
+    download(`${p.id}-slides-settings.json`, JSON.stringify({project:p.id, cfg}, null, 2), 'application/json');
+  });
+  $('#cfgImport').addEventListener('click', () => $('#cfgFile').click());
+  $('#cfgFile').addEventListener('change', e => {
+    const f = e.target.files && e.target.files[0];
+    if(!f) return;
+    f.text().then(txt => {
+      const j = JSON.parse(txt);
+      const c = j.cfg || j;
+      if(!Array.isArray(c.slides)) throw new Error('bad');
+      S.cfg = Object.assign(defaultCfg(p), c);
+      saveCfg(); refresh(); toast('تنظیمات وارد شد');
+    }).catch(() => toast('این فایل تنظیمات گزارش نیست'));
+  });
+  $('#cfgReset').addEventListener('click', () => {
+    if(!confirm('همه‌ی تنظیمات این مشتری (بازه، کمپین‌ها، مدیوم‌ها، اسلایدها، لوگو) به حالت پیش‌فرض برگرده؟')) return;
+    store.del(cfgKey(p)); loadCfg(p); refresh();
+  });
+}
+
+// ---------- Snapshots: presentation and exports ----------
+// A slide as a self-contained node: charts become pictures, nothing is
+// editable, the editing-only controls and empty placeholders are gone.
+function snapshot(slideEl){
+  const clone = slideEl.cloneNode(true);
+  const srcCanvases = $$('canvas', slideEl), dstCanvases = $$('canvas', clone);
+  dstCanvases.forEach((c, i) => {
+    const img = document.createElement('img');
+    img.alt = '';
+    try{ img.src = srcCanvases[i].toDataURL('image/png'); }catch(e){}
+    c.replaceWith(img);
+  });
+  $$('[contenteditable]', clone).forEach(n => n.removeAttribute('contenteditable'));
+  $$('.row-x', clone).forEach(n => n.remove());
+  $$('[data-k]', clone).forEach(n => {
+    if(!n.textContent.trim() && !n.querySelector('img')) n.classList.add('x-empty');
+    n.removeAttribute('data-ph'); n.removeAttribute('data-k');
+  });
+  $$('[data-logo]', clone).forEach(n => { n.removeAttribute('title'); n.removeAttribute('data-logo'); });
+  clone.style.cssText = slideEl.closest('.s-frame').getAttribute('style') || '';
+  clone.style.transform = 'none';
+  return clone;
+}
+function deckSnapshots(){
+  return $$('#deck .s-frame > .slide').map(snapshot);
+}
+
+let presentIdx = 0, presentSlides = [];
+function openPresent(i){
+  presentSlides = deckSnapshots();
+  if(!presentSlides.length) return;
+  presentIdx = Math.max(0, i);
+  const ov = document.createElement('div');
+  ov.id = 'present';
+  ov.innerHTML = `<div class="p-stage"></div><div class="p-ctrl">
+    <button type="button" class="btn sm" data-p="prev">قبلی</button><span id="pCount"></span>
+    <button type="button" class="btn sm" data-p="next">بعدی</button><button type="button" class="btn sm" data-p="close">خروج (Esc)</button></div>`;
+  document.body.appendChild(ov);
+  ov.addEventListener('click', e => {
+    const b = e.target.closest('[data-p]');
+    if(b){ b.dataset.p === 'close' ? closePresent() : stepPresent(b.dataset.p === 'next' ? 1 : -1); return; }
+    stepPresent(1);
+  });
+  if(ov.requestFullscreen) ov.requestFullscreen().catch(()=>{});
+  showPresent();
+}
+function showPresent(){
+  const ov = $('#present');
+  if(!ov) return;
+  const k = Math.min(window.innerWidth / 1280, window.innerHeight / 720);
+  const stage = $('.p-stage', ov);
+  stage.style.width = 1280 * k + 'px'; stage.style.height = 720 * k + 'px';
+  stage.innerHTML = '';
+  const sl = presentSlides[presentIdx];
+  sl.style.transform = `scale(${k})`;
+  stage.appendChild(sl);
+  $('#pCount').textContent = `${fa(presentIdx + 1)} / ${fa(presentSlides.length)}`;
+}
+function stepPresent(dir){
+  presentIdx = Math.max(0, Math.min(presentSlides.length - 1, presentIdx + dir));
+  showPresent();
+}
+function closePresent(){
+  const ov = $('#present');
+  if(!ov) return;
+  ov.remove();
+  if(document.fullscreenElement) document.exitFullscreen().catch(()=>{});
+}
+document.addEventListener('keydown', e => {
+  if(!$('#present')) return;
+  if(e.key === 'Escape') closePresent();
+  else if(['ArrowLeft', 'PageDown', ' ', 'Enter'].includes(e.key)){ e.preventDefault(); stepPresent(1); }
+  else if(['ArrowRight', 'PageUp', 'Backspace'].includes(e.key)){ e.preventDefault(); stepPresent(-1); }
+  else if(e.key === 'Home'){ presentIdx = 0; showPresent(); }
+  else if(e.key === 'End'){ presentIdx = presentSlides.length - 1; showPresent(); }
+});
+document.addEventListener('fullscreenchange', () => { if(!document.fullscreenElement && $('#present')) closePresent(); });
+window.addEventListener('resize', showPresent);
+
+function fileBase(){
+  const w = S.data.win;
+  return `${S.project.id}-slides${w ? '-' + w.from + '-' + w.to : ''}`;
+}
+function exportPdf(){
+  const box = $('#printDeck');
+  box.innerHTML = '';
+  deckSnapshots().forEach(sl => {
+    const page = document.createElement('div');
+    page.className = 'p-page';
+    page.appendChild(sl);
+    box.appendChild(page);
+  });
+  const title = document.title;
+  document.title = fileBase();
+  const done = () => { document.title = title; box.innerHTML = ''; window.removeEventListener('afterprint', done); };
+  window.addEventListener('afterprint', done);
+  // Pictures need a moment to decode before the print snapshot is taken.
+  Promise.all($$('img', box).map(img => img.decode ? img.decode().catch(()=>{}) : null)).then(() => window.print());
+}
+function download(name, text, type){
+  const blob = new Blob([text], {type: type + ';charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+}
+function exportHtml(){
+  const p = S.project;
+  const frames = deckSnapshots().map(sl => `<div class="x-frame">${sl.outerHTML}</div>`).join('\n');
+  const doc = `<!DOCTYPE html>
+<html lang="fa" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${esc(p.title + ' — ' + S.cfg.title + (S.data.win ? ' — ' + periodLabel(S.data.win.from, S.data.win.to) : ''))}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>${$('#slideCss').textContent}
+html,body{margin:0;background:#F2EDE1;}
+.x-deck{max-width:1280px;margin:0 auto;padding:24px 16px 48px;display:flex;flex-direction:column;gap:24px;}
+.x-frame{position:relative;width:100%;aspect-ratio:16/9;overflow:hidden;border-radius:14px;background:#fff;box-shadow:0 24px 48px -28px rgba(58,46,24,.38);}
+.x-frame > .slide{position:absolute;top:0;right:0;transform-origin:top right;}
+.x-empty{display:none !important;}
+@media print{@page{size:1280px 720px;margin:0;} html,body{background:#fff;} .x-deck{padding:0;gap:0;max-width:none;}
+  .x-frame{width:1280px;height:720px;aspect-ratio:auto;border-radius:0;box-shadow:none;break-after:page;page-break-after:always;}
+  .x-frame:last-child{break-after:auto;page-break-after:auto;} .x-frame > .slide{transform:none !important;}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
+</style></head>
+<body><main class="x-deck">
+${frames}
+</main>
+<script>
+function fit(){document.querySelectorAll('.x-frame').forEach(function(f){f.firstElementChild.style.transform='scale('+(f.clientWidth/1280)+')';});}
+fit();window.addEventListener('resize',fit);
+<\/script>
+</body></html>`;
+  download(fileBase() + '.html', doc, 'text/html');
+}
+
+// ---------- Start ----------
+async function init(){
+  setStatus('loading', 'در حال آماده‌سازی…');
+  try{
+    core = await loadCore();
+  }catch(e){
+    $('#view').innerHTML = `<div class="error-box">${esc(e.message)} — صفحه رو رفرش کن.</div>`;
+    setStatus('err', 'خطا');
+    return;
+  }
+  PROJ = core.PROJECTS;
+  Chart.defaults.font.family = FONT;
+  Chart.defaults.color = '#5E6270';
+  // Charts are drawn once (no animation), so the font has to be there first.
+  try{ await Promise.all([document.fonts.load('600 15px Vazirmatn'), document.fonts.load('800 15px Vazirmatn')]); }catch(e){}
+  window.addEventListener('hashchange', route);
+  route();
+}
+window.dashAuth.ready().then(init);
+})();
+</script>
+</body>
+</html>
