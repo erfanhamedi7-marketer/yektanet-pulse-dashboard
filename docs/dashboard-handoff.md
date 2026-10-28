@@ -1,6 +1,6 @@
 # Management Dashboard — راهنمای ادامه‌ی کار (Handoff)
 
-> این فایل خلاصه‌ی کامل تاریخچه، معماری، قوانین کسب‌وکاری و سلیقه‌های طراحی داشبوردیه که تا ۶ اکتبر ۲۰۲۶ ساخته شده (آخرین به‌روزرسانی: ۲۸ اکتبر ۲۰۲۶ — کارت متن گزارش مشتری پیش‌فرض بسته).
+> این فایل خلاصه‌ی کامل تاریخچه، معماری، قوانین کسب‌وکاری و سلیقه‌های طراحی داشبوردیه که تا ۶ اکتبر ۲۰۲۶ ساخته شده (آخرین به‌روزرسانی: ۲۸ اکتبر ۲۰۲۶ — طلاین: Web - Total و CPA جدید).
 > توی چت جدید اول این فایل رو بده، بعد ادیت‌هات رو بگو.
 > **به مدل جدید:** قبل از هر تغییری `index.html` رو از روی شاخه‌ی `main` بخون — کد مرجع نهاییه؛ این فایل فقط نقشه‌ست.
 > **جای این فایل:** `docs/dashboard-handoff.md` توی ریپو. هر تغییر اثرگذار (پروژه/قانون/قابلیت/طراحی/تله‌ی فنی جدید) باید تو همون کامیت اینجا هم ثبت بشه — قاعده‌اش تو `CLAUDE.md` ریشه‌ی ریپوئه.
@@ -62,8 +62,10 @@
 
 | گزینه | کارش |
 |---|---|
-| `refSheet` | اسم تب مرجع، یا آرایه‌ای از `{sheet, conversionCol, keep}`. `keep(campaign)` فیلتر فقط همون تبه |
+| `refSheet` | اسم تب مرجع، یا آرایه‌ای از `{sheet, conversionCol, keep, from, before}`. `keep(campaign)` فیلتر فقط همون تبه؛ `from`/`before` (YYYYMMDD) یعنی این تب فقط روزهای از/قبل از اون تاریخ رو می‌ده (طلاین وب: Web - Campaign تا ۲۲ اکتبر، Web - Total از ۲۳ اکتبر) |
 | `costSheet` | تب هزینه (می‌تونه همون تب مرجع باشه) |
+| `costCol`, `costLabel` | ستون هزینه‌ی تب هزینه (پیش‌فرض `Cost`؛ طلاین CPA: `Panel Cost`) و اسم نمایشی‌اش رو کارت، نمودار و ستون جدول |
+| `dealPrice` | قیمت ثابت هر تبدیل که مشتری می‌پرده (طلاین CPA: ۲۵۰,۰۰۰): کارت Cost = تبدیل × قیمت، کارت سود = Cost − هزینه‌ی بخش، دو ستون تو جدول کمپین؛ متن گزارش مشتری هزینه رو از همین Cost می‌گیره |
 | `conversionCol` / `conversionLabel` | ستون و اسم نمایشی تبدیل اصلی |
 | `cpaLabel` | مثلاً `CPI` |
 | `excludeCampaign(key, ctx)` | قانون حذف کمپین؛ روی تبدیل و هزینه هر دو اعمال می‌شه. `ctx.refCampaigns[sheetName]` مجموعه‌ی کمپین‌هاییه که هر تب مرجع گزارش کرده |
@@ -121,14 +123,15 @@
 
 ### طلاین — گروه `talaeen` (۵ بخش)
 - شیت `1r9f3Vdl6ldgQeL50tHX4TxjVP0H_UxYeYFKhGFp0yeQ`.
-- تب‌ها: `Adtrace` (KYC, Installs, Adgroup, Creative, Network)، `Web - Campaign` (Verified)، `Cost - Yektanet` (Date, Campaign, Impressions, Clicks, Cost, **KYC**)، `Web - Source` / `Web - Term` / `Web - Content`.
-- **نمای کلی:** اپلیکیشن = همه‌ی کمپین‌های Adtrace (KYC)؛ وب = کمپین‌های شامل **`-web` یا `sl-`** (Verified). هزینه فقط برای همین کمپین‌ها، با `includeUnmatchedCost`. تحلیل عمیق نداره.
+- تب‌ها: `Adtrace` (KYC, Installs, Adgroup, Creative, Network)، `Web - Campaign` (Verified)، **`Web - Total`** (Date `2026/9/26`, Source, Medium, Campaign, Term, Content, Register, KYC — یه ردیف برای هر ترکیب UTM، از ۲۶ سپتامبر)، **`CPA Panel`** (Date, Campaign, Impressions, Clicks, **Panel Cost** — فقط `cpa-*`، از ۶ اکتبر)، `Cost - Yektanet` (Date, Campaign, Impressions, Clicks, Cost, **KYC**)، `Web - Source` / `Web - Term` / `Web - Content`، و `CPA - Profit` (Panel Cost, KYC, Cost, Profit روزانه — مرجع چک کردن داشبورد CPA).
+- **منبع تبدیل وب از ۲۳ اکتبر (۱ آبان) عوض شد** (عرفان، ۲۸ اکتبر؛ `talaeenWebRef` + `TALAEEN_WEB_TOTAL_FROM`): برای وب و نمای کلی، روزهای **قبل از ۲۳ اکتبر** از `Web - Campaign` (Verified) و **از ۲۳ اکتبر** از `Web - Total` (ستون **KYC**، جمع ردیف‌های UTM هر کمپین در روز). با گزینه‌ی تازه‌ی `from`/`before` روی آیتم‌های `refSheet`. اسم تبدیل وب همچنان «Verified» نوشته می‌شه. گردونه و بقیه عوض نشدن.
+- **نمای کلی:** اپلیکیشن = همه‌ی کمپین‌های Adtrace (KYC)؛ وب = کمپین‌های شامل **`-web` یا `sl-`** (Verified تا ۲۲ اکتبر، KYC از Web - Total از ۲۳ اکتبر). هزینه فقط برای همین کمپین‌ها، با `includeUnmatchedCost`. تحلیل عمیق نداره.
 - **نصب اپلیکیشن:** Adtrace مرجعه، هزینه روش جوین می‌شه. فیلتر اسمی و `includeUnmatchedCost` نداره. (قانون «فقط cpi» یه بار امتحان شد و صفحه خالی شد؛ برگشت.)
-- **وب:** Web - Campaign (Verified). کمپین‌هایی که `web` دارن یا با `sl` شروع می‌شن. `includeUnmatchedCost`.
+- **وب:** Web - Campaign (Verified) تا ۲۲ اکتبر، Web - Total (KYC) از ۲۳ اکتبر. کمپین‌هایی که `web` دارن یا با `sl` شروع می‌شن. `includeUnmatchedCost`.
   - **KYC از `Cost - Yektanet`** (`costExtraCols`): کارت «KYC کل» با هزینه به ازای KYC، و ستون KYC + هزینه به ازای KYC تو جدول کمپین. Verified همچنان تبدیل اصلیه.
   - کارت «Verified به تفکیک Source / Term / Content» **پیش‌فرض بسته‌ست** (دکمه‌ی نمایش/بستن). هر سه جدول فیلتر چندانتخابی خودشون رو دارن (جست‌وجو + تیک)؛ لیست از بازه‌ی تاریخ پیروی می‌کنه؛ فیلتر کمپین روشون اثر نداره (ستون کمپین ندارن).
 - **گردونه (ثبت‌نام):** Web - Campaign (Verified). فقط `wheel-sp`. `includeUnmatchedCost`.
-- **CPA** (`talaeen-cpa`، ۱۰ اکتبر): مثل وب (Web - Campaign / Verified + KYC از `Cost - Yektanet` با `costExtraCols`، `includeUnmatchedCost`، بدون Source/Term/Content). فیلتر `talaeenCpa`: کمپینی که `cpa` یه تیکه‌ی جدای اسمشه (جداکننده `-`/`_`/فاصله) — یعنی با `cpa-` شروع بشه یا مثل `sl-ch-cpa`، `sl-jr-cpa`، `sl-sn-cpa`، `inapp-cpa-pb-web`، `inapp-cpa-b-web`. `p-tcpa-*` (بیدینگ tCPA) حساب **نمی‌شه**. عرفان گفت «با cpa شروع می‌شن» ولی تو شیت هیچ کمپینی با cpa شروع نمی‌شد؛ عرفان ۱۱ اکتبر با «دیپلوی کن» تأییدش کرد. هزینه‌ی این کمپین‌ها ثابت به ازای KYC‌ه (مثلاً sl-ch-cpa ۲۵۰٬۰۰۰ تومان).
+- **CPA** (`talaeen-cpa`؛ از ۲۸ اکتبر بازنویسی شد، **برای کل بازه**): تبدیل = **KYC از `Web - Total`**، فقط کمپین‌هایی که با **`cpa-`** شروع می‌شن (`sl-ch-cpa` و بقیه‌ی قانون قدیمی `talaeenCpa` دیگه نیستن؛ اون تابع حذف شد). هزینه‌ی اصلی بخش = **Panel Cost از تب `CPA Panel`** (`costCol: 'Panel Cost'`، `costLabel`)، و CPA بخش = Panel Cost ÷ KYC. با گزینه‌ی تازه‌ی **`dealPrice: 250000`**: کارت «Cost کل (KYC × ۲۵۰,۰۰۰)» و کارت **«سود (Cost − Panel Cost)»**، همین دو ستون تو جدول کمپین (سود منفی قرمز)، و نمودار پیش‌فرض Cost + Panel Cost + سود. تو متن گزارش مشتری «هزینه» = Cost (KYC × ۲۵۰,۰۰۰)، نه Panel Cost. عددها باید با تب `CPA - Profit` بخونن (مثلاً ۶ اکتبر: ۸۱ KYC، Cost ۲۰,۲۵۰,۰۰۰، Panel Cost ۳۶,۰۰۰,۰۰۰، سود −۱۵,۷۵۰,۰۰۰). **با دیتای واقعی تست نشده** (لاگین جلوی تست محلی رو گرفت؛ عرفان گفت بدون تست دیپلوی کن) — اولین بار که دیدی با `CPA - Profit` مقایسه کن. (قبل از ۲۸ اکتبر: Web - Campaign / Verified + KYC و Cost از `Cost - Yektanet`، با فیلتر «cpa یه تیکه‌ی اسم».)
 
 ### ویپاد — `wepod`
 - شیت `18ohsYVwngt7UJ5BwvBBWdhpQ2IOxO4b08-D4OMm2VEQ`. `Wepod - Metrix` (تبدیل `v2_national`) × `Wepod - Yektanet`.
@@ -477,6 +480,7 @@
 **۲۸ اکتبر ۲۰۲۶**
 45. کارت «متن گزارش برای مشتری» داشبورد اصلی **پیش‌فرض بسته** شد (دکمه‌ی نمایش/بستن).
 46. پیش‌فرض اسنپ‌کب = فقط `Snapp City - Oct 2026` (جای Bike و Pickup).
+47. **طلاین:** وب و نمای کلی از ۲۳ اکتبر تبدیل وب رو از `Web - Total` (KYC) می‌خونن؛ **CPA بازنویسی شد** — KYC از `Web - Total` (فقط `cpa-`)، Panel Cost از `CPA Panel`، Cost = KYC × ۲۵۰,۰۰۰ و سود. گزینه‌های تازه: `from`/`before` روی `refSheet`، `costCol`، `costLabel`، `dealPrice`. با دیتای واقعی تست نشده (بخش ۳ طلاین).
 
 ### کارهای باز
 - **ظاهر اسلایدها مطابق نمونه‌ی عرفان** (`Report.html` رو کامپیوترش): فایل باید تو ریپو (یا چت) بیاد تا طراحی دقیقاً مثل اون بشه. (منتظر عرفان)
