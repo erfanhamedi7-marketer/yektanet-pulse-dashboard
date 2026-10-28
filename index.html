@@ -731,6 +731,9 @@
 
   /* Client message: the weekly report text, ready to copy into a chat. */
   .client-msg-card .card-head{margin-bottom:10px;align-items:center;}
+  /* Folded by default (Erfan, 28 Oct); the copy button shows once it is open. */
+  .client-msg-actions{display:flex;align-items:center;gap:8px;}
+  .client-msg-card.collapsed .client-msg-copy{display:none;}
   .client-msg-copy{font-weight:700;background:var(--surface);}
   .client-msg-copy.copied{background:var(--positive-soft);border-color:var(--positive);color:var(--positive);}
   .client-msg{
@@ -2875,16 +2878,23 @@ function renderSectionsShell(){
         <div class="deep-subhead">کدوم کمپین‌ها بیشترین تاثیر رو روی اختلاف کلی دارن؟</div>
         <div id="sessionGaps-${p.id}"></div>
       </div>` : ''}
-      <div class="card client-msg-card">
+      <div class="card collapsible collapsed client-msg-card">
         <div class="card-head">
           <div>
             <h2>متن گزارش برای مشتری</h2>
             <div class="card-sub">از بازه و فیلترهای همین بخش ساخته می‌شه و با هر تغییر فیلتر از نو نوشته می‌شه. خطی که این کسب‌وکار دیتاش رو نداره نمیاد. قبل از کپی می‌شه دستی ویرایشش کرد.</div>
           </div>
-          <button type="button" class="preset-btn client-msg-copy" data-project="${p.id}">کپی متن</button>
+          <div class="client-msg-actions">
+            <button type="button" class="preset-btn client-msg-copy" data-project="${p.id}">کپی متن</button>
+            <button type="button" class="collapse-toggle" aria-expanded="false" aria-controls="clientMsgBody-${p.id}">
+              <span class="ct-open">نمایش</span><span class="ct-close">بستن</span><i aria-hidden="true">▾</i>
+            </button>
+          </div>
         </div>
-        <div class="client-msg" id="clientMsg-${p.id}" contenteditable="true" dir="rtl" spellcheck="false"
-             role="textbox" aria-multiline="true" aria-label="متن گزارش برای مشتری"></div>
+        <div class="card-body" id="clientMsgBody-${p.id}">
+          <div class="client-msg" id="clientMsg-${p.id}" contenteditable="true" dir="rtl" spellcheck="false"
+               role="textbox" aria-multiline="true" aria-label="متن گزارش برای مشتری"></div>
+        </div>
       </div>
     </div>
   `).join('');
