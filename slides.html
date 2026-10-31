@@ -289,7 +289,7 @@
   .s-head{position:relative;display:flex;justify-content:space-between;align-items:flex-start;gap:28px;height:96px;}
   .s-titles{display:flex;gap:18px;align-items:stretch;min-width:0;}
   .s-bar{width:8px;border-radius:8px;background:var(--grad);flex-shrink:0;}
-  .s-titles h2{margin:0;font-size:38px;font-weight:800;line-height:1.3;letter-spacing:-.01em;color:#15171C;}
+  .s-titles h2{margin:0;font-size:34px;font-weight:800;line-height:1.3;letter-spacing:-.01em;color:#15171C;}
   .s-kicker{font-size:17px;color:#6B6E7C;font-weight:500;margin-top:2px;}
   .s-logo-btn{flex-shrink:0;height:60px;display:flex;align-items:center;}
   .s-logo{height:60px;max-width:190px;object-fit:contain;}
@@ -329,6 +329,17 @@
     background:#FAF7F0;border:1px solid #EFE8DA;border-radius:18px;padding:14px 22px;}
   .cv-period svg{width:26px;height:26px;color:var(--ink);flex-shrink:0;}
   .cv-foot{position:absolute;right:92px;bottom:42px;font-size:15px;color:#6B6E7C;}
+
+  /* Separator */
+  .slide-section{background:linear-gradient(135deg, var(--soft), #fff 62%);}
+  .slide-section::before{display:none;}
+  .sec-ring{position:absolute;border-radius:50%;border:2px solid var(--soft);pointer-events:none;}
+  .sec-ring.r1{width:620px;height:620px;left:-220px;bottom:-300px;border-width:3px;}
+  .sec-ring.r2{width:260px;height:260px;left:180px;top:-120px;background:var(--soft);border:none;opacity:.7;}
+  .sec-logo{position:absolute;top:50px;left:64px;}
+  .sec-wrap{position:absolute;top:0;bottom:62px;right:110px;left:110px;display:flex;align-items:center;gap:28px;}
+  .sec-bar{width:12px;align-self:center;height:150px;border-radius:12px;background:var(--grad);flex-shrink:0;}
+  .sec-title{margin:0;font-size:64px;font-weight:900;line-height:1.3;letter-spacing:-.02em;color:#15171C;flex:1;min-width:0;}
 
   /* KPI tiles */
   .kpi-grid{display:grid;gap:20px;height:100%;align-content:center;grid-template-columns:repeat(var(--cols),minmax(0,1fr));}
@@ -889,7 +900,7 @@ function groupRows(R, rows, dimId){
 // ---------- Settings per report ----------
 const cfgKey = R => 'slides:cfg:' + R.id;
 const SLIDE_TYPES = {
-  cover:'جلد', campaigns:'کمپین‌های اجرا شده (نوع کمپین‌ها)', kpis:'آمار کلی (کارت‌ها)', chart:'نمودار', table:'جدول مقایسه', text:'متن / تحلیل'
+  cover:'جلد', campaigns:'کمپین‌های اجرا شده (نوع کمپین‌ها)', kpis:'آمار کلی (کارت‌ها)', chart:'نمودار', table:'جدول مقایسه', text:'متن / تحلیل', section:'جداکننده'
 };
 const CHART_TYPES = {combo:'ستونی + خطی', bar:'ستونی', hbar:'ستونی افقی', line:'خطی', doughnut:'دایره‌ای'};
 const LIST_LEVELS = {medium:'مدیوم (گروه نوع کمپین)', type:'Campaign Type شیت', campaign:'اسم کمپین‌ها'};
@@ -1352,6 +1363,14 @@ function renderTextSlide(R, s, num){
   return `<section class="slide">${slideHead(R, s, periodOf(d))}
     <div class="s-body"><div class="an-grid" style="--cols:${cols.length}">${body}</div></div>${slideFoot(R, num)}</section>`;
 }
+// A separator between parts of the deck: a title and nothing else.
+function renderSectionSlide(R, s, num){
+  return `<section class="slide slide-section">
+    <span class="sec-ring r1"></span><span class="sec-ring r2"></span>
+    <div class="s-logo-btn sec-logo" data-logo title="برای عوض کردن لوگو کلیک کن">${logoHtml(R)}</div>
+    <div class="sec-wrap"><span class="sec-bar"></span>${E('title', esc(s.title), 'عنوان بخش', 'h2', 'sec-title')}</div>
+    ${slideFoot(R, num)}</section>`;
+}
 function renderSlide(R, s, num){
   switch(s.type){
     case 'cover': return renderCover(R, s);
@@ -1360,6 +1379,7 @@ function renderSlide(R, s, num){
     case 'table': return renderTableSlide(R, s, num);
     case 'chart': return renderChartSlide(R, s, num);
     case 'text': return renderTextSlide(R, s, num);
+    case 'section': return renderSectionSlide(R, s, num);
   }
   return '';
 }
@@ -1598,7 +1618,7 @@ function renderDeck(R){
       <div class="s-frame" style="${themeVars(R)}">${renderSlide(R, s, i + 1)}</div>
     </div>`).join('')}
     <div class="add-slide"><span>افزودن اسلاید${hiddenCount ? ` — ${fa(hiddenCount)} اسلاید پنهان تو تنظیمات` : ''}</span>
-      ${['chart', 'table', 'kpis', 'campaigns', 'text'].map(t => `<button type="button" class="btn sm" data-add="${t}">+ ${esc(SLIDE_TYPES[t])}</button>`).join('')}
+      ${['chart', 'table', 'kpis', 'campaigns', 'text', 'section'].map(t => `<button type="button" class="btn sm" data-add="${t}">+ ${esc(SLIDE_TYPES[t])}</button>`).join('')}
     </div></div>`;
   $('#deckActions').innerHTML = `
     <button type="button" class="btn ${S.cfg.tplSavedAt ? 'saved' : ''}" id="saveTpl" title="${esc(savedLabel())}">${ICON.save}<span class="t">ذخیره قالب</span></button>
@@ -1778,6 +1798,7 @@ function newSlide(R, type, id){
   if(type === 'kpis') Object.assign(base, {title:'آمار کلی', metrics:['cost', main].filter(ok)});
   if(type === 'campaigns') Object.assign(base, {title:'کمپین‌های اجرا شده', level:'medium'});
   if(type === 'text') Object.assign(base, {title:'یادداشت', cols:[{h:'', auto:null, icon:'note'}]});
+  if(type === 'section') base.title = 'عنوان بخش';
   return base;
 }
 function addSlide(R, type){
@@ -1856,7 +1877,7 @@ function renderSettings(R){
     const metBox = m => `<label class="check"><input type="checkbox" data-s="${i}" data-metric="${m.id}" ${(s.metrics || []).includes(m.id) ? 'checked' : ''}>${esc(m.label)}</label>`;
     const usable = defs.filter(m => m.ok && !(m.groupOnly && s.type === 'kpis'));
     const extras = usable.filter(m => m.extra);
-    const mets = ['cover', 'text', 'campaigns'].includes(s.type) ? '' : `
+    const mets = ['cover', 'text', 'campaigns', 'section'].includes(s.type) ? '' : `
       <div class="field"><span>متریک‌ها${s.type === 'chart' ? ' (نمودار: دو تای اول؛ دایره‌ای: فقط اولی)' : ''}</span><div class="metric-checks">
         ${usable.filter(m => !m.extra).map(metBox).join('')}
       </div></div>
@@ -1875,17 +1896,18 @@ function renderSettings(R){
     const ownSet = new Set(own ? s.campaigns : []);
     const only = slideParts(R, s);
     const ownPer = !!(s.period && s.period.preset);
-    const perBlock = s.type === 'cover' ? '' : `
+    const noData = s.type === 'cover' || s.type === 'section';
+    const perBlock = noData ? '' : `
       <div class="field"><span>بازه‌ی این اسلاید</span>
         <select class="inp" data-s="${i}" data-prop="perMode" style="max-width:340px">
           <option value="report" ${ownPer ? '' : 'selected'}>مثل کل گزارش</option>
           <option value="own" ${ownPer ? 'selected' : ''}>بازه‌ی جدا برای همین اسلاید</option></select></div>
       ${ownPer ? `<div class="own-period">${periodEditor(R, s.period, i)}</div>` : ''}`;
-    const parts = s.type === 'cover' || !R.merged ? '' : `
+    const parts = noData || !R.merged ? '' : `
       <div class="field"><span>بخش‌هایی که این اسلاید نشون می‌ده</span><div class="metric-checks">
         ${R.parts.map(p => `<label class="check"><input type="checkbox" data-s="${i}" data-spart="${esc(p.id)}" ${!only || only.includes(p.id) ? 'checked' : ''}>${esc(p.title)}</label>`).join('')}
       </div></div>`;
-    const camps = s.type === 'cover' ? '' : perBlock + parts + `
+    const camps = noData ? '' : perBlock + parts + `
       <div class="field"><span>کمپین‌هایی که تو دیتای این اسلاید شمرده می‌شن</span>
         <select class="inp" data-s="${i}" data-prop="campMode" style="max-width:340px">
           <option value="report" ${own ? '' : 'selected'}>مثل کل گزارش</option>
@@ -1971,7 +1993,7 @@ function renderSettings(R){
 
     <section class="card"><h3>اسلایدها، متریک‌ها، ابعاد و کمپین‌ها</h3><p class="hint">ترتیب، نمایش، عنوان، متریک‌ها، بُعد، نوع نمودار و کمپین‌های هر اسلاید. تغییرها همون لحظه ذخیره می‌شن.</p>
       ${cfg.slides.map(slideOpts).join('')}
-      <div class="set-foot" style="margin-top:12px">${['chart', 'table', 'kpis', 'campaigns', 'text'].map(t => `<button type="button" class="btn sm" data-add="${t}">+ ${esc(SLIDE_TYPES[t])}</button>`).join('')}</div>
+      <div class="set-foot" style="margin-top:12px">${['chart', 'table', 'kpis', 'campaigns', 'text', 'section'].map(t => `<button type="button" class="btn sm" data-add="${t}">+ ${esc(SLIDE_TYPES[t])}</button>`).join('')}</div>
     </section>
 
     <section class="card"><h3>قالب، ذخیره و انتقال</h3><p class="hint">${esc(savedLabel())}${tplN ? ` — ${fa(tplN)} متن ویرایش‌شده تو قالب` : ''}. تنظیمات این صفحه خودکار ذخیره می‌شن؛ متن‌هایی که روی اسلایدها عوض می‌کنی با «ذخیره قالب» (بالای اسلایدها) تو قالب این مشتری می‌مونن. همه‌چیز تو همین مرورگره؛ برای مرورگر دیگه خروجی بگیر و اونجا وارد کن.</p>
