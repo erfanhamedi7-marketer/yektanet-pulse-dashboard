@@ -785,6 +785,23 @@
 (function(){
 "use strict";
 
+// Opened by slides.html in a hidden frame (see the end of this script).
+const CORE_MODE = !!(window.frameElement && /[?&]core\b/.test(location.search));
+// The columns of a tab that hold numbers, other than the ones every section
+// already reads (date, campaign, labels, cost, impressions, clicks) and those
+// named in `skip`. A column counts once any of its cells is a number.
+const NOT_METRICS = /^(date|campaign|campaign type|campaign name|network|ad ?group|creative|advertiser id|ad content|ad term|medium|source|term|content|tracker|platform|country|os|cost|impressions?|clicks?|year|month|week|day)$/i;
+function numberColumns(rows, skip){
+  const skipSet = new Set((skip || []).filter(Boolean).map(c => String(c).toLowerCase()));
+  const cols = new Set();
+  (rows || []).slice(0, 5000).forEach(r => Object.keys(r).forEach(k => {
+    if(cols.has(k) || !k || NOT_METRICS.test(k.trim()) || skipSet.has(k.toLowerCase()) || / id$/i.test(k)) return;
+    const v = r[k];
+    if(typeof v === 'number' || (typeof v === 'string' && /^\s*[-+]?[\d۰-۹][\d۰-۹,.\s]*$/.test(v))) cols.add(k);
+  }));
+  return [...cols];
+}
+
 // One tab's answer as row objects. The API sends {headers, rows} (rows as
 // arrays); the older {data} shape (row objects) is still read.
 function sheetRows(json){
@@ -4744,7 +4761,9 @@ function messageRows(project, window){
     date: r.date, campaign: r.campaign, campaignLabel: r.campaignLabel, cost: billed(r), impressions: r.impressions || 0, clicks: r.clicks || 0,
     sessions: spec.sessions ? spec.sessions(r) : 0,
     installs: spec.installs ? spec.installs(r) : 0,
-    action: spec.action ? spec.action(r) : 0
+    action: spec.action ? spec.action(r) : 0,
+    // Every further column, for slides.html (core mode reads them all).
+    extras: r.extras, costExtras: r.costExtras
   }));
 }
 // Which lines this business has at all — judged on everything it has ever
@@ -5111,10 +5130,17 @@ async function loadProject(project){
     const dimRows = await Promise.all(dimTables.map(d => fetchSheetCached(project.spreadsheetId, d.sheet)));
     project.rawDims = dimTables.map((d, i) => normalizeDimensionRows(dimRows[i], d.dimCol, d.metricCol));
     const diag = {skippedRows:0, skippedCost:0, unreadableCost:0, excludedCost:0, futureRows:0};
+    // For slides.html (core mode) every other number column of the sheets is
+    // kept too, so a report can offer any of them; the dashboard reads only
+    // the columns it shows.
+    const refExtra = refSheetRows.map((rows, i) => CORE_MODE
+      ? numberColumns(rows, [refSheets[i].conversionCol || project.conversionCol, project.installsCol, project.refCampaignCol,
+                             project.adgroupCol, project.creativeCol, project.impressionsCol, project.clicksCol, project.costCol]) : []);
+    project.extraMetricCols = {ref: [...new Set(refExtra.flat())], cost: []};
     const refBySheet = refSheetRows.map((rows, i) =>
       normalizeRefRows(rows, refSheets[i].conversionCol || project.conversionCol,
                        project.installsCol, project.adgroupCol, project.creativeCol,
-                       (project.costPerMetrics||[]).map(m=>m.col), project.refCampaignCol));
+                       [...new Set([...(project.costPerMetrics||[]).map(m=>m.col), ...refExtra[i]])], project.refCampaignCol));
     // What each conversion sheet reported, before any filter — so a campaign
     // rule can say "every campaign sheet X tracks" rather than only match names.
     const campaignCtx = {refCampaigns: {}};
@@ -5128,8 +5154,11 @@ async function loadProject(project){
       return rows.filter(r => (!e.keep || e.keep(r.campaign))
         && (!e.from || r.date >= e.from) && (!e.before || r.date < e.before));
     });
+    // A column both sides have is read from the conversion side only.
+    if(CORE_MODE) project.extraMetricCols.cost = numberColumns(costRows,
+      [project.impressionsCol, project.clicksCol, project.costCol, project.conversionCol, project.installsCol, ...project.extraMetricCols.ref]);
     project.rawCost = normalizeCostRows(costRows, project.impressionsCol, project.clicksCol, diag,
-                                        (project.costExtraCols||[]).map(m=>m.col), project.costCol);
+                                        [...new Set([...(project.costExtraCols||[]).map(m=>m.col), ...project.extraMetricCols.cost])], project.costCol);
     // campaignKey folds the campaigns two sheets name differently into one key
     // on both sides, before anything joins them (Talasea's apps: see
     // talaseaAppKey).
@@ -5494,7 +5523,7 @@ async function init(){
 // slides.html loads this page in a hidden frame (`/index.html?core`) to read
 // sheets with the same project rules; there it only hands them over and never
 // draws the dashboard.
-if(window.frameElement && /[?&]core\b/.test(location.search)){
+if(CORE_MODE){
   window.dashCore = {PROJECTS, BRANDS, projectState, loadProject, messageRows, messageFields, messageSpec,
                      campaignTypes, campaignTypeGroup, lastWeekWithin, yesterdayWithin, weekStartFor,
                      localIso, toInputDate, fromInputDate, todayStr, normCampaign};

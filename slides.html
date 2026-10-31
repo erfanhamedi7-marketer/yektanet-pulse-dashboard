@@ -336,6 +336,18 @@
   .kpi-d small{font-weight:500;font-size:13px;opacity:.85;}
   .dense .kpi-v{font-size:36px;}
   .dense .kpi-t{padding:22px 24px 20px;}
+  .kpi-d{white-space:nowrap;}
+  .c5 .kpi-t{padding-left:18px;padding-right:20px;}
+  .c5 .kpi-d{font-size:13px;padding:4px 10px;gap:4px;}
+  .c5 .kpi-d small{font-size:11.5px;}
+  .kpi-grid.tiny{gap:14px;}
+  .tiny .kpi-t{min-height:0;padding:14px 18px 12px;border-radius:20px;gap:2px;}
+  .tiny .kpi-t::after{right:18px;width:44px;height:4px;}
+  .tiny .kpi-l{font-size:14px;line-height:1.4;}
+  .tiny .kpi-v{font-size:28px;}
+  .tiny .kpi-u{font-size:12px;}
+  .tiny .kpi-d{font-size:12px;padding:3px 9px;margin-top:4px;}
+  .tiny .kpi-d small{font-size:11px;}
 
   /* Tables */
   .s-table{width:100%;border-collapse:separate;border-spacing:0;font-size:17px;}
@@ -738,8 +750,29 @@ function metricDefs(R){
     {id:'cpi',         label:'هزینه به ازای نصب (CPI)', money:true, good:-1, ok:has.installs},
     {id:'actions',     label:act, good:1, ok:has.action},
     {id:'cpa',         label:'هزینه به ازای ' + act, money:true, good:-1, ok:has.action},
-    {id:'costShare',   label:'سهم از هزینه', pct:true, good:0, ok:true, groupOnly:true}
+    {id:'costShare',   label:'سهم از هزینه', pct:true, good:0, ok:true, groupOnly:true},
+    // Every other number column of the sheets (Session (Web), KYC (Web),
+    // Deposit (Web), Lead, Sign Up…): its count, and cost per one.
+    ...extraCols(R).flatMap(col => [
+      {id:'x:' + col, label:col, good:1, ok:true, extra:col},
+      {id:'xc:' + col, label:'هزینه به ازای ' + col, money:true, good:-1, ok:true, extra:col}
+    ])
   ];
+}
+// A part's further columns, as the dashboard engine read them in core mode
+// (index.html: numberColumns); the one a part already reports as its action
+// (Ramzarz's Signup) isn't offered twice.
+function partExtraCols(p){
+  const ex = p.extraMetricCols || {ref:[], cost:[]};
+  const further = (p.costPerMetrics || [])[0];
+  const actionCol = (isSessionsCol(p.conversionCol) || p.kind === 'cpi') && further ? further.col : null;
+  return {ref: (ex.ref || []).filter(c => c !== actionCol), cost: (ex.cost || []).filter(c => c !== actionCol)};
+}
+function extraCols(R){
+  if(R._extra) return R._extra;
+  const all = [];
+  R.parts.forEach(p => { const ex = partExtraCols(p); [...ex.ref, ...ex.cost].forEach(c => { if(!all.includes(c)) all.push(c); }); });
+  return (R._extra = all);
 }
 const defsById = R => Object.fromEntries(metricDefs(R).map(m => [m.id, m]));
 function metricValue(id, t, all){
@@ -758,6 +791,8 @@ function metricValue(id, t, all){
     case 'cpa': return div(t.cost, t.action);
     case 'costShare': return all && all.cost > 0 ? t.cost / all.cost * 100 : null;
   }
+  if(id.startsWith('x:')) return (t.x && t.x[id.slice(2)]) || 0;
+  if(id.startsWith('xc:')) return div(t.cost, (t.x && t.x[id.slice(3)]) || 0);
   return null;
 }
 function fmtMetric(def, v){
@@ -766,7 +801,12 @@ function fmtMetric(def, v){
 }
 function totals(rows){
   const t = {cost:0, impressions:0, clicks:0, sessions:0, installs:0, action:0};
-  rows.forEach(r => { for(const k in t) t[k] += r[k] || 0; });
+  const x = {};
+  rows.forEach(r => {
+    for(const k in t) t[k] += r[k] || 0;
+    if(r.x) for(const c in r.x) x[c] = (x[c] || 0) + r.x[c];
+  });
+  t.x = x;
   return t;
 }
 function mainAction(ok){
@@ -939,10 +979,14 @@ function rowsFor(R, win, sel, only){
     const ps = partSel(R, part, sel);
     if(ps !== 'ALL' && !ps.size) return [];
     core.projectState[part.id] = {campaigns:ps, subCampaigns:'ALL', from:win.from, to:win.to};
-    return core.messageRows(part, {from:win.from, to:win.to}).map(r => ({
-      ...r, part:part.id, partTitle:part.title, raw:r.campaign, campaign:pkey(R, part, r.campaign),
-      cname: part.kind === 'budget' ? pkey(R, part, core.normCampaign(r.campaignName)) : null
-    }));
+    const ex = partExtraCols(part);
+    return core.messageRows(part, {from:win.from, to:win.to}).map(r => {
+      const x = {};
+      ex.ref.forEach(c => { x[c] = (r.extras && r.extras[c]) || 0; });
+      ex.cost.forEach(c => { x[c] = (x[c] || 0) + ((r.costExtras && r.costExtras[c]) || 0); });
+      return {...r, x, extras:undefined, costExtras:undefined, part:part.id, partTitle:part.title, raw:r.campaign,
+              campaign:pkey(R, part, r.campaign), cname: part.kind === 'budget' ? pkey(R, part, core.normCampaign(r.campaignName)) : null};
+    });
   });
 }
 function allRows(R){
@@ -1117,7 +1161,9 @@ function renderKpis(R, s, num){
   const defs = defsById(R), d = dataFor(s);
   const ms = (s.metrics || []).filter(id => defs[id] && defs[id].ok && !defs[id].groupOnly);
   const n = ms.length;
-  const cols = n <= 3 ? Math.max(n, 1) : n === 4 ? 4 : n <= 6 ? 3 : 4;
+  // Up to three rows; past eight cards the tiles get smaller rather than
+  // running off the slide.
+  const cols = n <= 3 ? Math.max(n, 1) : n === 4 ? 4 : n <= 6 ? 3 : n <= 8 ? 4 : n <= 10 ? 5 : n <= 12 ? 4 : n <= 15 ? 5 : 6;
   const rows = Math.ceil(n / cols) || 1;
   const tiles = ms.map(id => {
     const def = defs[id];
@@ -1130,7 +1176,7 @@ function renderKpis(R, s, num){
     </div>`;
   }).join('');
   return `<section class="slide">${slideHead(R, s, periodOf(d))}
-    <div class="s-body">${n ? `<div class="kpi-grid ${rows > 1 && cols > 3 ? 'dense' : ''}" style="--cols:${cols};--th:${rows > 1 ? 196 : 260}px">${tiles}</div>`
+    <div class="s-body">${n ? `<div class="kpi-grid ${rows >= 3 ? 'dense tiny' : rows > 1 && cols > 3 ? 'dense' : ''} ${cols >= 5 ? 'c5' : ''}" style="--cols:${cols};--th:${rows >= 3 ? 0 : rows > 1 ? 196 : 260}px">${tiles}</div>`
                            : '<div class="s-empty">متریکی برای این اسلاید انتخاب نشده</div>'}</div>
     ${slideFoot(R, num)}</section>`;
 }
@@ -1712,10 +1758,14 @@ function renderSettings(R){
   const medInput = key => `<input class="inp" list="mediumList" data-medium="${esc(key)}" value="${esc((cfg.mediums || {})[key] || '')}" placeholder="${esc(autoMedium(R, key))}" aria-label="مدیوم">`;
   const isBudgetKey = key => splitKey(R, key).part.kind === 'budget';
   const slideOpts = (s, i) => {
+    const metBox = m => `<label class="check"><input type="checkbox" data-s="${i}" data-metric="${m.id}" ${(s.metrics || []).includes(m.id) ? 'checked' : ''}>${esc(m.label)}</label>`;
+    const usable = defs.filter(m => m.ok && !(m.groupOnly && s.type === 'kpis'));
+    const extras = usable.filter(m => m.extra);
     const mets = ['cover', 'text', 'campaigns'].includes(s.type) ? '' : `
       <div class="field"><span>متریک‌ها${s.type === 'chart' ? ' (نمودار: دو تای اول؛ دایره‌ای: فقط اولی)' : ''}</span><div class="metric-checks">
-        ${defs.filter(m => m.ok && !(m.groupOnly && s.type === 'kpis')).map(m => `<label class="check"><input type="checkbox" data-s="${i}" data-metric="${m.id}" ${(s.metrics || []).includes(m.id) ? 'checked' : ''}>${esc(m.label)}</label>`).join('')}
-      </div></div>`;
+        ${usable.filter(m => !m.extra).map(metBox).join('')}
+      </div></div>
+      ${extras.length ? `<div class="field"><span>ستون‌های دیگه‌ی شیت</span><div class="metric-checks">${extras.map(metBox).join('')}</div></div>` : ''}`;
     const dims = s.type === 'chart' || s.type === 'table' ? `<div class="field"><span>بُعد</span><select class="inp" data-s="${i}" data-prop="dim">
         ${dimDefs(R).map(dm => `<option value="${dm.id}" ${s.dim === dm.id ? 'selected' : ''}>${esc(dm.label)}</option>`).join('')}</select></div>` : '';
     const level = s.type === 'campaigns' ? `<div class="field"><span>چی لیست بشه</span><select class="inp" data-s="${i}" data-prop="level">
