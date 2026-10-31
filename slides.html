@@ -207,6 +207,8 @@
   .client-card.new{border-style:dashed;border-width:2px;border-color:var(--border-strong);box-shadow:none;background:transparent;justify-content:center;font-weight:700;color:var(--text-muted);}
   .client-card.new svg{width:20px;height:20px;flex-shrink:0;}
   .client-card{text-decoration:none;}
+  .ml-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:0 16px;}
+  .ml-grid .field{margin-bottom:10px;}
   .swatches{display:flex;gap:8px;flex-wrap:wrap;}
   .sw{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--border);border-radius:999px;padding:5px 12px 5px 6px;
     background:var(--surface-2);cursor:pointer;font-size:12.5px;font-weight:600;color:var(--text);}
@@ -735,29 +737,38 @@ function defaultActionLabel(R){
   const labels = Array.from(new Set(R.parts.filter(p => partHas(p).action).map(partActionLabel)));
   return labels.join(' / ') || 'اکشن';
 }
+// Every metric can be renamed for a report (settings → «اسم متریک‌ها»,
+// cfg.metricLabels). A cost-per metric's default name follows its count's
+// name: renaming «KYC (Web)» to «احراز هویت» makes «هزینه به ازای احراز هویت».
 function metricDefs(R){
   const has = hasOf(R);
-  const act = (S.cfg && S.cfg.actionLabel) || defaultActionLabel(R);
-  return [
-    {id:'cost',        label:'هزینه', money:true, good:0, ok:true},
-    {id:'impressions', label:'نمایش', good:1, ok:has.impressions},
-    {id:'clicks',      label:'کلیک', good:1, ok:has.clicks},
-    {id:'ctr',         label:'نرخ کلیک (CTR)', pct:true, good:1, ok:has.impressions && has.clicks},
-    {id:'sessions',    label:'سشن', good:1, ok:has.sessions},
-    {id:'cps',         label:'هزینه به ازای سشن', money:true, good:-1, ok:has.sessions},
-    {id:'stc',         label:'نرخ سشن به کلیک (STC)', pct:true, good:1, ok:has.sessions && has.clicks},
-    {id:'installs',    label:'نصب', good:1, ok:has.installs},
-    {id:'cpi',         label:'هزینه به ازای نصب (CPI)', money:true, good:-1, ok:has.installs},
-    {id:'actions',     label:act, good:1, ok:has.action},
-    {id:'cpa',         label:'هزینه به ازای ' + act, money:true, good:-1, ok:has.action},
-    {id:'costShare',   label:'سهم از هزینه', pct:true, good:0, ok:true, groupOnly:true},
-    // Every other number column of the sheets (Session (Web), KYC (Web),
-    // Deposit (Web), Lead, Sign Up…): its count, and cost per one.
-    ...extraCols(R).flatMap(col => [
-      {id:'x:' + col, label:col, good:1, ok:true, extra:col},
-      {id:'xc:' + col, label:'هزینه به ازای ' + col, money:true, good:-1, ok:true, extra:col}
-    ])
-  ];
+  const L = (S.cfg && S.cfg.metricLabels) || {};
+  const defs = [];
+  const add = (d, dflt) => {
+    d.dflt = dflt;
+    d.label = (L[d.id] && String(L[d.id]).trim()) || dflt;
+    defs.push(d);
+    return d.label;
+  };
+  add({id:'cost', money:true, good:0, ok:true}, 'هزینه');
+  add({id:'impressions', good:1, ok:has.impressions}, 'نمایش');
+  add({id:'clicks', good:1, ok:has.clicks}, 'کلیک');
+  add({id:'ctr', pct:true, good:1, ok:has.impressions && has.clicks}, 'نرخ کلیک (CTR)');
+  const sessions = add({id:'sessions', good:1, ok:has.sessions}, 'سشن');
+  add({id:'cps', money:true, good:-1, ok:has.sessions}, 'هزینه به ازای ' + sessions);
+  add({id:'stc', pct:true, good:1, ok:has.sessions && has.clicks}, 'نرخ سشن به کلیک (STC)');
+  const installs = add({id:'installs', good:1, ok:has.installs}, 'نصب');
+  add({id:'cpi', money:true, good:-1, ok:has.installs}, L.installs ? 'هزینه به ازای ' + installs : 'هزینه به ازای نصب (CPI)');
+  const act = add({id:'actions', good:1, ok:has.action}, (S.cfg && S.cfg.actionLabel) || defaultActionLabel(R));
+  add({id:'cpa', money:true, good:-1, ok:has.action}, 'هزینه به ازای ' + act);
+  add({id:'costShare', pct:true, good:0, ok:true, groupOnly:true}, 'سهم از هزینه');
+  // Every other number column of the sheets (Session (Web), KYC (Web),
+  // Deposit (Web), Lead, Sign Up…): its count, and cost per one.
+  extraCols(R).forEach(col => {
+    const name = add({id:'x:' + col, good:1, ok:true, extra:col}, col);
+    add({id:'xc:' + col, money:true, good:-1, ok:true, extra:col}, 'هزینه به ازای ' + name);
+  });
+  return defs;
 }
 // A part's further columns, as the dashboard engine read them in core mode
 // (index.html: numberColumns); the one a part already reports as its action
@@ -1253,7 +1264,7 @@ function analysisDraft(R, d){
     out.push(`برای ${w.prev} دیتایی نیست که با اون مقایسه بشه.`);
     return '<ul>' + out.map(x => `<li>${x}</li>`).join('') + '</ul>';
   }
-  out.push(`در ${w.cur} نسبت به ${w.prev}، ${fromTo('cost', 'هزینه')}.`);
+  out.push(`در ${w.cur} نسبت به ${w.prev}، ${fromTo('cost', esc(defs.cost.label))}.`);
   const effPart = metricValue(eff, t) !== null || metricValue(eff, p) !== null ? ` و ${fromTo(eff, esc(eDef.label))}` : '';
   out.push(`${main === 'clicks' ? '' : 'تعداد '}${fromTo(main, esc(mDef.label))}${effPart}.`);
   const plain = (a, b) => {
@@ -1824,7 +1835,6 @@ function renderSettings(R){
       <div class="row">
         <label class="field"><span>عنوان گزارش</span><input class="inp" data-cfg="title" value="${esc(cfg.title)}"></label>
         <label class="field"><span>برچسب جلد</span><input class="inp" data-cfg="kicker" value="${esc(cfg.kicker || '')}" placeholder="خودکار: گزارش هفتگی کمپین‌ها"></label>
-        <label class="field"><span>اسم اکشن (تبدیل اصلی)</span><input class="inp" data-cfg="actionLabel" value="${esc(cfg.actionLabel || '')}" placeholder="${esc(defaultActionLabel(R))}"></label>
       </div>
       <div class="row" style="align-items:center">
         <span class="client-logo" style="width:56px;height:56px">${logoHtml(R, '')}</span>
@@ -1864,6 +1874,13 @@ function renderSettings(R){
       </div>
       ${mediumRows.length ? `<h3 style="margin-top:18px">مدیوم کمپین‌ها${someBudget && !budgetOnly ? ' (بخش‌های بودجه‌ای)' : ''}</h3><div class="camp-list">${mediumRows.map(([k, l]) => `<div class="camp-row"><span></span><span class="nm">${esc(l)}</span><span class="cs"></span>${medInput(k)}</div>`).join('')}</div>` : ''}
       <datalist id="mediumList">${mediumNames.map(m => `<option value="${esc(m)}">`).join('')}</datalist>
+    </section>
+
+    <section class="card"><h3>اسم متریک‌ها</h3><p class="hint">اسمی که هر متریک تو همه‌ی اسلایدها (کارت‌ها، سرستون جدول‌ها، نمودارها، متن تحلیل) و تو لیست‌های تنظیمات می‌گیره. خالی = اسم پیش‌فرض. «هزینه به ازای …» خودش از اسم جدید پیروی می‌کنه مگه اینکه اونم عوض کنی. متنی که قبلاً مستقیم روی یه اسلاید عوض کردی همون می‌مونه (با «پیش‌فرض» اون اسلاید از اینجا می‌خونه).</p>
+      ${[['', defs.filter(m => m.ok && !m.extra)], ['ستون‌های دیگه‌ی شیت', defs.filter(m => m.ok && m.extra)]].filter(([, list]) => list.length).map(([title, list]) => `
+        ${title ? `<div class="field" style="margin:6px 0 8px"><span>${esc(title)}</span></div>` : ''}
+        <div class="ml-grid">${list.map(m => `<label class="field"><span>${esc(m.dflt)}</span>
+          <input class="inp" data-mlabel="${esc(m.id)}" value="${esc(((cfg.metricLabels || {})[m.id]) || (m.id === 'actions' ? cfg.actionLabel || '' : ''))}" placeholder="${esc(m.dflt)}"></label>`).join('')}</div>`).join('')}
     </section>
 
     <section class="card"><h3>اسلایدها، متریک‌ها، ابعاد و کمپین‌ها</h3><p class="hint">ترتیب، نمایش، عنوان، متریک‌ها، بُعد، نوع نمودار و کمپین‌های هر اسلاید. تغییرها همون لحظه ذخیره می‌شن.</p>
@@ -1919,6 +1936,13 @@ function wireSettings(R){
   $('#cmpToggle').addEventListener('change', e => { cfg.compare = e.target.checked; saveCfg(); });
   $$('[data-cfg]').forEach(inp => inp.addEventListener('change', () => { cfg[inp.dataset.cfg] = inp.value.trim(); saveCfg(); }));
   $('#logoPick').addEventListener('click', () => $('#logoFile').click());
+  $$('[data-mlabel]').forEach(inp => inp.addEventListener('change', () => {
+    const id = inp.dataset.mlabel, v = inp.value.trim();
+    cfg.metricLabels = cfg.metricLabels || {};
+    if(v) cfg.metricLabels[id] = v; else delete cfg.metricLabels[id];
+    if(id === 'actions') cfg.actionLabel = '';   // the old single field, now part of this list
+    saveCfg(); rerender();
+  }));
   const setTheme = theme => {
     cfg.theme = theme;
     saveCfg();
