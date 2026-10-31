@@ -933,8 +933,9 @@ function partSel(R, part, sel){
   const pre = part.id + '::';
   return new Set(Array.from(sel).filter(k => k.startsWith(pre)).map(k => k.slice(pre.length)));
 }
-function rowsFor(R, win, sel){
-  return R.parts.flatMap(part => {
+// `only`: the part ids a slide of a merged report is limited to (null = all).
+function rowsFor(R, win, sel, only){
+  return R.parts.filter(part => !only || only.includes(part.id)).flatMap(part => {
     const ps = partSel(R, part, sel);
     if(ps !== 'ALL' && !ps.size) return [];
     core.projectState[part.id] = {campaigns:ps, subCampaigns:'ALL', from:win.from, to:win.to};
@@ -966,19 +967,32 @@ function resolvePeriod(R){
   }
   return {from:min, to:max};
 }
-function computeData(R, sel){
+function computeData(R, sel, only){
   const win = resolvePeriod(R);
   if(!win) return {win:null, rows:[], prevRows:[], t:totals([]), pt:null, days:0};
   const days = daysBetween(win.from, win.to);
   const prev = {from:addDays(win.from, -days), to:addDays(win.from, -1)};
-  const rows = rowsFor(R, win, sel);
-  const prevRows = rowsFor(R, prev, sel);
+  const rows = rowsFor(R, win, sel, only);
+  const prevRows = rowsFor(R, prev, sel, only);
   return {win, prev, days, rows, prevRows, t:totals(rows), pt:prevRows.length ? totals(prevRows) : null};
 }
+// A slide of a merged report may show only some of its parts (Arzplus web
+// alone); a part since removed from the report no longer counts.
+function slideParts(R, s){
+  if(!R.merged || !s || !Array.isArray(s.parts)) return null;
+  const ids = s.parts.filter(id => R.parts.some(p => p.id === id));
+  return ids.length && ids.length < R.parts.length ? ids : null;
+}
 function dataFor(s){
-  if(!s || !Array.isArray(s.campaigns)) return S.data;
-  const key = s.campaigns.slice().sort().join('|');
-  return S.cache[key] || (S.cache[key] = computeData(S.report, new Set(s.campaigns)));
+  const only = slideParts(S.report, s);
+  const own = s && Array.isArray(s.campaigns);
+  if(!own && !only) return S.data;
+  const key = (own ? s.campaigns.slice().sort().join('|') : '*') + '#' + (only ? only.join('|') : '*');
+  return S.cache[key] || (S.cache[key] = computeData(S.report, own ? new Set(s.campaigns) : campaignSelection(S.report), only));
+}
+function partsLabel(R, s){
+  const only = slideParts(R, s);
+  return only ? only.map(id => R.parts.find(p => p.id === id).title).join(' + ') : '';
 }
 
 // ---------- Edits and the report template ----------
@@ -1032,6 +1046,8 @@ const rk = k => String(k).replace(/[^\w؀-ۿ-]/g, '_');
 
 // ---------- Slides ----------
 function slideHead(R, s, kicker){
+  const pl = partsLabel(R, s);
+  if(pl) kicker += ' — ' + pl;
   return `<header class="s-head">
     <div class="s-titles"><span class="s-bar"></span><div>
       ${E('title', esc(s.title), 'عنوان اسلاید', 'h2')}
@@ -1484,7 +1500,7 @@ function renderDeck(R){
   $('#view').innerHTML = backBar(R) + `<div class="deck" id="deck">${slides.map((s, i) => `
     <div class="slide-item" data-sid="${esc(s.id)}">
       <div class="slide-tools">
-        <span class="lbl"><b>${fa(i + 1)}</b>${esc(SLIDE_TYPES[s.type] || s.type)}${isEdited(s.id) ? ' <span class="badge">ویرایش‌شده</span>' : ''}${Array.isArray(s.campaigns) ? ` — <span title="این اسلاید فقط کمپین‌های انتخابی خودش رو می‌شمره">${fa(s.campaigns.length)} کمپین انتخابی</span>` : ''}</span>
+        <span class="lbl"><b>${fa(i + 1)}</b>${esc(SLIDE_TYPES[s.type] || s.type)}${isEdited(s.id) ? ' <span class="badge">ویرایش‌شده</span>' : ''}${Array.isArray(s.campaigns) ? ` — <span title="این اسلاید فقط کمپین‌های انتخابی خودش رو می‌شمره">${fa(s.campaigns.length)} کمپین انتخابی</span>` : ''}${partsLabel(R, s) ? ` — فقط ${esc(partsLabel(R, s))}` : ''}</span>
         <span class="grp">
           <button type="button" class="btn sm icon" data-act="up" title="جابه‌جایی به بالا" aria-label="بالا" ${i === 0 ? 'disabled' : ''}>${ICON.up}</button>
           <button type="button" class="btn sm icon" data-act="down" title="جابه‌جایی به پایین" aria-label="پایین" ${i === slides.length - 1 ? 'disabled' : ''}>${ICON.down}</button>
@@ -1675,6 +1691,10 @@ function campRow(o, checked, attr, extra){
 }
 function renderSettings(R){
   destroyCharts();
+  if(!R.minDate){
+    $('#view').innerHTML = backBar(R) + '<div class="error-box">شیت این مشتری هنوز دیتایی نداره؛ تنظیمات بعد از اومدن دیتا باز می‌شه.</div>';
+    return;
+  }
   const cfg = S.cfg, defs = metricDefs(R), d = S.data;
   const per = cfg.period || {preset:'lastWeek'};
   const win = d.win || {from:R.minDate, to:R.maxDate};
@@ -1708,16 +1728,21 @@ function renderSettings(R){
         ${[1, 2, 3].map(n => `<option value="${n}" ${(s.cols || []).length === n ? 'selected' : ''}>${fa(n)}</option>`).join('')}</select></div>` : '';
     const own = Array.isArray(s.campaigns);
     const ownSet = new Set(own ? s.campaigns : []);
-    const camps = s.type === 'cover' ? '' : `
+    const only = slideParts(R, s);
+    const parts = s.type === 'cover' || !R.merged ? '' : `
+      <div class="field"><span>بخش‌هایی که این اسلاید نشون می‌ده</span><div class="metric-checks">
+        ${R.parts.map(p => `<label class="check"><input type="checkbox" data-s="${i}" data-spart="${esc(p.id)}" ${!only || only.includes(p.id) ? 'checked' : ''}>${esc(p.title)}</label>`).join('')}
+      </div></div>`;
+    const camps = s.type === 'cover' ? '' : parts + `
       <div class="field"><span>کمپین‌هایی که تو دیتای این اسلاید شمرده می‌شن</span>
         <select class="inp" data-s="${i}" data-prop="campMode" style="max-width:340px">
           <option value="report" ${own ? '' : 'selected'}>مثل کل گزارش</option>
           <option value="own" ${own ? 'selected' : ''}>انتخاب دستی برای همین اسلاید</option></select></div>
       ${own ? `<div class="row" style="margin-bottom:8px"><button type="button" class="btn sm" data-sall="${i}">همه</button><button type="button" class="btn sm" data-snone="${i}">هیچ‌کدوم</button></div>
-        <div class="camp-list sm">${opts.filter(o => o.active || ownSet.has(o.key)).map(o => campRow(o, ownSet.has(o.key), `data-s="${i}" data-scamp`)).join('')
+        <div class="camp-list sm">${opts.filter(o => (o.active || ownSet.has(o.key)) && (!only || only.includes(o.part.id))).map(o => campRow(o, ownSet.has(o.key), `data-s="${i}" data-scamp`)).join('')
           || '<div class="camp-row"><span></span><span>توی این بازه کمپینی نیست</span></div>'}</div>` : ''}`;
     return `<details class="slide-set ${s.on === false ? 'off' : ''}" id="set-${esc(s.id)}" ${S.focusSlide === s.id ? 'open' : ''}>
-      <summary><span class="num">${fa(i + 1)}</span><span class="t">${esc(s.title || SLIDE_TYPES[s.type])}<span class="ty">${esc(SLIDE_TYPES[s.type])}${own ? ' — کمپین‌های انتخابی' : ''}</span></span>
+      <summary><span class="num">${fa(i + 1)}</span><span class="t">${esc(s.title || SLIDE_TYPES[s.type])}<span class="ty">${esc(SLIDE_TYPES[s.type])}${own ? ' — کمپین‌های انتخابی' : ''}${only ? ' — فقط ' + esc(partsLabel(R, s)) : ''}</span></span>
         <label class="check" onclick="event.stopPropagation()"><input type="checkbox" data-s="${i}" data-prop="on" ${s.on !== false ? 'checked' : ''}>نمایش</label></summary>
       <div class="body">
         ${s.type === 'cover' ? '<p class="hint">عنوان، برچسب و لوگوی جلد از بخش «عنوان و ظاهر» بالا میاد؛ روی خود اسلاید هم قابل ویرایشه.</p>'
@@ -1901,6 +1926,12 @@ function wireSettings(R){
       el.checked ? set.add(el.dataset.metric) : set.delete(el.dataset.metric);
       // Keep the order of the metric list, which is the order on the slide.
       s.metrics = metricDefs(R).map(m => m.id).filter(id => set.has(id));
+    }else if(el.dataset.spart !== undefined){
+      const boxes = $$(`[data-s="${el.dataset.s}"][data-spart]`);
+      const ids = boxes.filter(b => b.checked).map(b => b.dataset.spart);
+      if(!ids.length){ el.checked = true; toast('حداقل یه بخش باید بمونه'); return; }
+      if(ids.length === boxes.length) delete s.parts; else s.parts = ids;
+      saveCfg(); rerender(['set-' + s.id]); return;
     }else if(el.dataset.scamp !== undefined){
       const set = new Set(s.campaigns || []);
       el.checked ? set.add(el.dataset.scamp) : set.delete(el.dataset.scamp);
