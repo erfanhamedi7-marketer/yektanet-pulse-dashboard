@@ -207,6 +207,7 @@
   .client-card.new{border-style:dashed;border-width:2px;border-color:var(--border-strong);box-shadow:none;background:transparent;justify-content:center;font-weight:700;color:var(--text-muted);}
   .client-card.new svg{width:20px;height:20px;flex-shrink:0;}
   .client-card{text-decoration:none;}
+  .own-period{border:1px dashed var(--border-strong);border-radius:16px;padding:12px 14px 2px;margin-bottom:14px;background:var(--surface-2);}
   .ml-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:0 16px;}
   .ml-grid .field{margin-bottom:10px;}
   .swatches{display:flex;gap:8px;flex-wrap:wrap;}
@@ -1003,8 +1004,10 @@ function rowsFor(R, win, sel, only){
 function allRows(R){
   return rowsFor(R, {from:R.minDate, to:R.maxDate}, 'ALL');
 }
-function resolvePeriod(R){
-  const per = S.cfg.period || {preset:'lastWeek'};
+// `per` is a period setting — the report's (cfg.period) or a slide's own
+// (slide.period): a preset or custom dates, plus days left out (`exclude`).
+function resolvePeriod(R, per){
+  per = per || S.cfg.period || {preset:'lastWeek'};
   const min = R.minDate, max = R.maxDate;
   if(!min || !max) return null;
   const clamp = w => ({from: w.from < min ? min : w.from, to: w.to > max ? max : w.to});
@@ -1022,14 +1025,23 @@ function resolvePeriod(R){
   }
   return {from:min, to:max};
 }
-function computeData(R, sel, only){
-  const win = resolvePeriod(R);
-  if(!win) return {win:null, rows:[], prevRows:[], t:totals([]), pt:null, days:0};
+// Days left out of a period (a holiday, a day the tracking broke) are left
+// out of the comparison too: the same day of the period before, so the two
+// sides still cover like days.
+function excludedIn(per, win){
+  return win ? (per && per.exclude || []).filter(d => d >= win.from && d <= win.to).sort() : [];
+}
+function computeData(R, sel, only, per){
+  per = per || S.cfg.period;
+  const win = resolvePeriod(R, per);
+  if(!win) return {win:null, rows:[], prevRows:[], t:totals([]), pt:null, days:0, excluded:[]};
   const days = daysBetween(win.from, win.to);
   const prev = {from:addDays(win.from, -days), to:addDays(win.from, -1)};
-  const rows = rowsFor(R, win, sel, only);
-  const prevRows = rowsFor(R, prev, sel, only);
-  return {win, prev, days, rows, prevRows, t:totals(rows), pt:prevRows.length ? totals(prevRows) : null};
+  const excluded = excludedIn(per, win);
+  const skip = new Set(excluded), skipPrev = new Set(excluded.map(d => addDays(d, -days)));
+  const rows = rowsFor(R, win, sel, only).filter(r => !skip.has(r.date));
+  const prevRows = rowsFor(R, prev, sel, only).filter(r => !skipPrev.has(r.date));
+  return {win, prev, days, rows, prevRows, excluded, t:totals(rows), pt:prevRows.length ? totals(prevRows) : null};
 }
 // A slide of a merged report may show only some of its parts (Arzplus web
 // alone); a part since removed from the report no longer counts.
@@ -1041,9 +1053,10 @@ function slideParts(R, s){
 function dataFor(s){
   const only = slideParts(S.report, s);
   const own = s && Array.isArray(s.campaigns);
-  if(!own && !only) return S.data;
-  const key = (own ? s.campaigns.slice().sort().join('|') : '*') + '#' + (only ? only.join('|') : '*');
-  return S.cache[key] || (S.cache[key] = computeData(S.report, own ? new Set(s.campaigns) : campaignSelection(S.report), only));
+  const per = s && s.period && s.period.preset ? s.period : null;   // a slide's own period
+  if(!own && !only && !per) return S.data;
+  const key = (own ? s.campaigns.slice().sort().join('|') : '*') + '#' + (only ? only.join('|') : '*') + '#' + (per ? JSON.stringify(per) : '*');
+  return S.cache[key] || (S.cache[key] = computeData(S.report, own ? new Set(s.campaigns) : campaignSelection(S.report), only, per || S.cfg.period));
 }
 function partsLabel(R, s){
   const only = slideParts(R, s);
@@ -1114,7 +1127,8 @@ function slideHead(R, s, kicker){
 function slideFoot(R, num){
   return `<footer class="s-foot">${E('foot', esc(R.title + ' · ' + S.cfg.title))}<span class="s-num">${fa(num).padStart(2, '۰')}</span></footer>`;
 }
-const periodOf = d => d.win ? periodLabel(d.win.from, d.win.to) : '';
+const periodOf = d => !d.win ? '' : periodLabel(d.win.from, d.win.to)
+  + (d.excluded && d.excluded.length ? ` (به‌جز ${d.excluded.map(jDay).join('، ')})` : '');
 function compareWords(days){
   return days === 7 ? {cur:'هفته‌ی گذشته', prev:'هفته‌ی قبلش', vs:'نسبت به هفته‌ی قبل'}
        : days === 1 ? {cur:'دیروز', prev:'روز قبلش', vs:'نسبت به روز قبل'}
@@ -1557,7 +1571,7 @@ function renderDeck(R){
   $('#view').innerHTML = backBar(R) + `<div class="deck" id="deck">${slides.map((s, i) => `
     <div class="slide-item" data-sid="${esc(s.id)}">
       <div class="slide-tools">
-        <span class="lbl"><b>${fa(i + 1)}</b>${esc(SLIDE_TYPES[s.type] || s.type)}${isEdited(s.id) ? ' <span class="badge">ویرایش‌شده</span>' : ''}${Array.isArray(s.campaigns) ? ` — <span title="این اسلاید فقط کمپین‌های انتخابی خودش رو می‌شمره">${fa(s.campaigns.length)} کمپین انتخابی</span>` : ''}${partsLabel(R, s) ? ` — فقط ${esc(partsLabel(R, s))}` : ''}</span>
+        <span class="lbl"><b>${fa(i + 1)}</b>${esc(SLIDE_TYPES[s.type] || s.type)}${isEdited(s.id) ? ' <span class="badge">ویرایش‌شده</span>' : ''}${Array.isArray(s.campaigns) ? ` — <span title="این اسلاید فقط کمپین‌های انتخابی خودش رو می‌شمره">${fa(s.campaigns.length)} کمپین انتخابی</span>` : ''}${partsLabel(R, s) ? ` — فقط ${esc(partsLabel(R, s))}` : ''}${s.period && s.period.preset ? ' — بازه‌ی جدا' : ''}</span>
         <span class="grp">
           <button type="button" class="btn sm icon" data-act="up" title="جابه‌جایی به بالا" aria-label="بالا" ${i === 0 ? 'disabled' : ''}>${ICON.up}</button>
           <button type="button" class="btn sm icon" data-act="down" title="جابه‌جایی به پایین" aria-label="پایین" ${i === slides.length - 1 ? 'disabled' : ''}>${ICON.down}</button>
@@ -1746,6 +1760,28 @@ function campRow(o, checked, attr, extra){
     <span class="nm" title="${esc(o.label)}">${esc(o.label)}${S.report.merged ? `<span class="pt">${esc(o.part.title)}</span>` : ''}</span>
     <span class="cs">${esc(fa(o.cost))}</span>${extra || '<span></span>'}</label>`;
 }
+// Presets, dates and left-out days, for the report (scope 'r') or a slide
+// (scope = its index).
+const jWeekday = ymd => jalali(ymd, {weekday:'long', day:'numeric', month:'long'}, 'wdm');
+function periodEditor(R, per, scope){
+  const win = resolvePeriod(R, per) || {from:R.minDate, to:R.maxDate};
+  const excl = excludedIn(per, win);
+  const days = [];
+  for(let d = win.from; d <= win.to && days.length < 400; d = addDays(d, 1)) days.push(d);
+  const kept = daysBetween(win.from, win.to) - excl.length;
+  return `<div class="chips">${PRESETS.map(([k, v]) => `<button type="button" class="chip ${per.preset === k ? 'on' : ''}" data-pscope="${scope}" data-preset="${k}">${esc(v)}</button>`).join('')}</div>
+    <div class="row">
+      <label class="field"><span>از</span><input class="inp" type="date" data-pscope="${scope}" data-pend="from" value="${esc(ymdToIso(win.from))}" min="${esc(ymdToIso(R.minDate))}" max="${esc(ymdToIso(R.maxDate))}"></label>
+      <label class="field"><span>تا</span><input class="inp" type="date" data-pscope="${scope}" data-pend="to" value="${esc(ymdToIso(win.to))}" min="${esc(ymdToIso(R.minDate))}" max="${esc(ymdToIso(R.maxDate))}"></label>
+      <div class="field" style="flex:2 1 260px"><span>بازه‌ی انتخاب‌شده</span><div style="padding:9px 0;font-weight:700">${esc(periodLabel(win.from, win.to))} — ${fa(kept)} روز${excl.length ? ` (${fa(excl.length)} روز حذف‌شده)` : ''}</div></div>
+    </div>
+    <div class="row" style="align-items:center;margin-bottom:12px">
+      <label class="field" style="flex:0 1 240px;margin-bottom:0"><span>حذف یه روز از بازه</span>
+        <select class="inp" data-pscope="${scope}" data-pexadd><option value="">انتخاب روز…</option>
+          ${days.filter(d => !excl.includes(d)).map(d => `<option value="${d}">${esc(jWeekday(d))}</option>`).join('')}</select></label>
+      ${excl.length ? `<div class="chips" style="margin:18px 0 0">${excl.map(d => `<button type="button" class="chip on" data-pscope="${scope}" data-pexdel="${d}" title="برگردوندن این روز">${esc(jWeekday(d))} ✕</button>`).join('')}</div>` : ''}
+    </div>`;
+}
 function renderSettings(R){
   destroyCharts();
   if(!R.minDate){
@@ -1790,11 +1826,18 @@ function renderSettings(R){
     const own = Array.isArray(s.campaigns);
     const ownSet = new Set(own ? s.campaigns : []);
     const only = slideParts(R, s);
+    const ownPer = !!(s.period && s.period.preset);
+    const perBlock = s.type === 'cover' ? '' : `
+      <div class="field"><span>بازه‌ی این اسلاید</span>
+        <select class="inp" data-s="${i}" data-prop="perMode" style="max-width:340px">
+          <option value="report" ${ownPer ? '' : 'selected'}>مثل کل گزارش</option>
+          <option value="own" ${ownPer ? 'selected' : ''}>بازه‌ی جدا برای همین اسلاید</option></select></div>
+      ${ownPer ? `<div class="own-period">${periodEditor(R, s.period, i)}</div>` : ''}`;
     const parts = s.type === 'cover' || !R.merged ? '' : `
       <div class="field"><span>بخش‌هایی که این اسلاید نشون می‌ده</span><div class="metric-checks">
         ${R.parts.map(p => `<label class="check"><input type="checkbox" data-s="${i}" data-spart="${esc(p.id)}" ${!only || only.includes(p.id) ? 'checked' : ''}>${esc(p.title)}</label>`).join('')}
       </div></div>`;
-    const camps = s.type === 'cover' ? '' : parts + `
+    const camps = s.type === 'cover' ? '' : perBlock + parts + `
       <div class="field"><span>کمپین‌هایی که تو دیتای این اسلاید شمرده می‌شن</span>
         <select class="inp" data-s="${i}" data-prop="campMode" style="max-width:340px">
           <option value="report" ${own ? '' : 'selected'}>مثل کل گزارش</option>
@@ -1803,7 +1846,7 @@ function renderSettings(R){
         <div class="camp-list sm">${opts.filter(o => (o.active || ownSet.has(o.key)) && (!only || only.includes(o.part.id))).map(o => campRow(o, ownSet.has(o.key), `data-s="${i}" data-scamp`)).join('')
           || '<div class="camp-row"><span></span><span>توی این بازه کمپینی نیست</span></div>'}</div>` : ''}`;
     return `<details class="slide-set ${s.on === false ? 'off' : ''}" id="set-${esc(s.id)}" ${S.focusSlide === s.id ? 'open' : ''}>
-      <summary><span class="num">${fa(i + 1)}</span><span class="t">${esc(s.title || SLIDE_TYPES[s.type])}<span class="ty">${esc(SLIDE_TYPES[s.type])}${own ? ' — کمپین‌های انتخابی' : ''}${only ? ' — فقط ' + esc(partsLabel(R, s)) : ''}</span></span>
+      <summary><span class="num">${fa(i + 1)}</span><span class="t">${esc(s.title || SLIDE_TYPES[s.type])}<span class="ty">${esc(SLIDE_TYPES[s.type])}${ownPer ? ' — بازه‌ی جدا' : ''}${own ? ' — کمپین‌های انتخابی' : ''}${only ? ' — فقط ' + esc(partsLabel(R, s)) : ''}</span></span>
         <label class="check" onclick="event.stopPropagation()"><input type="checkbox" data-s="${i}" data-prop="on" ${s.on !== false ? 'checked' : ''}>نمایش</label></summary>
       <div class="body">
         ${s.type === 'cover' ? '<p class="hint">عنوان، برچسب و لوگوی جلد از بخش «عنوان و ظاهر» بالا میاد؛ روی خود اسلاید هم قابل ویرایشه.</p>'
@@ -1821,13 +1864,8 @@ function renderSettings(R){
   const tplN = templateCount();
 
   $('#view').innerHTML = backBar(R) + `<div class="set-grid">
-    <section class="card"><h3>بازه‌ی گزارش</h3><p class="hint">دیتای شیت از ${esc(jFull(R.minDate))} تا ${esc(jFull(R.maxDate))}ه. امروز هیچ‌وقت حساب نمی‌شه.</p>
-      <div class="chips">${PRESETS.map(([k, v]) => `<button type="button" class="chip ${per.preset === k ? 'on' : ''}" data-preset="${k}">${esc(v)}</button>`).join('')}</div>
-      <div class="row">
-        <label class="field"><span>از</span><input class="inp" type="date" id="pFrom" value="${esc(ymdToIso(win.from))}" min="${esc(ymdToIso(R.minDate))}" max="${esc(ymdToIso(R.maxDate))}"></label>
-        <label class="field"><span>تا</span><input class="inp" type="date" id="pTo" value="${esc(ymdToIso(win.to))}" min="${esc(ymdToIso(R.minDate))}" max="${esc(ymdToIso(R.maxDate))}"></label>
-        <div class="field" style="flex:2 1 260px"><span>بازه‌ی انتخاب‌شده</span><div style="padding:9px 0;font-weight:700">${esc(periodLabel(win.from, win.to))} — ${fa(daysBetween(win.from, win.to))} روز</div></div>
-      </div>
+    <section class="card"><h3>بازه‌ی گزارش</h3><p class="hint">دیتای شیت از ${esc(jFull(R.minDate))} تا ${esc(jFull(R.maxDate))}ه. امروز هیچ‌وقت حساب نمی‌شه. هر اسلاید می‌تونه بازه‌ی خودش رو داشته باشه (تنظیمات همون اسلاید).</p>
+      ${periodEditor(R, per, 'r')}
       <label class="check"><input type="checkbox" id="cmpToggle" ${cfg.compare ? 'checked' : ''}>مقایسه با بازه‌ی هم‌طولِ قبل (درصد تغییر روی کارت‌ها)</label>
     </section>
 
@@ -1920,19 +1958,47 @@ function wireSettings(R){
     open.forEach(id => { const x = document.getElementById(id); if(x) x.open = true; });
     window.scrollTo(0, y);
   };
-  $$('[data-preset]').forEach(b => b.addEventListener('click', () => {
-    cfg.period = {preset:b.dataset.preset};
-    if(b.dataset.preset === 'custom' && S.data.win) Object.assign(cfg.period, S.data.win);
-    saveCfg(); rerender();
-  }));
-  const setCustom = () => {
-    const f = $('#pFrom').value, t = $('#pTo').value;
-    if(!f || !t) return;
-    cfg.period = {preset:'custom', from:isoToYmd(f), to:isoToYmd(t)};
-    saveCfg(); rerender();
+  // Period editors: the report's (scope 'r') and each slide's own.
+  const perOf = scope => scope === 'r' ? (cfg.period = cfg.period || {preset:'lastWeek'}) : cfg.slides[+scope].period;
+  const setPer = (scope, per) => {
+    // Left-out days stay only while they fall inside the new period.
+    const win = resolvePeriod(R, per);
+    per.exclude = excludedIn({exclude:(perOf(scope) || {}).exclude}, win);
+    if(!per.exclude.length) delete per.exclude;
+    if(scope === 'r') cfg.period = per; else cfg.slides[+scope].period = per;
+    saveCfg(); rerender(scope === 'r' ? [] : ['set-' + cfg.slides[+scope].id]);
   };
-  $('#pFrom').addEventListener('change', setCustom);
-  $('#pTo').addEventListener('change', setCustom);
+  view.addEventListener('click', e => {
+    const b = e.target.closest('[data-pscope][data-preset],[data-pscope][data-pexdel]');
+    if(!b) return;
+    const scope = b.dataset.pscope, cur = perOf(scope);
+    if(b.dataset.preset){
+      const per = {preset:b.dataset.preset};
+      if(per.preset === 'custom'){ const w = resolvePeriod(R, cur); if(w) Object.assign(per, w); }
+      setPer(scope, per);
+    }else{
+      cur.exclude = (cur.exclude || []).filter(d => d !== b.dataset.pexdel);
+      if(!cur.exclude.length) delete cur.exclude;
+      saveCfg(); rerender(scope === 'r' ? [] : ['set-' + cfg.slides[+scope].id]);
+    }
+  });
+  view.addEventListener('change', e => {
+    const el = e.target;
+    if(el.dataset.pscope === undefined) return;
+    const scope = el.dataset.pscope, cur = perOf(scope);
+    if(el.dataset.pend){
+      const box = el.closest('.row');
+      const f = $('[data-pend="from"]', box).value, t = $('[data-pend="to"]', box).value;
+      if(f && t) setPer(scope, {preset:'custom', from:isoToYmd(f), to:isoToYmd(t)});
+    }else if(el.dataset.pexadd !== undefined && el.value){
+      cur.exclude = Array.from(new Set([...(cur.exclude || []), el.value])).sort();
+      const win = resolvePeriod(R, cur);
+      if(win && excludedIn(cur, win).length >= daysBetween(win.from, win.to)){
+        cur.exclude.pop(); toast('حداقل یه روز باید تو بازه بمونه'); el.value = ''; return;
+      }
+      saveCfg(); rerender(scope === 'r' ? [] : ['set-' + cfg.slides[+scope].id]);
+    }
+  });
   $('#cmpToggle').addEventListener('change', e => { cfg.compare = e.target.checked; saveCfg(); });
   $$('[data-cfg]').forEach(inp => inp.addEventListener('change', () => { cfg[inp.dataset.cfg] = inp.value.trim(); saveCfg(); }));
   $('#logoPick').addEventListener('click', () => $('#logoFile').click());
@@ -1993,13 +2059,19 @@ function wireSettings(R){
   // Slides
   view.addEventListener('change', e => {
     const el = e.target;
-    if(el.dataset.s === undefined || el.dataset.camp !== undefined) return;
+    if(el.dataset.s === undefined || el.dataset.camp !== undefined || el.dataset.pscope !== undefined) return;
     const s = cfg.slides[+el.dataset.s];
     if(el.dataset.metric){
       const set = new Set(s.metrics || []);
       el.checked ? set.add(el.dataset.metric) : set.delete(el.dataset.metric);
       // Keep the order of the metric list, which is the order on the slide.
       s.metrics = metricDefs(R).map(m => m.id).filter(id => set.has(id));
+    }else if(el.dataset.prop === 'perMode'){
+      if(el.value === 'own'){
+        // Starts as a copy of the report's period.
+        s.period = JSON.parse(JSON.stringify(cfg.period || {preset:'lastWeek'}));
+      }else delete s.period;
+      saveCfg(); rerender(['set-' + s.id]); return;
     }else if(el.dataset.spart !== undefined){
       const boxes = $$(`[data-s="${el.dataset.s}"][data-spart]`);
       const ids = boxes.filter(b => b.checked).map(b => b.dataset.spart);
