@@ -1249,16 +1249,12 @@ function talaseaSections(){
           web[2]];
 }
 
-// The app campaigns are named one way in the cost tab and another in Metrix,
-// so the two only meet once folded (Erfan, 25 Oct): a Cafe Bazaar campaign
-// keeps its name — Metrix calls cafe-search just "search" and misspells
-// cafe-discovery-co-install — and every other campaign is the one in-app
-// campaign, cost and installs together.
-const TALASEA_INAPP = 'inapp (همه‌ی کمپین‌های درون اپلیکیشن)';
+// The cost and Metrix tabs now share their campaign names (Erfan, 31 Oct), so
+// the two join campaign by campaign. Metrix still spells two of them its own
+// way: cafe-search is just "search", and cafe-discovery-co-install is misspelt.
 function talaseaAppKey(key){
   if(key === 'search') return 'cafe-search';
-  if(key.startsWith('cafe')) return key.replace('dicovery', 'discovery');
-  return TALASEA_INAPP;
+  return key.startsWith('cafe') ? key.replace('dicovery', 'discovery') : key;
 }
 // Like Ramzarz News: installs are the conversion (CPI), Verification is priced
 // beside them, and the in-app and Cafe Bazaar campaigns are drawn apart.
@@ -1275,6 +1271,9 @@ function talaseaAppSection(id, title, brand, hasCafe){
     refSheet: `${brand} - Metrix`,
     costSheet: `${brand} - App`,
     campaignKey: talaseaAppKey,
+    // Campaign is the join key; Metrix's old campaigns the cost tab never
+    // names (no installs, a stray Verification or two) drop out.
+    refCampaignsFromCost: true,
     conversionCol: 'Total Installs',
     conversionLabel: 'نصب',
     cpaLabel: 'CPI',
@@ -1287,7 +1286,9 @@ function talaseaAppSection(id, title, brand, hasCafe){
     hideDeepAnalysis: true,
     cpiGroups: [
       {id:'all',  title:'کلی',           sub:'همه‌ی کمپین‌های اپ'},
-      {id:'app',  title:'درون اپلیکیشن', sub:'همه‌ی کمپین‌های غیر کافه بازار، با هم', prefix:'inapp', creativeTable:true},
+      // In-app campaigns have no shared prefix (1405, winzy-kyc, w1-ins): they
+      // are simply the ones that aren't Cafe Bazaar's.
+      {id:'app',  title:'درون اپلیکیشن', sub:'کمپین‌های غیر کافه بازار', notPrefix:'cafe', campaignTable:true, creativeTable:true},
       ...(hasCafe ? [{id:'cafe', title:'کافه بازار', sub:'کمپین‌های cafe-', prefix:'cafe', campaignTable:true}] : [])
     ],
     ownDateFilter: true,
@@ -4314,6 +4315,7 @@ function renderCostCpaChart(project, key, canvasId, joined, cpaLabel){
 // A campaign group is either everything, or the campaigns whose name starts
 // with a prefix (inapp- for in-app, cb- for Cafe Bazaar).
 function cpiGroupFilter(group){
+  if(group.notPrefix) return key => !key.startsWith(group.notPrefix);
   return group.prefix ? (key => key.startsWith(group.prefix)) : (() => true);
 }
 
