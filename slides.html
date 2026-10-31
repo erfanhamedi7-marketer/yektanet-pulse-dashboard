@@ -2070,9 +2070,19 @@ document.addEventListener('keydown', e => {
 document.addEventListener('fullscreenchange', () => { if(!document.fullscreenElement && $('#present')) closePresent(); });
 window.addEventListener('resize', showPresent);
 
+// Export file name, Erfan's pattern: «گزارش کمپین بانکینو - 2 تا 8 آبان» —
+// Latin day numbers, Persian month, no year; the month is written once when
+// both ends share it.
 function fileBase(){
   const w = S.data.win;
-  return `${S.report.id}-slides${w ? '-' + w.from + '-' + w.to : ''}`;
+  const day = ymd => jalali(ymd, {day:'numeric', month:'long', numberingSystem:'latn'}, 'dml');
+  const dayOnly = ymd => jalali(ymd, {day:'numeric', numberingSystem:'latn'}, 'dl');
+  const month = ymd => jalali(ymd, {month:'long'}, 'm');
+  let range = '';
+  if(w) range = w.from === w.to ? day(w.from)
+    : month(w.from) === month(w.to) ? `${dayOnly(w.from)} تا ${day(w.to)}` : `${day(w.from)} تا ${day(w.to)}`;
+  const name = `گزارش کمپین ${S.report.title}${range ? ' - ' + range : ''}`;
+  return name.replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim();
 }
 function exportPdf(){
   const box = $('#printDeck');
