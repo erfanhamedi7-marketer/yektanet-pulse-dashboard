@@ -162,7 +162,14 @@
     border:1px solid var(--border);background:#fff;color:var(--negative);font-size:13px;line-height:1;cursor:pointer;padding:0;
   }
   body.editing .s-table tbody tr:hover .row-x, body.editing .ct-t:hover .row-x{display:block;}
-  .ct-t .row-x{left:12px;top:12px;transform:none;}
+  .ct-t .row-x{left:46px;top:12px;transform:none;}
+  .card-grip{
+    display:none;position:absolute;left:12px;top:12px;width:28px;height:28px;border-radius:9px;border:1px solid #E3DACA;
+    background:#fff;color:#6B6E7C;font-size:16px;line-height:1;padding:0;cursor:grab;z-index:2;touch-action:none;
+  }
+  body.editing .kpi-t:hover .card-grip, body.editing .ct-t:hover .card-grip, .dragging .card-grip{display:block;}
+  .dragging{opacity:.6;outline:2px dashed var(--accent);outline-offset:2px;}
+  .dragging .card-grip{cursor:grabbing;}
 
   /* Settings */
   .set-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:18px;}
@@ -1111,6 +1118,8 @@ function applyEdits(el, sid){
   if(document.body.classList.contains('editing')) $$('[data-k]', el).forEach(n => n.setAttribute('contenteditable', 'true'));
 }
 const rk = k => String(k).replace(/[^\w؀-ۿ-]/g, '_');
+// The handle a card is dragged by, on the page only (never in an export).
+const GRIP = '<button type="button" class="card-grip" data-grip title="بکش تا جابه‌جا بشه" aria-label="جابه‌جا کردن">⠿</button>';
 
 // ---------- Slides ----------
 function slideHead(R, s, kicker){
@@ -1166,12 +1175,17 @@ function renderTypesSlide(R, s, num){
   const level = s.level || 'medium';
   const dimId = level === 'campaign' ? (anyBudget(R) ? 'campaignName' : 'campaign') : level;
   const groups = groupRows(R, d.rows, dimId).groups;
+  // Tiles dragged into an order of their own keep it; new ones go last.
+  if(Array.isArray(s.tileOrder)){
+    const at = k => { const i = s.tileOrder.indexOf(rk(k)); return i < 0 ? Infinity : i; };
+    groups.sort((a, b) => at(a.key) - at(b.key));
+  }
   const n = groups.length;
   const cols = n <= 2 ? Math.max(n, 1) : n <= 4 ? 2 : n <= 9 ? 3 : 4;
   const many = n > 6;
   const tiles = groups.map((g, i) => {
     const key = rk(g.key);
-    return `<div class="ct-t" data-row="${esc(key)}"><span class="ct-n">${fa(i + 1)}</span>
+    return `<div class="ct-t" data-row="${esc(key)}" data-card="${esc(key)}">${GRIP}<span class="ct-n">${fa(i + 1)}</span>
       <div style="min-width:0">${E('ct:' + key, esc(g.name), 'نام', 'div', 'ct-name' + (level === 'campaign' ? ' ltr' : ''))}
       ${E('cd:' + key, '', 'توضیح (اختیاری)', 'div', 'ct-d')}</div>
       <button type="button" class="row-x" data-hide="${esc(key)}" title="حذف از اسلاید">×</button></div>`;
@@ -1193,7 +1207,7 @@ function renderKpis(R, s, num){
   const tiles = ms.map(id => {
     const def = defs[id];
     const v = metricValue(id, d.t, d.t), pv = d.pt ? metricValue(id, d.pt, d.pt) : null;
-    return `<div class="kpi-t">
+    return `<div class="kpi-t" data-card="${esc(id)}">${GRIP}
       ${E('l:' + id, esc(def.label), '', 'div', 'kpi-l')}
       ${E('v:' + id, esc(fmtMetric(def, v)), '', 'div', 'kpi-v')}
       ${def.money ? E('u:' + id, 'تومان', '', 'div', 'kpi-u') : ''}
@@ -1642,6 +1656,40 @@ function wireDeck(R){
     fitSlideText(slide);
   });
   // Pasting keeps the words, not the formatting of wherever they came from.
+  // Dragging a card (KPI card, campaign-type tile) by its handle: the card
+  // moves live under the pointer and the new order is saved with the slide.
+  deck.addEventListener('pointerdown', e => {
+    const grip = e.target.closest('[data-grip]');
+    if(!grip || !document.body.classList.contains('editing')) return;
+    e.preventDefault();
+    const card = grip.closest('[data-card]'), grid = card.parentElement;
+    card.classList.add('dragging');
+    // Listened for on the document: moving the card in the page would drop a
+    // pointer capture on its handle mid-drag.
+    const move = ev => {
+      const under = document.elementFromPoint(ev.clientX, ev.clientY);
+      const target = under && under.closest('[data-card]');
+      if(!target || target === card || target.parentElement !== grid) return;
+      const cards = Array.from(grid.children);
+      grid.insertBefore(card, cards.indexOf(target) > cards.indexOf(card) ? target.nextSibling : target);
+    };
+    const up = () => {
+      document.removeEventListener('pointermove', move);
+      document.removeEventListener('pointerup', up);
+      document.removeEventListener('pointercancel', up);
+      card.classList.remove('dragging');
+      const sid = card.closest('.slide').dataset.sid;
+      const s = S.cfg.slides.find(x => x.id === sid);
+      const ids = Array.from(grid.children).map(c => c.dataset.card);
+      if(s.type === 'kpis') s.metrics = [...ids, ...(s.metrics || []).filter(id => !ids.includes(id))];
+      else s.tileOrder = ids;
+      saveCfg();
+      renderDeck(R);
+    };
+    document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', up);
+    document.addEventListener('pointercancel', up);
+  });
   deck.addEventListener('paste', e => {
     if(!e.target.closest('[data-k]')) return;
     e.preventDefault();
@@ -2065,7 +2113,11 @@ function wireSettings(R){
       const set = new Set(s.metrics || []);
       el.checked ? set.add(el.dataset.metric) : set.delete(el.dataset.metric);
       // Keep the order of the metric list, which is the order on the slide.
-      s.metrics = metricDefs(R).map(m => m.id).filter(id => set.has(id));
+      // Keeps the order the cards were dragged into; a new one goes last.
+      s.metrics = el.checked ? Array.from(set).sort((a, b) => {
+        const ia = (s.metrics || []).indexOf(a), ib = (s.metrics || []).indexOf(b);
+        return (ia < 0 ? Infinity : ia) - (ib < 0 ? Infinity : ib);
+      }) : (s.metrics || []).filter(id => set.has(id));
     }else if(el.dataset.prop === 'perMode'){
       if(el.value === 'own'){
         // Starts as a copy of the report's period.
@@ -2181,7 +2233,7 @@ function snapshot(slideEl){
     c.replaceWith(img);
   });
   $$('[contenteditable]', clone).forEach(n => n.removeAttribute('contenteditable'));
-  $$('.row-x', clone).forEach(n => n.remove());
+  $$('.row-x, .card-grip', clone).forEach(n => n.remove());
   $$('[data-k]', clone).forEach(n => {
     if(!n.textContent.trim() && !n.querySelector('img')) n.classList.add('x-empty');
     n.removeAttribute('data-ph'); n.removeAttribute('data-k');
