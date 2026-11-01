@@ -133,6 +133,16 @@
   .slide-tools{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 4px;}
   .slide-tools .lbl{font-size:12.5px;color:var(--text-muted);font-weight:600;}
   .slide-tools .lbl b{color:var(--text);margin-left:6px;}
+  .slide-grip{
+    border:1px solid var(--border);background:var(--surface);border-radius:8px;width:28px;height:28px;padding:0;margin-left:8px;
+    cursor:grab;touch-action:none;font-size:15px;line-height:1;color:var(--text-muted);vertical-align:middle;
+  }
+  .slide-grip:hover{border-color:var(--border-strong);color:var(--text);}
+  .deck.sorting{gap:8px;user-select:none;}
+  .deck.sorting .s-frame, .deck.sorting .add-slide, .deck.sorting .slide-tools .grp{display:none;}
+  .deck.sorting .slide-item{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:8px 10px;}
+  .slide-item.sdragging{outline:2px dashed var(--accent-ink);outline-offset:2px;background:var(--accent-soft) !important;}
+  .slide-item.sdragging .slide-grip{cursor:grabbing;}
   .slide-tools .grp{display:flex;gap:4px;}
   .s-frame{
     position:relative;width:100%;aspect-ratio:16/9;border-radius:18px;overflow:hidden;
@@ -1609,7 +1619,7 @@ function renderDeck(R){
   $('#view').innerHTML = backBar(R) + `<div class="deck" id="deck">${slides.map((s, i) => `
     <div class="slide-item" data-sid="${esc(s.id)}">
       <div class="slide-tools">
-        <span class="lbl"><b>${fa(i + 1)}</b>${esc(SLIDE_TYPES[s.type] || s.type)}${isEdited(s.id) ? ' <span class="badge">ویرایش‌شده</span>' : ''}${Array.isArray(s.campaigns) ? ` — <span title="این اسلاید فقط کمپین‌های انتخابی خودش رو می‌شمره">${fa(s.campaigns.length)} کمپین انتخابی</span>` : ''}${partsLabel(R, s) ? ` — فقط ${esc(partsLabel(R, s))}` : ''}${s.period && s.period.preset ? ' — بازه‌ی جدا' : ''}</span>
+        <span class="lbl"><button type="button" class="slide-grip" data-sgrip title="بکش تا ترتیب اسلاید عوض بشه" aria-label="جابه‌جا کردن اسلاید">⠿</button><b>${fa(i + 1)}</b>${esc(SLIDE_TYPES[s.type] || s.type)}${isEdited(s.id) ? ' <span class="badge">ویرایش‌شده</span>' : ''}${Array.isArray(s.campaigns) ? ` — <span title="این اسلاید فقط کمپین‌های انتخابی خودش رو می‌شمره">${fa(s.campaigns.length)} کمپین انتخابی</span>` : ''}${partsLabel(R, s) ? ` — فقط ${esc(partsLabel(R, s))}` : ''}${s.period && s.period.preset ? ' — بازه‌ی جدا' : ''}</span>
         <span class="grp">
           <button type="button" class="btn sm icon" data-act="up" title="جابه‌جایی به بالا" aria-label="بالا" ${i === 0 ? 'disabled' : ''}>${ICON.up}</button>
           <button type="button" class="btn sm icon" data-act="down" title="جابه‌جایی به پایین" aria-label="پایین" ${i === slides.length - 1 ? 'disabled' : ''}>${ICON.down}</button>
@@ -1680,6 +1690,53 @@ function wireDeck(R){
     fitSlideText(slide);
   });
   // Pasting keeps the words, not the formatting of wherever they came from.
+  // Dragging a whole slide by the handle in its toolbar. While it is held the
+  // deck folds into a list of names (frames hidden), so a slide crosses the
+  // deck in one short move; the deck scrolls itself near the window's edges.
+  deck.addEventListener('pointerdown', e => {
+    const grip = e.target.closest('[data-sgrip]');
+    if(!grip) return;
+    e.preventDefault();
+    const item = grip.closest('.slide-item');
+    const before = item.getBoundingClientRect().top;
+    deck.classList.add('sorting');
+    item.classList.add('sdragging');
+    // Keep the held slide under the pointer after the deck folds.
+    window.scrollBy(0, item.getBoundingClientRect().top - before);
+    let lastY = e.clientY, timer = null;
+    const place = () => {
+      const others = $$('.slide-item', deck).filter(x => x !== item);
+      const next = others.find(x => { const r = x.getBoundingClientRect(); return lastY < r.top + r.height / 2; });
+      deck.insertBefore(item, next || $('.add-slide', deck));
+    };
+    const edge = () => {
+      const zone = 70;
+      const v = lastY < zone ? -(zone - lastY) : lastY > innerHeight - zone ? lastY - (innerHeight - zone) : 0;
+      if(v){ window.scrollBy(0, v / 3); place(); }
+      timer = requestAnimationFrame(edge);
+    };
+    timer = requestAnimationFrame(edge);
+    const move = ev => { lastY = ev.clientY; place(); };
+    const up = () => {
+      cancelAnimationFrame(timer);
+      document.removeEventListener('pointermove', move);
+      document.removeEventListener('pointerup', up);
+      document.removeEventListener('pointercancel', up);
+      const order = $$('.slide-item', deck).map(x => x.dataset.sid);
+      // Hidden slides keep their places; the shown ones take the new order.
+      const byId = new Map(S.cfg.slides.map(x => [x.id, x]));
+      let k = 0;
+      S.cfg.slides = S.cfg.slides.map(sl => sl.on === false ? sl : byId.get(order[k++]));
+      saveCfg();
+      const sid = item.dataset.sid;
+      renderDeck(R);
+      const moved = $(`.slide-item[data-sid="${CSS.escape(sid)}"]`);
+      if(moved) moved.scrollIntoView({block:'center'});
+    };
+    document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', up);
+    document.addEventListener('pointercancel', up);
+  });
   // Dragging a card (KPI card, campaign-type tile) by its handle: the card
   // moves live under the pointer and the new order is saved with the slide.
   deck.addEventListener('pointerdown', e => {
