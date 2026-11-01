@@ -206,7 +206,7 @@
   .check input{width:16px;height:16px;accent-color:var(--text);margin:0;}
   .metric-checks{display:flex;flex-wrap:wrap;gap:8px 16px;}
   .camp-list{max-height:420px;overflow:auto;border:1px solid var(--border);border-radius:16px;}
-  .camp-row{display:grid;grid-template-columns:auto minmax(0,1fr) 120px 160px;gap:10px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--surface-3);font-size:13px;}
+  .camp-row{display:grid;grid-template-columns:auto minmax(0,1fr) 110px 170px 150px;gap:10px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--surface-3);font-size:13px;}
   .camp-row:last-child{border-bottom:none;}
   .camp-row .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:ltr;text-align:right;}
   .camp-row .cs{color:var(--text-muted);font-size:12px;text-align:left;direction:ltr;}
@@ -275,7 +275,7 @@
     .deck-actions .btn{padding:8px;}
     .s-frame{border-radius:10px;}
     .card{padding:18px 16px;}
-    .camp-row{grid-template-columns:auto minmax(0,1fr) 110px;}
+    .camp-row{grid-template-columns:auto minmax(0,1fr) 92px 92px;}
     .camp-row .cs{display:none;}
     .row-x{display:none !important;}
   }
@@ -873,18 +873,22 @@ function guessMedium(key){
   for(const [re, m] of MEDIUM_GUESS) if(re.test(k)) return m;
   return null;
 }
-function autoMedium(R, key){
+// A campaign type set by hand in the settings (cfg.types) wins over the
+// sheet's Campaign Type column; the medium follows whichever type applies.
+function sheetType(R, key){
   const {part, raw} = splitKey(R, key);
-  const types = core.campaignTypes(part);
-  return (types[raw] && core.campaignTypeGroup(types[raw])) || guessMedium(raw) || 'سایر';
+  return core.campaignTypes(part)[raw] || '';
+}
+function autoMedium(R, key){
+  const t = (S.cfg.types && S.cfg.types[key]) || sheetType(R, key);
+  return (t && core.campaignTypeGroup(t)) || guessMedium(splitKey(R, key).raw) || 'سایر';
 }
 function mediumOf(R, key){
   return (S.cfg.mediums && S.cfg.mediums[key]) || autoMedium(R, key);
 }
 // The sheet's own Campaign Type ("پوش - کلیکی"), where there is one.
 function rawType(R, key){
-  const {part, raw} = splitKey(R, key);
-  return core.campaignTypes(part)[raw] || mediumOf(R, key);
+  return (S.cfg.types && S.cfg.types[key]) || sheetType(R, key) || mediumOf(R, key);
 }
 function dimDefs(R){
   const d = [
@@ -892,7 +896,7 @@ function dimDefs(R){
     {id:'week', label:'هفته', chrono:true, key:r => isoToYmd(core.weekStartFor(r.date)), name:k => 'هفته‌ی ' + jDay(k)},
     {id:'campaign', label:'کمپین', ltr:true, key:r => r.campaign, name:(k, r) => r.campaignLabel || r.raw || k},
     {id:'medium', label:'مدیوم', key:r => mediumOf(R, r.campaign), name:k => k},
-    {id:'type', label:'Campaign Type', key:r => rawType(R, r.campaign), name:k => k}
+    {id:'type', label:'نوع کمپین', key:r => rawType(R, r.campaign), name:k => k}
   ];
   if(anyBudget(R)) d.splice(3, 0, {id:'campaignName', label:'Campaign Name', ltr:true,
     key:r => r.cname || r.campaign, name:(k, r) => r.campaignName || r.campaignLabel || k});
@@ -920,7 +924,7 @@ const SLIDE_TYPES = {
   cover:'جلد', campaigns:'کمپین‌های اجرا شده (نوع کمپین‌ها)', kpis:'آمار کلی (کارت‌ها)', chart:'نمودار', table:'جدول مقایسه', text:'متن / تحلیل', section:'جداکننده'
 };
 const CHART_TYPES = {combo:'ستونی + خطی', bar:'ستونی', hbar:'ستونی افقی', line:'خطی', doughnut:'دایره‌ای'};
-const LIST_LEVELS = {medium:'مدیوم (گروه نوع کمپین)', type:'Campaign Type شیت', campaign:'اسم کمپین‌ها'};
+const LIST_LEVELS = {medium:'مدیوم (گروه نوع کمپین)', type:'نوع کمپین (از شیت یا تنظیمات)', campaign:'اسم کمپین‌ها'};
 const PRESETS = [
   ['lastWeek', 'هفته قبل'], ['last7', '۷ روز اخیر'], ['last30', '۳۰ روز اخیر'], ['sinceSat', 'از شنبه'],
   ['yesterday', 'دیروز'], ['all', 'کل بازه'], ['custom', 'دلخواه']
@@ -1249,11 +1253,14 @@ function renderKpis(R, s, num){
 }
 function tableHtml(R, s, d, groups, metricIds, dim){
   const defs = defsById(R), all = d.t;
+  // A campaign table may carry each campaign's type beside its name.
+  const typeCol = !!s.typeCol && dim.id === 'campaign';
   const max = Math.max(1, +s.maxRows || 10);
   let shown = groups, rest = [];
   if(groups.length > max){ shown = groups.slice(0, max - 1); rest = groups.slice(max - 1); }
   const head = [
     `<th>${E('h:dim', esc(dim.label), '', 'span')}</th>`,
+    typeCol ? `<th>${E('h:type', 'نوع کمپین', '', 'span')}</th>` : '',
     ...metricIds.map(id => `<th class="n" data-card="${esc(id)}">${GRIP}${E('h:' + id, esc(defs[id].label + (defs[id].money ? ' (تومان)' : '')), '', 'span')}</th>`)
   ].join('');
   const cells = (rowKey, t) => metricIds.map(id => {
@@ -1266,12 +1273,13 @@ function tableHtml(R, s, d, groups, metricIds, dim){
     const key = rk(g.key);
     return `<tr data-row="${esc(key)}">
       <td class="nm ${dim.ltr ? 'ltr' : ''}">${E('c:' + key + ':name', esc(g.name), '', 'span')}<button type="button" class="row-x" data-hide="${esc(key)}" title="حذف این ردیف از اسلاید">×</button></td>
+      ${typeCol ? `<td>${E('c:' + key + ':type', `<span class="pill">${esc(rawType(R, g.key))}</span>`, '', 'span')}</td>` : ''}
       ${cells(key, g.t)}</tr>`;
   }).join('');
   const other = rest.length ? `<tr class="oth" data-row="__rest">
       <td class="nm">${E('c:__rest:name', esc(`سایر (${fa(rest.length)} مورد)`), '', 'span')}<button type="button" class="row-x" data-hide="__rest" title="حذف این ردیف از اسلاید">×</button></td>
-      ${cells('__rest', totals(rest.flatMap(g => g.rows)))}</tr>` : '';
-  const tot = `<tr class="tot"><td>${E('c:__tot:name', 'مجموع', '', 'span')}</td>${cells('__tot', all)}</tr>`;
+      ${typeCol ? '<td></td>' : ''}${cells('__rest', totals(rest.flatMap(g => g.rows)))}</tr>` : '';
+  const tot = `<tr class="tot"><td>${E('c:__tot:name', 'مجموع', '', 'span')}</td>${typeCol ? '<td></td>' : ''}${cells('__tot', all)}</tr>`;
   const dense = shown.length + (rest.length ? 1 : 0) > 8 || metricIds.length > 6;
   return `<table class="s-table ${dense ? 'dense' : ''}"><thead><tr>${head}</tr></thead><tbody>${body}${other}${tot}</tbody></table>`;
 }
@@ -1668,6 +1676,13 @@ function fitSlideText(slide){
     let size = parseFloat(getComputedStyle(el).fontSize);
     while(el.scrollWidth > el.clientWidth + 1 && size > 14){ size -= 1; el.style.fontSize = size + 'px'; }
   });
+  // A table taller than the slide's body is scaled down as a whole (CSS zoom
+  // changes layout, so the total row lands inside the slide).
+  $$('.s-body > .s-table', slide).forEach(t => {
+    t.style.zoom = '';
+    const room = t.parentElement.clientHeight, h = t.offsetHeight;
+    if(h > room) t.style.zoom = Math.max(0.55, room / h).toFixed(3);
+  });
   $$('.an-body', slide).forEach(el => {
     el.style.fontSize = '';
     const box = el.parentElement;
@@ -1889,10 +1904,11 @@ const isEdited = sid => !!((S.cfg.tpl && S.cfg.tpl[sid] && Object.keys(S.cfg.tpl
 
 // ---------- Settings page ----------
 function campRow(o, checked, attr, extra){
+  if(!extra) extra = '<span></span><span></span>';
   return `<label class="camp-row" data-q="${esc((o.label + ' ' + (o.part ? o.part.title : '')).toLowerCase())}">
     <input type="checkbox" ${attr}="${esc(o.key)}" ${checked ? 'checked' : ''}>
     <span class="nm" title="${esc(o.label)}">${esc(o.label)}${S.report.merged ? `<span class="pt">${esc(o.part.title)}</span>` : ''}</span>
-    <span class="cs">${esc(fa(o.cost))}</span>${extra || '<span></span>'}</label>`;
+    <span class="cs">${esc(fa(o.cost))}</span>${extra}</label>`;
 }
 // Presets, dates and left-out days, for the report (scope 'r') or a slide
 // (scope = its index).
@@ -1936,6 +1952,8 @@ function renderSettings(R){
   const mediumRows = someBudget
     ? Array.from(new Map(allRows(R).filter(r => r.cname && r.date >= win.from && r.date <= win.to).map(r => [r.campaign, r.campaignLabel || r.raw])).entries())
     : [];
+  const typeInput = key => `<input class="inp" list="typeList" data-ctype="${esc(key)}" value="${esc((cfg.types || {})[key] || '')}" placeholder="${esc(sheetType(R, key) || autoMedium(R, key))}" aria-label="نوع کمپین">`;
+  const typeNames = Array.from(new Set([...R.parts.flatMap(p => Object.values(core.campaignTypes(p))), ...Object.values(cfg.types || {})].filter(Boolean)));
   const medInput = key => `<input class="inp" list="mediumList" data-medium="${esc(key)}" value="${esc((cfg.mediums || {})[key] || '')}" placeholder="${esc(autoMedium(R, key))}" aria-label="مدیوم">`;
   const isBudgetKey = key => splitKey(R, key).part.kind === 'budget';
   const slideOpts = (s, i) => {
@@ -1955,6 +1973,7 @@ function renderSettings(R){
         ${Object.entries(CHART_TYPES).map(([k, v]) => `<option value="${k}" ${s.chart === k ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select></div>` : '';
     const rows = s.type === 'table' ? `<div class="field"><span>حداکثر ردیف</span>
         <input class="inp" type="number" min="2" max="20" data-s="${i}" data-prop="maxRows" value="${esc(s.maxRows || 10)}"></div>` : '';
+    const tcol = s.type === 'table' && s.dim === 'campaign' ? `<label class="check" style="flex:0 0 auto;margin-bottom:14px"><input type="checkbox" data-s="${i}" data-prop="typeCol" ${s.typeCol ? 'checked' : ''}>ستون «نوع کمپین»</label>` : '';
     const cols = s.type === 'text' ? `<div class="field"><span>تعداد ستون</span><select class="inp" data-s="${i}" data-prop="ncols">
         ${[1, 2, 3].map(n => `<option value="${n}" ${(s.cols || []).length === n ? 'selected' : ''}>${fa(n)}</option>`).join('')}</select></div>` : '';
     const own = Array.isArray(s.campaigns);
@@ -1985,7 +2004,7 @@ function renderSettings(R){
         <label class="check" onclick="event.stopPropagation()"><input type="checkbox" data-s="${i}" data-prop="on" ${s.on !== false ? 'checked' : ''}>نمایش</label></summary>
       <div class="body">
         ${s.type === 'cover' ? '<p class="hint">عنوان، برچسب و لوگوی جلد از بخش «عنوان و ظاهر» بالا میاد؛ روی خود اسلاید هم قابل ویرایشه.</p>'
-          : `<div class="row"><div class="field"><span>عنوان اسلاید</span><input class="inp" data-s="${i}" data-prop="title" value="${esc(s.title)}"></div>${dims}${level}${ctype}${rows}${cols}</div>`}
+          : `<div class="row"><div class="field"><span>عنوان اسلاید</span><input class="inp" data-s="${i}" data-prop="title" value="${esc(s.title)}"></div>${dims}${level}${ctype}${rows}${tcol}${cols}</div>`}
         ${mets}${camps}
         <div class="set-foot">
           <button type="button" class="btn sm" data-move="${i}" data-dir="-1" ${i === 0 ? 'disabled' : ''}>${ICON.up}بالا</button>
@@ -2033,7 +2052,7 @@ function renderSettings(R){
 
     <section class="card"><h3>${budgetOnly ? 'Campaign Nameها' : 'کمپین‌ها و مدیوم'} (کل گزارش)</h3>
       <p class="hint">گزارش فقط ${budgetOnly ? 'Campaign Nameهای' : 'کمپین‌های'} تیک‌خورده رو می‌شمره؛ هر اسلاید می‌تونه انتخاب خودش رو داشته باشه (پایین، تنظیمات همون اسلاید). لیست: کمپین‌هایی که تو این بازه دیتا دارن، به ترتیب هزینه.
-        مدیوم هر کمپین از ستون Campaign Type شیت (اگه باشه) یا اسم کمپین حدس زده می‌شه؛ برای عوض کردنش بنویس.</p>
+        «نوع کمپین» از ستون Campaign Type شیت میاد (اگه باشه) و مدیوم از نوع کمپین یا اسم کمپین حدس زده می‌شه؛ برای عوض کردن هر کدوم بنویس. نوع کمپین تو اسلاید «کمپین‌های اجرا شده» (حالت «نوع کمپین»)، بُعد «نوع کمپین» جدول و نمودار، و ستون «نوع کمپین» جدول کمپین‌ها دیده می‌شه.</p>
       <div class="row" style="margin-bottom:10px">
         <input class="search" id="campSearch" type="search" placeholder="جست‌وجو…" aria-label="جست‌وجوی کمپین" style="flex:1">
         <button type="button" class="btn sm" id="campAll">همه</button>
@@ -2041,11 +2060,12 @@ function renderSettings(R){
         ${Array.isArray(cfg.campaigns) ? '<button type="button" class="btn sm" id="campDefault">پیش‌فرض</button>' : ''}
       </div>
       <div class="camp-list" id="reportCamps">
-        <div class="camp-row camp-head"><span></span><span>کمپین</span><span class="cs">هزینه‌ی بازه</span><span>مدیوم</span></div>
-        ${shown.length ? shown.map(o => campRow(o, sel === 'ALL' || sel.has(o.key), 'data-camp', isBudgetKey(o.key) ? '<span></span>' : medInput(o.key))).join('')
+        <div class="camp-row camp-head"><span></span><span>کمپین</span><span class="cs">هزینه‌ی بازه</span><span>نوع کمپین</span><span>مدیوم</span></div>
+        ${shown.length ? shown.map(o => campRow(o, sel === 'ALL' || sel.has(o.key), 'data-camp', isBudgetKey(o.key) ? '<span></span><span></span>' : typeInput(o.key) + medInput(o.key))).join('')
           : '<div class="camp-row"><span></span><span>توی این بازه کمپینی نیست</span></div>'}
       </div>
-      ${mediumRows.length ? `<h3 style="margin-top:18px">مدیوم کمپین‌ها${someBudget && !budgetOnly ? ' (بخش‌های بودجه‌ای)' : ''}</h3><div class="camp-list">${mediumRows.map(([k, l]) => `<div class="camp-row"><span></span><span class="nm">${esc(l)}</span><span class="cs"></span>${medInput(k)}</div>`).join('')}</div>` : ''}
+      ${mediumRows.length ? `<h3 style="margin-top:18px">نوع کمپین و مدیوم${someBudget && !budgetOnly ? ' (بخش‌های بودجه‌ای)' : ''}</h3><div class="camp-list">${mediumRows.map(([k, l]) => `<div class="camp-row"><span></span><span class="nm">${esc(l)}</span><span class="cs"></span>${typeInput(k)}${medInput(k)}</div>`).join('')}</div>` : ''}
+      <datalist id="typeList">${typeNames.map(t => `<option value="${esc(t)}">`).join('')}</datalist>
       <datalist id="mediumList">${mediumNames.map(m => `<option value="${esc(m)}">`).join('')}</datalist>
     </section>
 
@@ -2184,6 +2204,12 @@ function wireSettings(R){
   $('#campNone').addEventListener('click', () => setAllVisible(false));
   const cd = $('#campDefault');
   if(cd) cd.addEventListener('click', () => { cfg.campaigns = null; saveCfg(); rerender(); });
+  $$('[data-ctype]').forEach(inp => inp.addEventListener('change', () => {
+    cfg.types = cfg.types || {};
+    const v = inp.value.trim();
+    if(v) cfg.types[inp.dataset.ctype] = v; else delete cfg.types[inp.dataset.ctype];
+    saveCfg(); rerender();   // the medium's default follows the type
+  }));
   $$('[data-medium]').forEach(inp => inp.addEventListener('change', () => {
     cfg.mediums = cfg.mediums || {};
     const v = inp.value.trim();
@@ -2231,6 +2257,11 @@ function wireSettings(R){
     }else if(el.dataset.prop === 'on'){
       s.on = el.checked;
       el.closest('.slide-set').classList.toggle('off', !el.checked);
+    }else if(el.dataset.prop === 'typeCol'){
+      s.typeCol = el.checked;
+    }else if(el.dataset.prop === 'dim' && s.type === 'table'){
+      s.dim = el.value;
+      saveCfg(); rerender(['set-' + s.id]); return;   // the type-column option depends on it
     }else if(el.dataset.prop === 'maxRows'){
       s.maxRows = Math.max(2, Math.min(20, +el.value || 10));
     }else if(el.dataset.prop === 'ncols'){
