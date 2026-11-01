@@ -1605,7 +1605,7 @@ const ALL_PROJECTS = [
     // sign_up was added to the Metrix tab later: its cost counts only from the
     // first day the column carries a value. It comes before v2_national in the
     // funnel, so a rate against it would read over 100% — no rate column.
-    costPerMetrics: [{col:'sign_up', label:'Sign Up', sinceFirst:true, campaignTable:true, countCard:true, noRate:true}],
+    costPerMetrics: [{col:'sign_up', label:'Sign Up', sinceFirst:true, campaignTable:true, countCard:true, noRate:true, inMessage:true}],
     adgroupCol: 'Ad Group',
     creativeCol: 'Creative',
     impressionsCol: 'Impression',
@@ -4763,11 +4763,20 @@ function messageRows(project, window){
   // A deal-priced section (Talaeen CPA) bills the client per conversion; the
   // panel's own spend is internal and stays out of the message.
   const billed = r => project.dealPrice ? r.conversion * project.dealPrice : r.cost;
+  // A further event the message reports (inMessage), with the cost it is priced
+  // on: like its card, only from the day its column was first filled.
+  const events = (project.costPerMetrics || []).filter(m => m.inMessage)
+    .map(m => ({col: m.col, since: m.sinceFirst ? extraSinceDate(project, m.col) : null}));
   return computeSection(project, window).joined.map(r => ({
     date: r.date, campaign: r.campaign, campaignLabel: r.campaignLabel, cost: billed(r), impressions: r.impressions || 0, clicks: r.clicks || 0,
     sessions: spec.sessions ? spec.sessions(r) : 0,
     installs: spec.installs ? spec.installs(r) : 0,
     action: spec.action ? spec.action(r) : 0,
+    events: events.map(e => ({
+      col: e.col,
+      count: (r.extras && r.extras[e.col]) || 0,
+      cost: (!e.since || r.date >= e.since) ? billed(r) : 0
+    })),
     // Every further column, for slides.html (core mode reads them all).
     extras: r.extras, costExtras: r.costExtras
   }));
@@ -4790,15 +4799,22 @@ function messageFields(project){
     // get a cost-per line of their own (Agah: «ایونت», cost per session).
     actionLabel: project.messageActionLabel || 'اکشن مدنظر',
     actionShort: project.messageActionLabel || 'اکشن',
-    sessionCost: !!project.messageSessionCost
+    sessionCost: !!project.messageSessionCost,
+    // Further events the message reports (Wepod: Sign Up).
+    events: (project.costPerMetrics || []).filter(m => m.inMessage && any(ref, r => (r.extras && r.extras[m.col]) || 0))
+      .map(m => ({col: m.col, name: m.label || m.col}))
   };
   return has;
 }
 function messageTotals(rows){
   return rows.reduce((t, r) => {
     ['cost', 'impressions', 'clicks', 'sessions', 'installs', 'action'].forEach(k => { t[k] += r[k] || 0; });
+    (r.events || []).forEach(e => {
+      const x = t.events[e.col] = t.events[e.col] || {count:0, cost:0};
+      x.count += e.count; x.cost += e.cost;
+    });
     return t;
-  }, {cost:0, impressions:0, clicks:0, sessions:0, installs:0, action:0});
+  }, {cost:0, impressions:0, clicks:0, sessions:0, installs:0, action:0, events:{}});
 }
 function messageLines(t, has){
   const lines = [`هزینه: ${msgNum(t.cost)}`];
@@ -4814,6 +4830,12 @@ function messageLines(t, has){
     lines.push(`تعداد نصب: ${msgNum(t.installs)}`);
     lines.push(`هزینه به ازای نصب: ${t.installs > 0 ? msgNum(t.cost / t.installs) : '—'}`);
   }
+  // Same right-to-left mark as CTR: a Latin name right before the figure.
+  (has.events || []).forEach(m => {
+    const x = (t.events && t.events[m.col]) || {count:0, cost:0};
+    lines.push(`تعداد ${m.name}‏: ${msgNum(x.count)}`);
+    lines.push(`هزینه به ازای ${m.name}‏: ${x.count > 0 ? msgNum(x.cost / x.count) : '—'}`);
+  });
   if(has.action){
     lines.push(`تعداد ${has.actionLabel}: ${msgNum(t.action)}`);
     lines.push(`هزینه به ازای ${has.actionLabel}: ${t.action > 0 ? msgNum(t.cost / t.action) : '—'}`);

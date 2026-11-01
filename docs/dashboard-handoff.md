@@ -75,7 +75,7 @@
 | `ownDateFilter`, `defaultRangeDays` | فیلتر تاریخ مخصوص سکشن (پیش‌فرض ۳۰ روز) |
 | `hideDeepAnalysis`, `hideSegmentAnalysis` | پنهان کردن کارت تحلیل عمیق / جدول‌های Adgroup–Creative |
 | `showInstalls`, `installsCol`, `installsLabel`, `adgroupCol`, `creativeCol`, `impressionsCol`, `clicksCol` | ستون‌ها |
-| `costPerMetrics` | کارت‌های «هزینه به ازای X» برای ستون‌های اضافه‌ی شیت مرجع: `{col, label, sinceFirst, campaignTable, countCard, noRate}`. `sinceFirst` = هزینه فقط از اولین روزی که این ستون پر شده حساب بشه (Signup رمزارز). `campaignTable` = تعداد/نرخ/هزینه به ازاش تو جدول کمپین هم بیاد. `countCard` = تعداد یه کارت جدا داشته باشه. `noRate` = ستون نرخ (X ÷ تبدیل اصلی) تو جدول نیاد (CTA Click آگاه) |
+| `costPerMetrics` | کارت‌های «هزینه به ازای X» برای ستون‌های اضافه‌ی شیت مرجع: `{col, label, sinceFirst, campaignTable, countCard, noRate, inMessage}`. `inMessage` = تعداد و هزینه به ازاش تو متن گزارش مشتری هم بیاد (ویپاد: Sign Up). `sinceFirst` = هزینه فقط از اولین روزی که این ستون پر شده حساب بشه (Signup رمزارز). `campaignTable` = تعداد/نرخ/هزینه به ازاش تو جدول کمپین هم بیاد. `countCard` = تعداد یه کارت جدا داشته باشه. `noRate` = ستون نرخ (X ÷ تبدیل اصلی) تو جدول نیاد (CTA Click آگاه) |
 | `costExtraCols` | ستون‌های اضافه که از **شیت هزینه** خونده می‌شن (KYC طلاین وب): کارت + ستون تعداد و هزینه به ازا تو جدول کمپین. `convRate: 'STC'` = یه ستون نرخ هم بیاد: تبدیل اصلی ÷ این ستون (آگاه تا ۲۵ اکتبر: Sessions ÷ Click؛ الان هیچ پروژه‌ای استفاده‌ش نمی‌کنه) |
 | `hideZeroConversionCampaigns` | کمپینی که تو بازه‌ی انتخابی تبدیل اصلیش صفره (با هزینه‌ش) کلاً حذف بشه؛ لیست فیلتر هم فقط کمپین‌هایی که یه‌بار تبدیل داشتن رو نشون می‌ده (آگاه) |
 | `campaignKey(key)` | اسم کمپین (نرمال‌شده) رو قبل از join روی هر دو شیت به یه کلید دیگه می‌بره؛ برای وقتی دو شیت کمپین‌ها رو یه‌جور نمی‌نویسن (اپ طلاسی/نقره‌سی) |
@@ -135,7 +135,7 @@
 
 ### ویپاد — `wepod`
 - شیت `18ohsYVwngt7UJ5BwvBBWdhpQ2IOxO4b08-D4OMm2VEQ`. `Wepod - Metrix` (تبدیل `v2_national`) × `Wepod - Yektanet`.
-- **Sign Up** (از ۱ نوامبر): ستون `sign_up` تب Metrix با `costPerMetrics` (`sinceFirst`، `campaignTable`، `countCard`، `noRate`): کارت «Sign Up کل» و «هزینه به ازای Sign Up»، و دو ستون تو جدول کمپین. هزینه‌اش فقط از اولین روزی که ستون پر شده حساب می‌شه. ستون نرخ نداره چون Sign Up قبل از v2_national تو قیفه و نسبتش بالای ۱۰۰٪ می‌شد. تبدیل اصلی و CPA و متن گزارش مشتری همچنان روی `v2_national`ه. با دیتای ساختگی تست شده، نه دیتای واقعی این ستون (بخش بزرگ شیت از لاگین و محدودیت Drive رد نمی‌شه).
+- **Sign Up** (از ۱ نوامبر): ستون `sign_up` تب Metrix با `costPerMetrics` (`sinceFirst`، `campaignTable`، `countCard`، `noRate`): کارت «Sign Up کل» و «هزینه به ازای Sign Up»، و دو ستون تو جدول کمپین. هزینه‌اش فقط از اولین روزی که ستون پر شده حساب می‌شه. ستون نرخ نداره چون Sign Up قبل از v2_national تو قیفه و نسبتش بالای ۱۰۰٪ می‌شد. تبدیل اصلی و CPA همچنان روی `v2_national`ه. تو **متن گزارش مشتری** هم با `inMessage` خط‌های «تعداد Sign Up» و «هزینه به ازای Sign Up» بعد از نصب میان (`v2_national` همون «اکشن مدنظر» و مبنای جمله‌ی مقایسه می‌مونه). با دیتای ساختگی تست شده، نه دیتای واقعی این ستون (بخش بزرگ شیت از لاگین و محدودیت Drive رد نمی‌شه).
 
 ### بلو — گروه `blue` (۳ بخش، از ۱۱ اکتبر)
 - **بلو** (`blue`): شیت `1DdhvkT6gVXKoDiicgXnXHTq32yZg3aGpJx97RT4wYeU`. `Adtrace` (`Card Order`) × `Yektanet`. همه‌ی کمپین‌ها **به‌جز `biz-`** (بلو بیزینس)، **همه‌ی** کمپین‌هایی که با `bj` شروع می‌شن، و `inapp-cpc-shareit` و `lba-bazar` (لیست `BLUE_DROPPED`). تا ۲۷ اکتبر `bj-inapp-cpi` استثنا بود و حساب می‌شد؛ عرفان ۲۷ اکتبر گفت این سه تا حذف بشن.
@@ -509,6 +509,7 @@
 
 **۱ نوامبر ۲۰۲۶**
 55. ویپاد: رویداد **Sign Up** (ستون `sign_up` تب Metrix): کارت تعداد و هزینه به ازا، و دو ستون تو جدول کمپین؛ تو `index.html` و `report.html`.
+56. ویپاد: Sign Up به متن گزارش مشتری هم اضافه شد (`inMessage`).
 
 ### کارهای باز
 - **ظاهر اسلایدها مطابق نمونه‌ی عرفان** (`Report.html` رو کامپیوترش): فایل باید تو ریپو (یا چت) بیاد تا طراحی دقیقاً مثل اون بشه. (منتظر عرفان)
