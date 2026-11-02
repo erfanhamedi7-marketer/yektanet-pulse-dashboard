@@ -538,6 +538,17 @@ function localKeyOf(rk){
 }
 const remote = {state:'unknown', reason:null, pending:new Map(), timer:null, busy:false, savedAt:null};
 const SYNCED_KEY = 'slides:synced';
+// Server keys changed here but not yet confirmed saved. Kept in this
+// browser's storage, so a change made just before a reload (whose last send
+// may not get through) still wins over the server's older copy next time.
+const PENDING_KEY = 'slides:pending';
+const pendingKeys = () => new Set(local.get(PENDING_KEY, []));
+function setPending(add, remove){
+  const p = pendingKeys();
+  (add || []).forEach(k => p.add(k));
+  (remove || []).forEach(k => p.delete(k));
+  local.set(PENDING_KEY, Array.from(p));
+}
 function syncStatus(kind){
   if(kind === 'pending') setStatus('loading', 'در حال ذخیره…');
   else if(kind === 'saved') setStatus('live', 'ذخیره شد — ' + new Date().toLocaleTimeString('fa-IR', {hour:'2-digit', minute:'2-digit'}));
@@ -563,15 +574,19 @@ async function remoteLoad(prefix){
     const items = (await res.json()).items || {};
     remote.state = 'on';
     const seen = new Set();
+    const unsent = pendingKeys();
     Object.entries(items).forEach(([rk, it]) => {
       const lk = localKeyOf(rk);
       if(!lk) return;
       seen.add(lk);
-      if(!remote.pending.has(rk)) local.set(lk, it.value);
+      if(remote.pending.has(rk)) return;
+      // Changed here and never confirmed: this browser's copy is the newer one.
+      if(unsent.has(rk)){ queueRemote(lk, local.get(lk, null)); return; }
+      local.set(lk, it.value);
     });
     const synced = new Set(local.get(SYNCED_KEY, []));
     local.keys().filter(lk => { const rk = remoteKey(lk); return rk && rk.startsWith(prefix) && !seen.has(lk); })
-      .forEach(lk => { synced.has(prefix) ? local.del(lk) : queueRemote(lk, local.get(lk, null)); });
+      .forEach(lk => { synced.has(prefix) && !unsent.has(remoteKey(lk)) ? local.del(lk) : queueRemote(lk, local.get(lk, null)); });
     synced.add(prefix);
     local.set(SYNCED_KEY, Array.from(synced));
     return true;
@@ -584,6 +599,7 @@ function queueRemote(lk, value){
   const rk = remoteKey(lk);
   if(!rk || (remote.state === 'off' && remote.reason === 'no_store')) return;
   remote.pending.set(rk, value === undefined ? null : value);
+  setPending([rk]);
   clearTimeout(remote.timer);
   // Typing sends one save a few seconds after it stops, not one per letter:
   // Google allows the service account 60 requests a minute.
@@ -592,7 +608,7 @@ function queueRemote(lk, value){
 }
 async function flushRemote(keepalive){
   if(remote.busy || !remote.pending.size) return;
-  clearTimeout(remote.timer);
+  clearTimeout(remote.timer); remote.timer = null;
   const items = Array.from(remote.pending, ([key, value]) => ({key, value}));
   remote.pending.clear();
   remote.busy = true;
@@ -602,7 +618,9 @@ async function flushRemote(keepalive){
     if(res.status === 401){ window.dashAuth.expired(); return; }
     if(!res.ok) throw new Error(res.status);
     remote.state = 'on';
-    syncStatus('saved');
+    // Confirmed — unless changed again while this send was on its way.
+    setPending(null, items.map(it => it.key).filter(k => !remote.pending.has(k)));
+    if(!remote.pending.size) syncStatus('saved');
   }catch(e){
     items.forEach(it => { if(!remote.pending.has(it.key)) remote.pending.set(it.key, it.value); });
     syncStatus('error');
