@@ -4801,6 +4801,13 @@ function fetchSheetCached(spreadsheetId, sheet){
 }
 
 async function loadProject(project){
+  // A weekly report counts every cost and every conversion, matched or not
+  // (Erfan, 2 Nov): no day of spend is dropped for lack of a conversion row,
+  // and no campaign for lack of conversions.
+  if(project.kind !== 'budget'){
+    project.includeUnmatchedCost = true;
+    project.hideZeroConversionCampaigns = false;
+  }
   try{
     if(project.kind === 'budget'){
       const [blendRows, budgetRows] = await Promise.all([
