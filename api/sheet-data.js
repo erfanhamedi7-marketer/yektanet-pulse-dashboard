@@ -14,6 +14,7 @@ const ALLOWED_SPREADSHEETS = new Set([
   '1dgyCKN89-SF-3IANYg2F9F3tySvjnr4oyn9pbkukAFI', // Snapp Pay
   '1u3kf4CxRJNghQDk-0A7hbYEVktVbprlLfByF2X9gR_c', // Snapp Cab
   '1SUcOo8o0lwtSQH-HCtm8HipVqN52abbI-Ds77ZeotFg', // Snapp Bimeh
+  '1wkhar01OJITwmoR8RhRBivVBJPG7PuylxMzrtDXx-o8', // Snapp Box
   '1VTHX_I9LBBYc0fpVBAUZm2Nn7ihtPqbpxLay_yDlUBE', // Tochal
   '18dU5hlkIxoqF000GjgkPlJ6EbBXU0b_TzP0DAMpiJzw', // Arzplus
   '1fOn7G0qGS98KL-hU2oNZBqoacTkuasmkDZEQGXLKzD0', // Ramzarz News
