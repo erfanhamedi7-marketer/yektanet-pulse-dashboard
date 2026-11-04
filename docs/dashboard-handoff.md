@@ -1,6 +1,6 @@
 # Management Dashboard — راهنمای ادامه‌ی کار (Handoff)
 
-> این فایل خلاصه‌ی کامل تاریخچه، معماری، قوانین کسب‌وکاری و سلیقه‌های طراحی داشبوردیه که تا ۶ اکتبر ۲۰۲۶ ساخته شده (آخرین به‌روزرسانی: ۳ نوامبر ۲۰۲۶ — داشبورد اسنپ‌باکس اضافه شد).
+> این فایل خلاصه‌ی کامل تاریخچه، معماری، قوانین کسب‌وکاری و سلیقه‌های طراحی داشبوردیه که تا ۶ اکتبر ۲۰۲۶ ساخته شده (آخرین به‌روزرسانی: ۴ نوامبر ۲۰۲۶ — فیروزه روی GA4 - Daily Report با فیلتر Campaign Name).
 > توی چت جدید اول این فایل رو بده، بعد ادیت‌هات رو بگو.
 > **به مدل جدید:** قبل از هر تغییری `index.html` رو از روی شاخه‌ی `main` بخون — کد مرجع نهاییه؛ این فایل فقط نقشه‌ست.
 > **جای این فایل:** `docs/dashboard-handoff.md` توی ریپو. هر تغییر اثرگذار (پروژه/قانون/قابلیت/طراحی/تله‌ی فنی جدید) باید تو همون کامیت اینجا هم ثبت بشه — قاعده‌اش تو `CLAUDE.md` ریشه‌ی ریپوئه.
@@ -182,8 +182,12 @@
   - تب App Metrica خیلی بزرگه (~۱۱۰ هزار ردیف پر).
 
 ### فیروزه — `firouzeh`
-- شیت `10hRbyK0f2x7jrzZ8vYgQA8GoG_xONdL73AwXAsPPYLI`، تب `Yektanet - Export` (هم مرجع هم هزینه). تبدیل `Register`، «نصب» = Sessions.
-- **فقط کمپین‌های شامل `sahel`** (`keep` → `excludeCampaign`).
+- شیت `10hRbyK0f2x7jrzZ8vYgQA8GoG_xONdL73AwXAsPPYLI`. **از ۴ نوامبر:** مرجع = تب `GA4 - Daily Report` (ستون‌ها: Date, Session source, Campaign, Session Medium, Campaign Name, Sessions, Engaged sessions, Form OTP)، هزینه = `Yektanet - Export`؛ join روی Date + Campaign (چند ردیف GA4 با source/medium متفاوت جمع می‌شن).
+- تبدیل اصلی **Form OTP** (`cpaLabel` «هزینه به ازای Form OTP»)؛ «نصب» = Sessions GA4؛ کارت‌های **هزینه به ازای Session** (متریک اصلی، خواسته‌ی عرفان) و **Engaged Session** (تعداد + هزینه به ازا)؛ `messageSessionCost`. ستون `Register` یکتانت دیگه خونده نمی‌شه.
+- **فقط از ۲۸ اکتبر** (شروع تب GA4)؛ `rowFilter` روی هر دو تب.
+- **همه‌ی کمپین‌ها** (دیگه فقط sahel نیست) و **همه‌ی هزینه‌ی یکتانت** (`includeUnmatchedCost`).
+- **دو فیلتر: Campaign Name و Campaign** (گزینه‌ی عمومی `campaignNameCol` — هر پروژه‌ی غیر budget می‌تونه داشته باشه): اسم هر کمپین = Campaign Name ی که GA4 بیشتر از همه براش نوشته؛ کمپینی که GA4 نداره (فقط هزینه) زیر `Other` می‌ره. دو لیست همدیگه رو فیلتر می‌کنن، مثل اسنپ. فعلاً سه اسم: `400m`، `Sahel`، `Other`. بدون پیش‌فرض.
+- **تله‌ی داده:** اسم کمپین‌های غیر sahel تو GA4 با یکتانت فرق داره (`rtg_movafaghiat` ↔ `Native-RTG_Movafaghiat`، `rub-pin` ↔ `rub-pin-cl`، `native-rtg`، `AM-securebskt`…). در نتیجه (۲۸ اکتبر تا ۳ نوامبر) حدود ۷ هزار سشن GA4 بدون هزینه‌ان و حدود ۵۴ میلیون تومن هزینه‌ی یکتانت بدون سشن. کارت‌ها کل GA4 رو می‌شمرن ولی جدول کمپین فقط کمپین‌های هزینه‌دار رو، پس جمع سشن جدول (۷۴,۷۶۱) از کارت (۸۱,۸۷۹) کمتره. درمانش یکی شدن UTMها یا یه نگاشت اسم (`campaignKey`) ـه — منتظر عرفان.
 - جدول Adgroup/Creative نداره.
 
 ### تارا — `tara`
@@ -513,6 +517,7 @@
 59. **۲ نوامبر** — گزارش‌های هفتگی (اسلایدی و `report.html`): همه‌ی هزینه‌ها و دیتا حتی بدون مچ (`includeUnmatchedCost`، بدون `hideZeroConversionCampaigns`)؛ داشبورد اصلی همون قبلی.
 60. **۳ نوامبر** — پیش‌فرض اسنپ‌کب = `Snapp City - Oct 2026` + `Nov 2026` + `Box - Nov 2026`.
 61. **۳ نوامبر** — داشبورد **اسنپ‌باکس** (`snappbox`) به گروه اسنپ اضافه شد؛ همون ساختار `Blend Data` × `Budgeting`؛ تو `index.html`، `report.html` و `ALLOWED_SPREADSHEETS`.
+62. **۴ نوامبر** — **فیروزه** بازنویسی شد: GA4 - Daily Report × Yektanet - Export روی Date + Campaign، از ۲۸ اکتبر، همه‌ی کمپین‌ها، تبدیل Form OTP، هزینه به ازای Session و Engaged Session؛ فیلتر **Campaign Name** با گزینه‌ی عمومی تازه‌ی `campaignNameCol` (+ `subtitle` و `extra` برای پارت‌های `yektanetExportSections`). تو `index.html` و `report.html`.
 
 **۲۸ اکتبر ۲۰۲۶**
 45. کارت «متن گزارش برای مشتری» داشبورد اصلی **پیش‌فرض بسته** شد (دکمه‌ی نمایش/بستن).
@@ -528,6 +533,7 @@
 56. ویپاد: Sign Up به متن گزارش مشتری هم اضافه شد (`inMessage`).
 
 ### کارهای باز
+- **فیروزه: اسم کمپین‌های غیر sahel تو GA4 و یکتانت فرق داره** (بخش فیروزه)؛ یکی کردن UTM یا نگاشت اسم. (منتظر عرفان)
 - **ظاهر اسلایدها مطابق نمونه‌ی عرفان** (`Report.html` رو کامپیوترش): فایل باید تو ریپو (یا چت) بیاد تا طراحی دقیقاً مثل اون بشه. (منتظر عرفان)
 - **شیت ذخیره‌ی گزارش اسلایدی:** عرفان یه Google Sheet خالی بسازه، با `data-entry-automation@data-entry-506107.iam.gserviceaccount.com` به‌عنوان Editor شیر کنه و لینک بده؛ آیدیش تو `STORE_SPREADSHEET_ID` در `api/store.js` بره. (منتظر عرفان)
 - مدیوم پروژه‌هایی که ستون Campaign Type ندارن حدس از اسم کمپینه؛ اضافه شدن ستون به خروجی متابیس دقیقش می‌کنه.

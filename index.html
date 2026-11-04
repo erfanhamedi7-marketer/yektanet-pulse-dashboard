@@ -1302,9 +1302,24 @@ function talaseaAppSection(id, title, brand, hasCafe){
 // sessions and the conversion side by side on each Date + Campaign row.
 function yektanetExportSections(){
   const parts = [
+    // Firouzeh (Erfan, 4 Nov): Yektanet brings only the cost; Sessions,
+    // Engaged sessions and Form OTP come from GA4, joined on Date + Campaign,
+    // every campaign, from 28 Oct when the GA4 tab starts.
     {id:'firouzeh',  title:'فیروزه', spreadsheetId:'10hRbyK0f2x7jrzZ8vYgQA8GoG_xONdL73AwXAsPPYLI',
-     conversionCol:'Register', theme: BRANDS.firouzeh, logo:'/Firouzeh%20Logo.jpg',
-     keep: key => key.includes('sahel'), keepLabel:'sahel'},
+     conversionCol:'Form OTP', theme: BRANDS.firouzeh, logo:'/Firouzeh%20Logo.jpg',
+     subtitle:'GA4 - Daily Report (Sessions، Engaged sessions، Form OTP) × Yektanet - Export (هزینه) — از ۲۸ اکتبر',
+     extra:{
+       refSheet: 'GA4 - Daily Report',
+       campaignNameCol: 'Campaign Name',
+       rowFilter: r => normDate(r['Date']) >= '20261028',
+       cpaLabel: 'هزینه به ازای Form OTP',
+       costPerMetrics: [
+         {col:'Sessions', label:'Session', campaignTable:true, noRate:true},
+         {col:'Engaged sessions', label:'Engaged Session', campaignTable:true, countCard:true, noRate:true}
+       ],
+       messageSessionCost: true,
+       includeUnmatchedCost: true
+     }},
     // The install campaigns (inapp-cpi-*) have their own part, read against
     // App Metrica (taraAppSection), so they are left out of this one.
     {id:'tara',      title:'تارا',   spreadsheetId:'1OJcJVwBH2qBftWC9W1ddVgnPXfRuQdzYjYWbGWPqv5Q',
@@ -1323,7 +1338,7 @@ function yektanetExportSections(){
     title: part.title,
     tabTitle: part.title,
     ...(part.group ? {group: part.group, groupTitle: part.groupTitle, partTitle: part.partTitle} : {}),
-    subtitle: `Yektanet - Export — ${part.conversionCol}${part.costPer ? ' و ' + part.costPer.map(m=>m.col).join(' و ') : ''}${part.keepLabel ? ' — فقط کمپین‌های شامل ' + part.keepLabel : ''}${part.dropLabel ? ' — بدون کمپین‌های ' + part.dropLabel : ''}`,
+    subtitle: part.subtitle || `Yektanet - Export — ${part.conversionCol}${part.costPer ? ' و ' + part.costPer.map(m=>m.col).join(' و ') : ''}${part.keepLabel ? ' — فقط کمپین‌های شامل ' + part.keepLabel : ''}${part.dropLabel ? ' — بدون کمپین‌های ' + part.dropLabel : ''}`,
     // keep(campaign) narrows a project to some of its campaigns, cost included.
     ...(part.keep ? {excludeCampaign: key => !part.keep(key)} : {}),
     ...(part.logo ? {logo: part.logo} : {}),
@@ -1343,7 +1358,9 @@ function yektanetExportSections(){
     hideSegmentAnalysis: true,
     ownDateFilter: true,
     defaultRangeDays: 30,
-    theme: part.theme
+    theme: part.theme,
+    // A part that reads its conversions from another tab overrides the above.
+    ...(part.extra || {})
   })).flatMap(section => section.id === 'tara' ? [section, taraAppSection()] : [section]);
 }
 
@@ -1966,10 +1983,52 @@ function normalizeCmpConvRows(rows, col, campaignCol){
 // The second source's conversions in a window, under the same campaign filter
 // as everything else on the section — the two counts compare like for like.
 function cmpConvRows(project, window){
-  const st = projectState[project.id];
   const {from, to} = window || sectionRange(project);
+  const inCampaign = campaignFilter(project);
   return (project.rawCmpConv || []).filter(r=>(!from || r.date >= from) && (!to || r.date <= to)
-    && (st.campaigns === 'ALL' || st.campaigns.has(r.campaign)));
+    && inCampaign(r.campaign));
+}
+
+// campaignNameCol: a conversion-sheet column that groups campaigns under a
+// name (Firouzeh's GA4 Campaign Name). It becomes a second filter beside the
+// campaign one. A campaign the conversion sheet never names, such as one
+// with Yektanet cost only, falls under "Other".
+const NO_CAMPAIGN_NAME = 'Other';
+function campaignNameOf(project, key){
+  return (project.campaignNameOf && project.campaignNameOf[key]) || normCampaign(NO_CAMPAIGN_NAME);
+}
+// Which campaigns the section's filters leave in play: the campaign pick and,
+// where there is one, the Campaign Name pick.
+function campaignFilter(project){
+  const st = projectState[project.id];
+  const names = project.campaignNameCol && st.campaignNames && st.campaignNames !== 'ALL' ? st.campaignNames : null;
+  return c => (st.campaigns === 'ALL' || st.campaigns.has(c)) && (!names || names.has(campaignNameOf(project, c)));
+}
+// Each campaign's name, as the conversion sheet most often gives it.
+function readCampaignNames(project, rows){
+  const counts = {}, labels = {};
+  rows.forEach(r=>{
+    const c = normCampaign(r[project.refCampaignCol || 'Campaign']);
+    const label = cellText(r[project.campaignNameCol]);
+    if(!c || !label) return;
+    const n = normCampaign(label);
+    labels[n] = labels[n] || label;
+    const byName = counts[c] = counts[c] || {};
+    byName[n] = (byName[n] || 0) + 1;
+  });
+  project.campaignNameOf = Object.fromEntries(Object.entries(counts).map(([c, byName]) =>
+    [c, Object.entries(byName).sort((a,b)=>b[1]-a[1])[0][0]]));
+  project.campaignNameLabels = {[normCampaign(NO_CAMPAIGN_NAME)]: NO_CAMPAIGN_NAME, ...labels};
+}
+// The Campaign Name list: each name with the spend of its campaigns.
+function getCampaignNameOptions(project){
+  const byName = {};
+  (project.campaignOptions || []).forEach(o=>{
+    const n = campaignNameOf(project, o.key);
+    if(!byName[n]) byName[n] = {key:n, label:(project.campaignNameLabels || {})[n] || n, cost:0};
+    byName[n].cost += o.cost;
+  });
+  return Object.values(byName).sort((a,b)=> b.cost - a.cost || a.label.localeCompare(b.label));
 }
 // How far the second source's count sits from the dashboard's own, as a share
 // of the dashboard's own: (GA4 − Yektanet) ÷ Yektanet.
@@ -2253,7 +2312,7 @@ function computeSection(project, window){
   const st = projectState[project.id];
   const {from, to} = window || sectionRange(project);
   const inRange = d => (!from || d >= from) && (!to || d <= to);
-  const inCampaign = c => st.campaigns === 'ALL' || st.campaigns.has(c);
+  const inCampaign = campaignFilter(project);
   const {refRows: refFiltered, costRows: costFiltered} = applySegFilter(project,
     project.rawRef.filter(r=>inRange(r.date) && inCampaign(r.campaign)),
     project.rawCost.filter(r=>inRange(r.date) && inCampaign(r.campaign)));
@@ -2455,6 +2514,13 @@ function filterSlots(project){
       universe: () => project.subCampaignOptions || []
     });
   }
+  if(project.campaignNameCol){
+    slots.unshift({
+      key:'name', stateKey:'campaignNames', suffix:'N',
+      unit:'Campaign Name', allLabel:'همه‌ی Campaign Name‌ها',
+      universe: () => project.campaignNameOptions || []
+    });
+  }
   slots.forEach(slot=>{ slot.options = () => scopedOptions(project, slot); });
   return slots;
 }
@@ -2481,16 +2547,33 @@ function slotScope(project, slot){
     return scope;
   }
   const {from, to} = sectionRange(project);
-  if(!from && !to) return null;
-  const inRange = d => (!from || d >= from) && (!to || d <= to);
-  const scope = new Map();
-  (project.rawRef || []).forEach(r=>{ if(inRange(r.date) && !scope.has(r.campaign)) scope.set(r.campaign, 0); });
-  (project.rawCost || []).forEach(r=>{
-    if(!inRange(r.date)) return;
-    if(scope.has(r.campaign)) scope.set(r.campaign, scope.get(r.campaign) + r.cost);
-    else if(project.includeUnmatchedCost) scope.set(r.campaign, r.cost);
-  });
-  return scope;
+  let scope = null;
+  if(from || to){
+    const inRange = d => (!from || d >= from) && (!to || d <= to);
+    scope = new Map();
+    (project.rawRef || []).forEach(r=>{ if(inRange(r.date) && !scope.has(r.campaign)) scope.set(r.campaign, 0); });
+    (project.rawCost || []).forEach(r=>{
+      if(!inRange(r.date)) return;
+      if(scope.has(r.campaign)) scope.set(r.campaign, scope.get(r.campaign) + r.cost);
+      else if(project.includeUnmatchedCost) scope.set(r.campaign, r.cost);
+    });
+  }
+  if(!project.campaignNameCol) return scope;
+  // The Campaign Name and campaign lists follow each other too, as the
+  // budget sections' do, on top of the date range.
+  const inPlay = () => scope || new Map((project.campaignOptions || []).map(o=>[o.key, o.cost]));
+  if(slot.key === 'name'){
+    if(!scope && st.campaigns === 'ALL') return null;
+    const names = new Map();
+    inPlay().forEach((cost, c)=>{
+      if(st.campaigns !== 'ALL' && !st.campaigns.has(c)) return;
+      const n = campaignNameOf(project, c);
+      names.set(n, (names.get(n) || 0) + (cost || 0));
+    });
+    return names;
+  }
+  if(!st.campaignNames || st.campaignNames === 'ALL') return scope;
+  return new Map([...inPlay()].filter(([c]) => st.campaignNames.has(campaignNameOf(project, c))));
 }
 function scopedOptions(project, slot){
   const all = slot.universe();
@@ -2941,6 +3024,7 @@ function renderSectionsShell(){
 
     p.campaignOptions = p.kind === 'budget' ? getBudgetNameOptions(p) : getCampaignOptionsSortedByCost(p);
     if(p.kind === 'budget') p.subCampaignOptions = getBudgetCampaignOptions(p);
+    if(p.campaignNameCol) p.campaignNameOptions = getCampaignNameOptions(p);
     // A project may open on a subset rather than everything.
     let initial = 'ALL';
     if(p.defaultCampaigns && p.defaultCampaigns.length){
@@ -2948,7 +3032,7 @@ function renderSectionsShell(){
       const matched = p.campaignOptions.filter(o=>wanted.has(o.key)).map(o=>o.key);
       if(matched.length && matched.length < p.campaignOptions.length) initial = new Set(matched);
     }
-    projectState[p.id] = { campaigns: initial, subCampaigns: 'ALL', from: null, to: null };
+    projectState[p.id] = { campaigns: initial, subCampaigns: 'ALL', campaignNames: 'ALL', from: null, to: null };
     renderCampaignDropdown(p);
     wireCampaignToggle(p);
 
@@ -3123,7 +3207,7 @@ function computeSegmentCpa(project, joined, keyFn){
   const st = projectState[project.id];
   const {from, to} = sectionRange(project);
   const inRange = d => (!from || d >= from) && (!to || d <= to);
-  const inCampaign = c => st.campaigns === 'ALL' || st.campaigns.has(c);
+  const inCampaign = campaignFilter(project);
   const refRows = project.rawRef.filter(r=>inRange(r.date) && inCampaign(r.campaign)).filter(segKeep(project));
   if(!refRows.length) return null;
 
@@ -4335,7 +4419,7 @@ function computeCreativeCpi(project, group, keyFn){
   const st = projectState[project.id];
   const {from, to} = sectionRange(project);
   const inRange = d => (!from || d >= from) && (!to || d <= to);
-  const inCampaign = c => st.campaigns === 'ALL' || st.campaigns.has(c);
+  const inCampaign = campaignFilter(project);
   const inGroup = cpiGroupFilter(group);
   const keep = r => inRange(r.date) && inCampaign(r.campaign) && inGroup(r.campaign);
 
@@ -5219,6 +5303,7 @@ async function loadProject(project){
       diag.refNoCostCampaign = project.rawRef.length - kept.length;
       project.rawRef = kept;
     }
+    if(project.campaignNameCol) readCampaignNames(project, refSheetRows.flat());
     project.allRef = project.rawRef;
     if(project.excludeCampaign){
       project.rawRef = project.rawRef.filter(r=>!project.excludeCampaign(r.campaign, campaignCtx));
