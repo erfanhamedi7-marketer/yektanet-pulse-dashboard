@@ -1318,7 +1318,11 @@ function yektanetExportSections(){
          {col:'Engaged sessions', label:'Engaged Session', campaignTable:true, countCard:true, noRate:true}
        ],
        messageSessionCost: true,
-       includeUnmatchedCost: true
+       includeUnmatchedCost: true,
+       // Campaigns named differently in the two tabs don't join; the campaign
+       // table keeps them as their own blocks (Erfan, 4 Nov).
+       unmatchedGroups: true,
+       refSourceLabel: 'GA4'
      }},
     // The install campaigns (inapp-cpi-*) have their own part, read against
     // App Metrica (taraAppSection), so they are left out of this one.
@@ -2089,6 +2093,9 @@ function buildJoinedRows(refMap, costMap, includeUnmatchedCost){
       costExtras: costRow ? costRow.extras : {},
       impressions: costRow ? costRow.impressions : 0,
       clicks: costRow ? costRow.clicks : 0,
+      // Which sheets had this day + campaign, for tables that keep the
+      // one-sided campaigns apart (unmatchedGroups).
+      hasRef: !!base, hasCost: !!costRow,
       cost, cpa: conversion>0 ? (cost/conversion) : null
     });
   });
@@ -3428,9 +3435,12 @@ function computeCampaignCpaTable(project, joined){
   joined.forEach(r=>{
     const c = byCampaign[r.campaign] = byCampaign[r.campaign] ||
       {label: r.campaignLabel || r.campaign, cost:0, conversion:0, days:new Set(), recentCost:0, recentConversion:0,
+       hasRef:false, hasCost:false,
        extra: extras.map(()=>({count:0, cost:0, conversion:0}))};
     c.cost += r.cost;
     c.conversion += r.conversion;
+    c.hasRef = c.hasRef || !!r.hasRef;
+    c.hasCost = c.hasCost || (!!r.hasCost && r.cost > 0);
     c.costExtras = addExtras(c.costExtras || {}, r.costExtras);
     if(r.cost > 0) c.days.add(r.date);
     if(r.date >= recentFrom){ c.recentCost += r.cost; c.recentConversion += r.conversion; }
@@ -3448,9 +3458,11 @@ function computeCampaignCpaTable(project, joined){
   const benchmark = totalConversion>0 ? totalCost/totalConversion : null;
 
   const rows = Object.entries(byCampaign).map(([key,c])=>{
-    const cpa = c.conversion>0 ? c.cost/c.conversion : null;
+    // A campaign with conversions but no spend has no price, not a price of 0.
+    const cpa = c.conversion>0 && c.cost>0 ? c.cost/c.conversion : null;
     return {
       key, label:c.label, cost:c.cost, conversion:c.conversion, activeDays:c.days.size,
+      hasRef:c.hasRef, hasCost:c.hasCost,
       share: totalCost>0 ? c.cost/totalCost*100 : 0,
       cpa,
       recentCpa: c.recentConversion>0 ? c.recentCost/c.recentConversion : null,
@@ -3465,12 +3477,19 @@ function computeCampaignCpaTable(project, joined){
       extra: c.extra.map(e=>({
         count: e.count, cost: e.cost, conversion: e.conversion,
         rate: e.conversion>0 ? e.count/e.conversion*100 : null,
-        per: e.count>0 ? e.cost/e.count : null,
-        tracked: e.cost>0 || e.conversion>0
+        per: e.count>0 && e.cost>0 ? e.cost/e.count : null,
+        tracked: e.cost>0 || e.conversion>0 || e.count>0
       }))
     };
-  }).filter(r=>r.cost>0 || r.conversion>0);
-  rows.sort((a,b)=>b.cost-a.cost);
+  // A campaign the conversion sheet has only sessions for (no spend, no
+  // conversion) still counts: its sessions are in the cards too.
+  }).filter(r=>r.cost>0 || r.conversion>0 || r.extra.some(e=>e.count>0));
+  // unmatchedGroups (Firouzeh): campaigns in both sheets first, then the ones
+  // with spend only, then the ones with conversion-sheet data only, each block
+  // by spend (the unspent ones by conversions, then by their first count).
+  const groupOf = r => !project.unmatchedGroups ? 0 : !r.hasRef ? 1 : !r.hasCost ? 2 : 0;
+  const firstCount = r => r.extra.length ? r.extra[0].count : 0;
+  rows.sort((a,b)=>groupOf(a)-groupOf(b) || b.cost-a.cost || b.conversion-a.conversion || firstCount(b)-firstCount(a));
 
   // A second source's count of the conversion, per campaign, for comparison.
   let cmp = null;
@@ -3502,6 +3521,7 @@ function renderCampaignCpaTable(project, joined, elId){
       ${fmtDateLabel(t.from)} تا ${fmtDateLabel(t.to)} (${fmtNum(t.dayCount)} روز) —
       میانگین ${escapeHtml(cpaLabel)} در همین بازه: <b>${t.benchmark!==null?fmtMoney(t.benchmark):'—'}</b>.
       ستون «نسبت به میانگین» اختلاف هر کمپین با همین عدده.
+      ${project.unmatchedGroups ? `<br>اول کمپین‌هایی که هم هزینه دارن هم دیتای ${escapeHtml(project.refSourceLabel || 'مرجع')}، بعد کمپین‌هایی که فقط هزینه دارن، بعد کمپین‌هایی که فقط دیتای ${escapeHtml(project.refSourceLabel || 'مرجع')} دارن (اسم کمپین تو دو شیت یکی نیست یا یه طرف دیتا نداره).` : ''}
       ${t.cmp ? `<br>${escapeHtml(t.cmp.col)} از ${escapeHtml(t.cmp.source)} کنار ${escapeHtml(t.cmp.col)} ${escapeHtml(t.cmp.ownSource)}؛
         «اختلاف» = (${escapeHtml(t.cmp.source)} − ${escapeHtml(t.cmp.ownSource)}) ÷ ${escapeHtml(t.cmp.ownSource)}.
         کل بازه: ${escapeHtml(t.cmp.ownSource)} <b>${fmtNum(t.totalConversion)}</b>، ${escapeHtml(t.cmp.source)} <b>${fmtNum(t.cmp.total)}</b> (<bdi dir="ltr">${fmtDiffPct(t.cmp.diff)}</bdi>).
@@ -3516,9 +3536,14 @@ function renderCampaignCpaTable(project, joined, elId){
   st.cpaShowAll = st.cpaShowAll || {};
   const showAll = !!st.cpaShowAll[tableId];
   const shown = showAll ? t.rows : t.rows.slice(0, CPA_TABLE_MAX_ROWS);
+  const refSource = project.refSourceLabel || 'مرجع';
+  const unmatchedTag = r => !project.unmatchedGroups ? ''
+    : !r.hasRef ? ` <span class="badge neutral">فقط هزینه، بدون ${escapeHtml(refSource)}</span>`
+    : !r.hasCost ? ` <span class="badge neutral">فقط ${escapeHtml(refSource)}، بدون هزینه</span>` : '';
   const body = shown.map(r=>{
     const cpaCell = r.cpa!==null
       ? `<td>${fmtNum(r.cpa)}</td>`
+      : r.cost<=0 ? `<td class="muted">بدون هزینه</td>`
       : `<td class="neg">بدون ${escapeHtml(label)}</td>`;
     const recentCell = r.recentCost<=0
       ? `<td class="muted">بدون هزینه</td>`
@@ -3529,7 +3554,7 @@ function renderCampaignCpaTable(project, joined, elId){
       : `<td class="${r.vsBenchmark>0?'neg':'pos'}">${r.vsBenchmark>0?'▲':'▼'} ${Math.abs(r.vsBenchmark).toFixed(0)}٪</td>`;
     return `
       <tr>
-        <td class="campaign">${filterableName(project, 'main', r.key, r.label)}${copiesCampaigns(project) ? copyIcon(r.label) : ''}</td>
+        <td class="campaign">${filterableName(project, 'main', r.key, r.label)}${copiesCampaigns(project) ? copyIcon(r.label) : ''}${unmatchedTag(r)}</td>
         <td>${fmtNum(r.cost)}</td>
         <td class="muted">${r.share.toFixed(0)}٪</td>
         <td>${fmtNum(r.conversion)}</td>
@@ -3546,7 +3571,8 @@ function renderCampaignCpaTable(project, joined, elId){
           ? `<td class="muted">—</td>${t.extras[i].noRate ? '' : `<td class="muted">—</td>`}<td class="muted">—</td>`
           : `<td>${fmtNum(e.count)}</td>
              ${t.extras[i].noRate ? '' : `<td class="muted">${e.rate!==null ? e.rate.toFixed(1)+'٪' : '—'}</td>`}
-             ${e.per!==null ? `<td>${fmtNum(e.per)}</td>` : `<td class="neg">بدون ${escapeHtml(t.extras[i].name)}</td>`}`).join('')}
+             ${e.per!==null ? `<td>${fmtNum(e.per)}</td>` : e.cost<=0 ? `<td class="muted">بدون هزینه</td>`
+               : `<td class="neg">بدون ${escapeHtml(t.extras[i].name)}</td>`}`).join('')}
         ${project.dealPrice ? (()=>{
           const billed = r.conversion * project.dealPrice, profit = billed - r.cost;
           return `<td>${fmtNum(billed)}</td><td class="${profit < 0 ? 'neg' : 'pos'}">${fmtSigned(profit)}</td>`;
