@@ -721,6 +721,28 @@ function splitKey(R, key){
   return {part:R.parts.find(p => p.id === key.slice(0, i)) || R.parts[0], raw:key.slice(i + 2)};
 }
 const anyBudget = R => R.parts.some(p => p.kind === 'budget');
+// Parts whose campaigns carry a Campaign Name from the conversion sheet
+// (Firouzeh's GA4 column, campaignNameCol in index.html).
+const anyNamed = R => R.parts.some(p => p.campaignNameCol);
+function nameKeyOf(R, part, raw){
+  return part.campaignNameCol ? pkey(R, part, core.campaignNameOf(part, raw)) : null;
+}
+function nameLabelOf(part, raw){
+  const n = core.campaignNameOf(part, raw);
+  return (part.campaignNameLabels || {})[n] || n;
+}
+// The report's campaign keys, grouped by their Campaign Name key.
+function campaignNameGroups(R, keys){
+  const m = new Map();
+  keys.forEach(k => {
+    const {part, raw} = splitKey(R, k);
+    const nk = nameKeyOf(R, part, raw);
+    if(!nk) return;
+    if(!m.has(nk)) m.set(nk, []);
+    m.get(nk).push(k);
+  });
+  return m;
+}
 
 function groupTitles(){
   const m = {};
@@ -916,7 +938,7 @@ function dimDefs(R){
     {id:'campaign', label:'کمپین', ltr:true, key:r => r.campaign, name:(k, r) => r.campaignLabel || r.raw || k},
     {id:'medium', label:'مدیوم', key:r => mediumOf(R, r.campaign), name:k => k},
   ];
-  if(anyBudget(R)) d.splice(3, 0, {id:'campaignName', label:'Campaign Name', ltr:true,
+  if(anyBudget(R) || anyNamed(R)) d.splice(3, 0, {id:'campaignName', label:'Campaign Name', ltr:true,
     key:r => r.cname || r.campaign, name:(k, r) => r.campaignName || r.campaignLabel || k});
   if(R.merged) d.push({id:'part', label:'بخش', key:r => r.part, name:(k, r) => r.partTitle});
   return d;
@@ -1055,7 +1077,9 @@ function rowsFor(R, win, sel, only){
       ex.ref.forEach(c => { x[c] = (r.extras && r.extras[c]) || 0; });
       ex.cost.forEach(c => { x[c] = (x[c] || 0) + ((r.costExtras && r.costExtras[c]) || 0); });
       return {...r, x, extras:undefined, costExtras:undefined, part:part.id, partTitle:part.title, raw:r.campaign,
-              campaign:pkey(R, part, r.campaign), cname: part.kind === 'budget' ? pkey(R, part, core.normCampaign(r.campaignName)) : null};
+              campaign:pkey(R, part, r.campaign),
+              cname: part.kind === 'budget' ? pkey(R, part, core.normCampaign(r.campaignName)) : nameKeyOf(R, part, r.campaign),
+              ...(part.campaignNameCol ? {campaignName: nameLabelOf(part, r.campaign)} : {})};
     });
   });
 }
@@ -1973,6 +1997,13 @@ function renderSettings(R){
     : [];
   const medInput = key => `<input class="inp" list="mediumList" data-medium="${esc(key)}" value="${esc((cfg.mediums || {})[key] || '')}" placeholder="${esc(autoMedium(R, key))}" aria-label="نوع کمپین">`;
   const isBudgetKey = key => splitKey(R, key).part.kind === 'budget';
+  // Campaign Names of the listed campaigns, each with its spend in the period;
+  // ticking one ticks (or unticks) all its campaigns below.
+  const nameGroups = Array.from(campaignNameGroups(R, shown.map(o => o.key)).entries()).map(([key, keys]) => {
+    const {part, raw} = splitKey(R, keys[0]);
+    return {key, label:nameLabelOf(part, raw) + (R.merged ? ' — ' + part.title : ''),
+            cost:shown.filter(o => keys.includes(o.key)).reduce((t, o) => t + o.cost, 0)};
+  }).sort((a, b) => b.cost - a.cost);
   const slideOpts = (s, i) => {
     const metBox = m => `<label class="check"><input type="checkbox" data-s="${i}" data-metric="${m.id}" ${(s.metrics || []).includes(m.id) ? 'checked' : ''}>${esc(m.label)}</label>`;
     const usable = defs.filter(m => m.ok && !(m.groupOnly && s.type === 'kpis'));
@@ -2076,6 +2107,8 @@ function renderSettings(R){
         <button type="button" class="btn sm" id="campNone">هیچ‌کدوم</button>
         ${Array.isArray(cfg.campaigns) ? '<button type="button" class="btn sm" id="campDefault">پیش‌فرض</button>' : ''}
       </div>
+      ${nameGroups.length ? `<div class="field"><span>Campaign Name — تیک هر اسم همه‌ی کمپین‌هاش رو تیک می‌زنه یا برمی‌داره</span>
+        <div class="metric-checks" id="nameChecks">${nameGroups.map(g => `<label class="check"><input type="checkbox" data-cname="${esc(g.key)}"><span dir="ltr">${esc(g.label)}</span><span style="opacity:.6">${esc(fa(g.cost))}</span></label>`).join('')}</div></div>` : ''}
       <div class="camp-list" id="reportCamps">
         <div class="camp-row camp-head"><span></span><span>کمپین</span><span class="cs">هزینه‌ی بازه</span><span>نوع کمپین</span></div>
         ${shown.length ? shown.map(o => campRow(o, sel === 'ALL' || sel.has(o.key), 'data-camp', isBudgetKey(o.key) ? '<span></span>' : medInput(o.key))).join('')
@@ -2215,7 +2248,32 @@ function wireSettings(R){
     const q = e.target.value.trim().toLowerCase();
     $$('#reportCamps label.camp-row').forEach(r => { r.hidden = q && !r.dataset.q.includes(q); });
   });
-  const setAllVisible = v => { $$('#reportCamps label.camp-row').filter(r => !r.hidden).forEach(r => { $('input', r).checked = v; }); writeCamps(); };
+  // A Campaign Name box is ticked when all its listed campaigns are, half-
+  // ticked when some are; ticking it ticks or unticks all of them.
+  const nameGroups = campaignNameGroups(R, $$('[data-camp]').map(b => b.dataset.camp));
+  const campBox = k => $$('[data-camp]').find(b => b.dataset.camp === k);
+  const syncNames = () => $$('[data-cname]').forEach(b => {
+    const keys = nameGroups.get(b.dataset.cname) || [];
+    const on = keys.filter(k => { const x = campBox(k); return x && x.checked; }).length;
+    b.checked = on > 0 && on === keys.length;
+    b.indeterminate = on > 0 && on < keys.length;
+  });
+  // A name's tick covers all its campaigns, also the ones that ran outside
+  // this period and so aren't listed.
+  $$('[data-cname]').forEach(b => b.addEventListener('change', () => {
+    (nameGroups.get(b.dataset.cname) || []).forEach(k => { const x = campBox(k); if(x) x.checked = b.checked; });
+    writeCamps();
+    const every = campaignOptions(R, null).map(o => o.key);
+    const set = new Set(Array.isArray(cfg.campaigns) ? cfg.campaigns : every);
+    (campaignNameGroups(R, every).get(b.dataset.cname) || []).forEach(k => b.checked ? set.add(k) : set.delete(k));
+    cfg.campaigns = set.size === every.length ? null : Array.from(set);
+    saveCfg();
+    S.data = computeData(R, campaignSelection(R)); loadEdits();
+    syncNames();
+  }));
+  $$('[data-camp]').forEach(b => b.addEventListener('change', syncNames));
+  syncNames();
+  const setAllVisible = v => { $$('#reportCamps label.camp-row').filter(r => !r.hidden).forEach(r => { $('input', r).checked = v; }); writeCamps(); syncNames(); };
   $('#campAll').addEventListener('click', () => setAllVisible(true));
   $('#campNone').addEventListener('click', () => setAllVisible(false));
   const cd = $('#campDefault');

@@ -5677,7 +5677,7 @@ async function init(){
 if(CORE_MODE){
   window.dashCore = {PROJECTS, BRANDS, projectState, loadProject, messageRows, messageFields, messageSpec,
                      campaignTypes, campaignTypeGroup, lastWeekWithin, yesterdayWithin, weekStartFor,
-                     localIso, toInputDate, fromInputDate, todayStr, normCampaign};
+                     localIso, toInputDate, fromInputDate, todayStr, normCampaign, campaignNameOf};
 }else{
   // Nothing is read until someone is signed in (auth.js).
   window.dashAuth.ready().then(init);
