@@ -1147,18 +1147,34 @@ function computeData(R, sel, only, per){
 }
 // A slide of a merged report may show only some of its parts (Arzplus web
 // alone); a part since removed from the report no longer counts.
+// Slide groups (cfg.slideGroups = [{id, name, campaigns?, parts?, period?}];
+// a slide joins one with slide.group). A group's filter applies to all its
+// slides; a slide's own setting still wins over the group's.
+const slideGroupsOf = () => (S.cfg && Array.isArray(S.cfg.slideGroups) ? S.cfg.slideGroups : []);
+const slideGroupOf = s => (s && s.group ? slideGroupsOf().find(g => g.id === s.group) : null) || null;
+function effectiveOf(s){
+  const g = slideGroupOf(s);
+  const pick = k => s && Array.isArray(s[k]) ? s[k] : g && Array.isArray(g[k]) ? g[k] : null;
+  const per = s && s.period && s.period.preset ? s.period : g && g.period && g.period.preset ? g.period : null;
+  return {campaigns:pick('campaigns'), parts:pick('parts'), period:per,
+          fromGroup:{campaigns:!(s && Array.isArray(s.campaigns)) && !!(g && Array.isArray(g.campaigns)),
+                     parts:!(s && Array.isArray(s.parts)) && !!(g && Array.isArray(g.parts)),
+                     period:!(s && s.period && s.period.preset) && !!(g && g.period && g.period.preset)}};
+}
 function slideParts(R, s){
-  if(!R.merged || !s || !Array.isArray(s.parts)) return null;
-  const ids = s.parts.filter(id => R.parts.some(p => p.id === id));
+  const parts = effectiveOf(s).parts;
+  if(!R.merged || !s || !Array.isArray(parts)) return null;
+  const ids = parts.filter(id => R.parts.some(p => p.id === id));
   return ids.length && ids.length < R.parts.length ? ids : null;
 }
 function dataFor(s){
+  const eff = effectiveOf(s);
   const only = slideParts(S.report, s);
-  const own = s && Array.isArray(s.campaigns);
-  const per = s && s.period && s.period.preset ? s.period : null;   // a slide's own period
-  if(!own && !only && !per) return S.data;
-  const key = (own ? s.campaigns.slice().sort().join('|') : '*') + '#' + (only ? only.join('|') : '*') + '#' + (per ? JSON.stringify(per) : '*');
-  return S.cache[key] || (S.cache[key] = computeData(S.report, own ? new Set(s.campaigns) : campaignSelection(S.report), only, per || S.cfg.period));
+  const camps = eff.campaigns;                 // the slide's own pick, or its group's
+  const per = eff.period;                      // the slide's own period, or its group's
+  if(!camps && !only && !per) return S.data;
+  const key = (camps ? camps.slice().sort().join('|') : '*') + '#' + (only ? only.join('|') : '*') + '#' + (per ? JSON.stringify(per) : '*');
+  return S.cache[key] || (S.cache[key] = computeData(S.report, camps ? new Set(camps) : campaignSelection(S.report), only, per || S.cfg.period));
 }
 function partsLabel(R, s){
   const only = slideParts(R, s);
@@ -1221,6 +1237,9 @@ function applyEdits(el, sid){
   $$('[data-row]', el).forEach(r => { if(ed['hide:' + r.dataset.row]) r.remove(); });
   if(document.body.classList.contains('editing')) $$('[data-k]', el).forEach(n => n.setAttribute('contenteditable', 'true'));
 }
+// Ids for new slides, groups and merged reports: time plus a random part, so
+// two made in the same millisecond (a group copy) never collide.
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const rk = k => String(k).replace(/[^\w؀-ۿ-]/g, '_');
 // The handle a card is dragged by, on the page only (never in an export).
 const GRIP = '<button type="button" class="card-grip" data-grip title="بکش تا جابه‌جا بشه" aria-label="جابه‌جا کردن">⠿</button>';
@@ -1633,7 +1652,7 @@ function renderMergeForm(R){
         Object.keys(cfg.mediums || {}).forEach(k => { if(!keep(k)) delete cfg.mediums[k]; });
         store.set(cfgKey(R), cfg);
       }
-    }else list.unshift({id:'merge-' + Date.now().toString(36), title, parts});
+    }else list.unshift({id:'merge-' + uid(), title, parts});
     saveMergeDefs(list);
     location.hash = '#' + (R ? R.id : list[0].id);
   });
@@ -1702,7 +1721,7 @@ function renderDeck(R){
   $('#view').innerHTML = backBar(R) + `<div class="deck" id="deck">${slides.map((s, i) => `
     <div class="slide-item" data-sid="${esc(s.id)}">
       <div class="slide-tools">
-        <span class="lbl"><button type="button" class="slide-grip" data-sgrip title="بکش تا ترتیب اسلاید عوض بشه" aria-label="جابه‌جا کردن اسلاید">⠿</button><b>${fa(i + 1)}</b>${esc(SLIDE_TYPES[s.type] || s.type)}${isEdited(s.id) ? ' <span class="badge">ویرایش‌شده</span>' : ''}${Array.isArray(s.campaigns) ? ` — <span title="این اسلاید فقط کمپین‌های انتخابی خودش رو می‌شمره">${fa(s.campaigns.length)} کمپین انتخابی</span>` : ''}${partsLabel(R, s) ? ` — فقط ${esc(partsLabel(R, s))}` : ''}${s.period && s.period.preset ? ' — بازه‌ی جدا' : ''}</span>
+        <span class="lbl"><button type="button" class="slide-grip" data-sgrip title="بکش تا ترتیب اسلاید عوض بشه" aria-label="جابه‌جا کردن اسلاید">⠿</button><b>${fa(i + 1)}</b>${esc(SLIDE_TYPES[s.type] || s.type)}${isEdited(s.id) ? ' <span class="badge">ویرایش‌شده</span>' : ''}${Array.isArray(s.campaigns) ? ` — <span title="این اسلاید فقط کمپین‌های انتخابی خودش رو می‌شمره">${fa(s.campaigns.length)} کمپین انتخابی</span>` : ''}${partsLabel(R, s) ? ` — فقط ${esc(partsLabel(R, s))}` : ''}${s.period && s.period.preset ? ' — بازه‌ی جدا' : ''}${slideGroupOf(s) ? ` <span class="badge" title="گروه اسلاید">${esc(slideGroupOf(s).name || 'گروه')}</span>` : ''}</span>
         <span class="grp">
           <button type="button" class="btn sm icon" data-act="up" title="جابه‌جایی به بالا" aria-label="بالا" ${i === 0 ? 'disabled' : ''}>${ICON.up}</button>
           <button type="button" class="btn sm icon" data-act="down" title="جابه‌جایی به پایین" aria-label="پایین" ${i === slides.length - 1 ? 'disabled' : ''}>${ICON.down}</button>
@@ -1944,7 +1963,7 @@ $('#logoFile').addEventListener('change', e => {
 function newSlide(R, type, id){
   const defs = defsById(R), ok = id => defs[id] && defs[id].ok;
   const main = mainAction(ok);
-  const base = {id: id || type + '-' + Date.now().toString(36), type, on:true, title:SLIDE_TYPES[type]};
+  const base = {id: id || type + '-' + uid(), type, on:true, title:SLIDE_TYPES[type]};
   if(type === 'chart') Object.assign(base, {title:'نمودار', dim:'day', chart:'combo', metrics:['cost', main]});
   if(type === 'table') Object.assign(base, {title:'جدول مقایسه', dim:'campaign', maxRows:10, metrics:['cost', 'costShare', main].filter(ok)});
   if(type === 'kpis') Object.assign(base, {title:'آمار کلی', metrics:['cost', main].filter(ok)});
@@ -1966,7 +1985,7 @@ function resetSlide(R, sid){
   if(i < 0) return;
   const s = list[i];
   const builtIn = defaultSlides(R).find(d => d.id === sid);
-  list[i] = Object.assign(builtIn || newSlide(R, s.type, sid), {on: s.on !== false});
+  list[i] = Object.assign(builtIn || newSlide(R, s.type, sid), {on: s.on !== false}, s.group ? {group: s.group} : {});
   if(S.cfg.tpl) delete S.cfg.tpl[sid];
   delete S.edits[sid];
   saveCfg();
@@ -2076,7 +2095,7 @@ function renderSettings(R){
     const perBlock = noData ? '' : `
       <div class="field"><span>بازه‌ی این اسلاید</span>
         <select class="inp" data-s="${i}" data-prop="perMode" style="max-width:340px">
-          <option value="report" ${ownPer ? '' : 'selected'}>مثل کل گزارش</option>
+          <option value="report" ${ownPer ? '' : 'selected'}>${slideGroupOf(s) && slideGroupOf(s).period ? 'مثل گروه اسلاید' : 'مثل کل گزارش'}</option>
           <option value="own" ${ownPer ? 'selected' : ''}>بازه‌ی جدا برای همین اسلاید</option></select></div>
       ${ownPer ? `<div class="own-period">${periodEditor(R, s.period, i)}</div>` : ''}`;
     const parts = noData || !R.merged ? '' : `
@@ -2086,7 +2105,7 @@ function renderSettings(R){
     const camps = noData ? '' : perBlock + parts + `
       <div class="field"><span>کمپین‌هایی که تو دیتای این اسلاید شمرده می‌شن</span>
         <select class="inp" data-s="${i}" data-prop="campMode" style="max-width:340px">
-          <option value="report" ${own ? '' : 'selected'}>مثل کل گزارش</option>
+          <option value="report" ${own ? '' : 'selected'}>${slideGroupOf(s) && Array.isArray(slideGroupOf(s).campaigns) ? 'مثل گروه اسلاید' : 'مثل کل گزارش'}</option>
           <option value="own" ${own ? 'selected' : ''}>انتخاب دستی برای همین اسلاید</option></select></div>
       ${own ? `<div class="row" style="margin-bottom:8px"><button type="button" class="btn sm" data-sall="${i}">همه</button><button type="button" class="btn sm" data-snone="${i}">هیچ‌کدوم</button></div>
         ${campaignGroups().length ? `<div class="field"><span>گروه‌های کمپین — تیک هر گروه همه‌ی کمپین‌هاش رو تو این اسلاید تیک می‌زنه یا برمی‌داره</span>
@@ -2101,6 +2120,9 @@ function renderSettings(R){
         ${s.type === 'cover' ? '<p class="hint">عنوان، برچسب و لوگوی جلد از بخش «عنوان و ظاهر» بالا میاد؛ روی خود اسلاید هم قابل ویرایشه.</p>'
           : `<div class="row"><div class="field"><span>عنوان اسلاید</span><input class="inp" data-s="${i}" data-prop="title" value="${esc(s.title)}"></div>${dims}${level}${ctype}${rows}${tcol}${cols}</div>`}
         ${mets}${camps}
+        ${slideGroupsOf().length ? `<div class="field"><span>گروه اسلاید${slideGroupOf(s) ? ' — فیلترهای گروه برای این اسلاید اعمال می‌شن مگه اینکه خود اسلاید تنظیم خودش رو داشته باشه' : ''}</span>
+          <select class="inp" data-s="${i}" data-prop="group" style="max-width:340px"><option value="">بدون گروه</option>
+          ${slideGroupsOf().map(g => `<option value="${esc(g.id)}" ${s.group === g.id ? 'selected' : ''}>${esc(g.name || 'گروه بی‌نام')}</option>`).join('')}</select></div>` : ''}
         <div class="set-foot">
           <button type="button" class="btn sm" data-move="${i}" data-dir="-1" ${i === 0 ? 'disabled' : ''}>${ICON.up}بالا</button>
           <button type="button" class="btn sm" data-move="${i}" data-dir="1" ${i === cfg.slides.length - 1 ? 'disabled' : ''}>${ICON.down}پایین</button>
@@ -2186,6 +2208,41 @@ function renderSettings(R){
       <div class="set-foot" style="margin-top:10px"><button type="button" class="btn sm" id="groupAdd">+ گروه تازه</button></div>
     </section>
 
+    <section class="card"><h3>گروه‌های اسلاید</h3><p class="hint">چند اسلاید رو با یه اسم گروه کن تا با هم فیلتر بشن: کمپین‌ها${R.merged ? '، بخش‌ها' : ''} و بازه‌ی گروه برای همه‌ی اسلایدهاش اعمال می‌شه (اسلایدی که تنظیم خودش رو داره، همون رو نگه می‌داره). «کپی گروه» همه‌ی اسلایدهاش رو با متن و تنظیماتشون کپی می‌کنه و یه گروه تازه می‌سازه.</p>
+      ${slideGroupsOf().map((g, gi) => {
+        const members = cfg.slides.filter(x => x.group === g.id);
+        const gc = Array.isArray(g.campaigns), gset = new Set(gc ? g.campaigns : []);
+        const listed = opts.filter(o => (o.active || gset.has(o.key)) && (!Array.isArray(g.parts) || g.parts.includes(o.part.id)));
+        return `<details class="slide-set" id="sgrp-${esc(g.id)}" ${S.focusSGroup === g.id ? 'open' : ''}>
+          <summary><span class="num">${fa(gi + 1)}</span><span class="t">${esc(g.name || 'گروه بی‌نام')}<span class="ty">${fa(members.length)} اسلاید${gc ? ' — کمپین‌های انتخابی' : ''}${g.period ? ' — بازه‌ی جدا' : ''}</span></span></summary>
+          <div class="body">
+            <div class="row"><label class="field"><span>اسم گروه</span><input class="inp" data-sgname="${gi}" value="${esc(g.name || '')}" placeholder="مثلاً بخش وب"></label></div>
+            <div class="field"><span>اسلایدهای این گروه</span><div class="metric-checks">
+              ${cfg.slides.map((x, xi) => `<label class="check"><input type="checkbox" data-sg="${gi}" data-sgslide="${esc(x.id)}" ${x.group === g.id ? 'checked' : ''}>${fa(xi + 1)}. ${esc(x.title || SLIDE_TYPES[x.type])}${x.group && x.group !== g.id ? ' <span style="opacity:.6">(تو گروه دیگه)</span>' : ''}</label>`).join('')}
+            </div></div>
+            <div class="field"><span>بازه‌ی گروه</span>
+              <select class="inp" data-sg="${gi}" data-sgprop="perMode" style="max-width:340px">
+                <option value="report" ${g.period ? '' : 'selected'}>مثل کل گزارش</option>
+                <option value="own" ${g.period ? 'selected' : ''}>بازه‌ی جدا برای این گروه</option></select></div>
+            ${g.period ? `<div class="own-period">${periodEditor(R, g.period, 'g' + gi)}</div>` : ''}
+            ${R.merged ? `<div class="field"><span>بخش‌های این گروه</span><div class="metric-checks">
+              ${R.parts.map(pt => `<label class="check"><input type="checkbox" data-sg="${gi}" data-sgpart="${esc(pt.id)}" ${!Array.isArray(g.parts) || g.parts.includes(pt.id) ? 'checked' : ''}>${esc(pt.title)}</label>`).join('')}</div></div>` : ''}
+            <div class="field"><span>کمپین‌های این گروه</span>
+              <select class="inp" data-sg="${gi}" data-sgprop="campMode" style="max-width:340px">
+                <option value="report" ${gc ? '' : 'selected'}>مثل کل گزارش</option>
+                <option value="own" ${gc ? 'selected' : ''}>انتخاب دستی برای این گروه</option></select></div>
+            ${gc ? `<div class="row" style="margin-bottom:8px"><button type="button" class="btn sm" data-sgall="${gi}">همه</button><button type="button" class="btn sm" data-sgnone="${gi}">هیچ‌کدوم</button></div>
+              ${campaignGroups().length ? `<div class="field"><span>گروه‌های کمپین</span><div class="metric-checks">${groupTicks(gset, 'data-sgcgroup', `data-sg="${gi}" `)}</div></div>` : ''}
+              <div class="camp-list sm">${listed.map(o => campRow(o, gset.has(o.key), `data-sg="${gi}" data-sgcamp`)).join('') || '<div class="camp-row"><span></span><span>توی این بازه کمپینی نیست</span></div>'}</div>` : ''}
+            <div class="set-foot">
+              <button type="button" class="btn sm" data-sgcopy="${gi}" ${members.length ? '' : 'disabled'}>کپی گروه (${fa(members.length)} اسلاید)</button>
+              <button type="button" class="btn sm danger" data-sgdel="${gi}">حذف گروه</button>
+            </div>
+          </div></details>`;
+      }).join('')}
+      <div class="set-foot" style="margin-top:10px"><button type="button" class="btn sm" id="sgroupAdd">+ گروه اسلاید تازه</button></div>
+    </section>
+
     <section class="card"><h3>اسم متریک‌ها</h3><p class="hint">اسمی که هر متریک تو همه‌ی اسلایدها (کارت‌ها، سرستون جدول‌ها، نمودارها، متن تحلیل) و تو لیست‌های تنظیمات می‌گیره. خالی = اسم پیش‌فرض. «هزینه به ازای …» خودش از اسم جدید پیروی می‌کنه مگه اینکه اونم عوض کنی. متنی که قبلاً مستقیم روی یه اسلاید عوض کردی همون می‌مونه (با «پیش‌فرض» اون اسلاید از اینجا می‌خونه).</p>
       ${[['', defs.filter(m => m.ok && !m.extra)], ['ستون‌های دیگه‌ی شیت', defs.filter(m => m.ok && m.extra)]].filter(([, list]) => list.length).map(([title, list]) => `
         ${title ? `<div class="field" style="margin:6px 0 8px"><span>${esc(title)}</span></div>` : ''}
@@ -2243,14 +2300,20 @@ function wireSettings(R){
   };
   $$('[data-sname][data-some]').forEach(b => { b.indeterminate = true; });
   // Period editors: the report's (scope 'r') and each slide's own.
-  const perOf = scope => scope === 'r' ? (cfg.period = cfg.period || {preset:'lastWeek'}) : cfg.slides[+scope].period;
+  // Scopes: 'r' the report, a number a slide, 'g<i>' a slide group.
+  const isG = scope => String(scope).startsWith('g');
+  const perOf = scope => scope === 'r' ? (cfg.period = cfg.period || {preset:'lastWeek'})
+    : isG(scope) ? slideGroupsOf()[+String(scope).slice(1)].period : cfg.slides[+scope].period;
+  const openOf = scope => scope === 'r' ? [] : isG(scope) ? ['sgrp-' + slideGroupsOf()[+String(scope).slice(1)].id] : ['set-' + cfg.slides[+scope].id];
   const setPer = (scope, per) => {
     // Left-out days stay only while they fall inside the new period.
     const win = resolvePeriod(R, per);
     per.exclude = excludedIn({exclude:(perOf(scope) || {}).exclude}, win);
     if(!per.exclude.length) delete per.exclude;
-    if(scope === 'r') cfg.period = per; else cfg.slides[+scope].period = per;
-    saveCfg(); rerender(scope === 'r' ? [] : ['set-' + cfg.slides[+scope].id]);
+    if(scope === 'r') cfg.period = per;
+    else if(isG(scope)) slideGroupsOf()[+String(scope).slice(1)].period = per;
+    else cfg.slides[+scope].period = per;
+    saveCfg(); rerender(openOf(scope));
   };
   view.addEventListener('click', e => {
     const b = e.target.closest('[data-pscope][data-preset],[data-pscope][data-pexdel]');
@@ -2263,7 +2326,7 @@ function wireSettings(R){
     }else{
       cur.exclude = (cur.exclude || []).filter(d => d !== b.dataset.pexdel);
       if(!cur.exclude.length) delete cur.exclude;
-      saveCfg(); rerender(scope === 'r' ? [] : ['set-' + cfg.slides[+scope].id]);
+      saveCfg(); rerender(openOf(scope));
     }
   });
   view.addEventListener('change', e => {
@@ -2280,7 +2343,7 @@ function wireSettings(R){
       if(win && excludedIn(cur, win).length >= daysBetween(win.from, win.to)){
         cur.exclude.pop(); toast('حداقل یه روز باید تو بازه بمونه'); el.value = ''; return;
       }
-      saveCfg(); rerender(scope === 'r' ? [] : ['set-' + cfg.slides[+scope].id]);
+      saveCfg(); rerender(openOf(scope));
     }
   });
   $('#cmpToggle').addEventListener('change', e => { cfg.compare = e.target.checked; saveCfg(); });
@@ -2365,7 +2428,7 @@ function wireSettings(R){
   // The groups card.
   const groups = () => (cfg.groups = Array.isArray(cfg.groups) ? cfg.groups : []);
   $('#groupAdd').addEventListener('click', () => {
-    const g = {id:'g' + Date.now().toString(36), name:'', campaigns:[]};
+    const g = {id:'g' + uid(), name:'', campaigns:[]};
     groups().push(g);
     S.focusGroup = g.id;
     saveCfg(); rerender();
@@ -2465,11 +2528,15 @@ function wireSettings(R){
       el.checked ? set.add(el.dataset.scamp) : set.delete(el.dataset.scamp);
       s.campaigns = Array.from(set);
       syncSlideNames(el.dataset.s);
+    }else if(el.dataset.prop === 'group'){
+      if(el.value) s.group = el.value; else delete s.group;
+      saveCfg(); rerender(['set-' + s.id]); return;
     }else if(el.dataset.prop === 'campMode'){
       if(el.value === 'own'){
-        // Start from what the report counts now.
-        const sel = campaignSelection(R);
-        s.campaigns = sel === 'ALL' ? campaignOptions(R, null).map(o => o.key) : Array.from(sel);
+        // Start from what the slide counts now (its group's pick, or the report's).
+        const g = slideGroupOf(s), sel = campaignSelection(R);
+        s.campaigns = g && Array.isArray(g.campaigns) ? g.campaigns.slice()
+          : sel === 'ALL' ? campaignOptions(R, null).map(o => o.key) : Array.from(sel);
       }else delete s.campaigns;
       saveCfg(); rerender(['set-' + s.id]); return;
     }else if(el.dataset.prop === 'on'){
@@ -2515,7 +2582,7 @@ function wireSettings(R){
     }else if(b.dataset.dup !== undefined){
       const i = +b.dataset.dup;
       const copy = JSON.parse(JSON.stringify(cfg.slides[i]));
-      copy.id = copy.type + '-' + Date.now().toString(36);
+      copy.id = copy.type + '-' + uid();
       copy.title = (copy.title || '') + ' (کپی)';
       cfg.slides.splice(i + 1, 0, copy);
       if(cfg.tpl[cfg.slides[i].id]) cfg.tpl[copy.id] = JSON.parse(JSON.stringify(cfg.tpl[cfg.slides[i].id]));
@@ -2574,6 +2641,88 @@ function wireSettings(R){
     document.addEventListener('pointermove', move);
     document.addEventListener('pointerup', up);
     document.addEventListener('pointercancel', up);
+  });
+  // Slide groups.
+  const sgroups = () => (cfg.slideGroups = Array.isArray(cfg.slideGroups) ? cfg.slideGroups : []);
+  const sgDone = g => { S.focusSGroup = g.id; saveCfg(); rerender(['sgrp-' + g.id]); };
+  $('#sgroupAdd').addEventListener('click', () => {
+    const g = {id:'sg' + uid(), name:''};
+    sgroups().push(g);
+    sgDone(g);
+    const inp = $(`[data-sgname="${sgroups().length - 1}"]`);
+    if(inp){ inp.scrollIntoView({block:'center'}); inp.focus(); }
+  });
+  $$('[data-sgname]').forEach(inp => inp.addEventListener('change', () => {
+    const g = sgroups()[+inp.dataset.sgname]; g.name = inp.value.trim(); sgDone(g);
+  }));
+  view.addEventListener('change', e => {
+    const el = e.target;
+    if(el.dataset.sg === undefined) return;
+    const g = sgroups()[+el.dataset.sg];
+    if(el.dataset.sgslide !== undefined){
+      const sl = cfg.slides.find(x => x.id === el.dataset.sgslide);
+      if(el.checked) sl.group = g.id; else if(sl.group === g.id) delete sl.group;
+    }else if(el.dataset.sgprop === 'perMode'){
+      if(el.value === 'own') g.period = JSON.parse(JSON.stringify(cfg.period || {preset:'lastWeek'})); else delete g.period;
+    }else if(el.dataset.sgprop === 'campMode'){
+      if(el.value === 'own'){
+        const sel = campaignSelection(R);
+        g.campaigns = sel === 'ALL' ? campaignOptions(R, null).map(o => o.key) : Array.from(sel);
+      }else delete g.campaigns;
+    }else if(el.dataset.sgpart !== undefined){
+      const boxes = $$(`[data-sg="${el.dataset.sg}"][data-sgpart]`);
+      const ids = boxes.filter(b => b.checked).map(b => b.dataset.sgpart);
+      if(!ids.length){ el.checked = true; toast('حداقل یه بخش باید بمونه'); return; }
+      if(ids.length === boxes.length) delete g.parts; else g.parts = ids;
+    }else if(el.dataset.sgcamp !== undefined){
+      const set = new Set(g.campaigns || []);
+      el.checked ? set.add(el.dataset.sgcamp) : set.delete(el.dataset.sgcamp);
+      g.campaigns = Array.from(set);
+      saveCfg(); return;                       // no re-render while ticking a list
+    }else if(el.dataset.sgcgroup !== undefined){
+      const set = new Set(g.campaigns || []);
+      (campaignGroups()[+el.dataset.sgcgroup].campaigns || []).forEach(k => el.checked ? set.add(k) : set.delete(k));
+      g.campaigns = Array.from(set);
+    }else return;
+    sgDone(g);
+  });
+  view.addEventListener('click', e => {
+    const b = e.target.closest('[data-sgall],[data-sgnone],[data-sgcopy],[data-sgdel]');
+    if(!b) return;
+    if(b.dataset.sgall !== undefined || b.dataset.sgnone !== undefined){
+      const gi = b.dataset.sgall !== undefined ? b.dataset.sgall : b.dataset.sgnone, g = sgroups()[+gi];
+      const set = new Set(g.campaigns || []);
+      $$(`[data-sg="${gi}"][data-sgcamp]`).forEach(x => b.dataset.sgall !== undefined ? set.add(x.dataset.sgcamp) : set.delete(x.dataset.sgcamp));
+      g.campaigns = Array.from(set);
+      sgDone(g);
+    }else if(b.dataset.sgcopy !== undefined){
+      // Every slide of the group, with its settings and saved text, into a new
+      // group placed right after the last slide of the original.
+      const g = sgroups()[+b.dataset.sgcopy];
+      const copy = JSON.parse(JSON.stringify(g));
+      copy.id = 'sg' + uid();
+      copy.name = (g.name || 'گروه') + ' (کپی)';
+      const members = cfg.slides.filter(x => x.group === g.id);
+      const at = cfg.slides.indexOf(members[members.length - 1]) + 1;
+      const stamp = uid();
+      const clones = members.map((x, k) => {
+        const c = JSON.parse(JSON.stringify(x));
+        c.id = x.type + '-' + stamp + k;
+        c.group = copy.id;
+        if(cfg.tpl && cfg.tpl[x.id]) cfg.tpl[c.id] = JSON.parse(JSON.stringify(cfg.tpl[x.id]));
+        return c;
+      });
+      cfg.slides.splice(at, 0, ...clones);
+      sgroups().splice(+b.dataset.sgcopy + 1, 0, copy);
+      toast(`${fa(clones.length)} اسلاید کپی شد — گروه «${copy.name}»`);
+      sgDone(copy);
+    }else{
+      const g = sgroups()[+b.dataset.sgdel];
+      if(!confirm(`گروه «${g.name || 'بی‌نام'}» حذف بشه؟ (اسلایدهاش می‌مونن، فقط از گروه درمیان)`)) return;
+      cfg.slides.forEach(x => { if(x.group === g.id) delete x.group; });
+      sgroups().splice(+b.dataset.sgdel, 1);
+      saveCfg(); rerender();
+    }
   });
   $('#cfgExport').addEventListener('click', () => {
     download(`${R.id}-slides-template.json`, JSON.stringify({report:R.id, merge:R.merged ? R.def : undefined, cfg}, null, 2), 'application/json');

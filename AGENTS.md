@@ -301,6 +301,11 @@ Sheet ids are in the code; the main ones are repeated here for orientation.
 - Per slide (all optional): `metrics` (order = card/column order), `dim`, `chart`, `maxRows`, `typeCol`,
   `level`, `tileOrder`, `campaigns` (own pick; Campaign Name ticks shown for `campaignNameCol` parts),
   `parts` (merged reports), `period` (own preset/custom/excluded days), `cols`, `on`.
+- **Slide groups** (`cfg.slideGroups = [{id, name, campaigns?, parts?, period?}]`, card «گروه‌های اسلاید»; a slide
+  joins with `slide.group`). A group's campaigns/parts/period apply to all its slides; a slide's own setting wins
+  (`effectiveOf(slide)` → used by `dataFor`, `slideParts`). «کپی گروه» clones every member slide (settings +
+  `cfg.tpl` text) into a new group placed right after the original's last slide. New ids use `uid()` (time +
+  random) — `Date.now()` alone collided when two ids were made in the same millisecond.
 - **Campaign groups** (`cfg.groups = [{id, name, campaigns:[keys]}]`, card «گروه‌های کمپین» in settings): each
   group is a one-tick shortcut in the report's campaign list (`data-rgroup`) and in each slide's own pick
   (`data-sgroup`), and the «گروه کمپین» dimension (`cgroup`, `groupOf`: first group containing the campaign,
