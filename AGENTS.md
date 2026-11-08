@@ -285,7 +285,7 @@ Sheet ids are in the code; the main ones are repeated here for orientation.
   follows its count's new name unless renamed itself.
 - `metricValue(id, totals, all)` computes everything from summed totals (combined rates, never row averages).
 - Dimensions (`dimDefs`): day, week (Saturday start), campaign, Campaign Name (budget parts or
-  `campaignNameCol` parts), medium, part (merged only). The old `type` dimension/level maps to medium.
+  `campaignNameCol` parts), medium, part (merged only), campaign group (when groups exist). The old `type` dimension/level maps to medium.
 - **Medium = «نوع کمپین»** of a campaign: `cfg.mediums[key]` (typed in settings) → else the sheet's
   `Campaign Type` folded by `campaignTypeGroup` → else `guessMedium(name)` (inapp, push, sms, vid, bnr,
   native, cafe/cb…) → else «سایر». Only Firouzeh/Tara/Technopay/Agah sheets have `Campaign Type`.
@@ -301,9 +301,13 @@ Sheet ids are in the code; the main ones are repeated here for orientation.
 - Per slide (all optional): `metrics` (order = card/column order), `dim`, `chart`, `maxRows`, `typeCol`,
   `level`, `tileOrder`, `campaigns` (own pick; Campaign Name ticks shown for `campaignNameCol` parts),
   `parts` (merged reports), `period` (own preset/custom/excluded days), `cols`, `on`.
+- **Campaign groups** (`cfg.groups = [{id, name, campaigns:[keys]}]`, card «گروه‌های کمپین» in settings): each
+  group is a one-tick shortcut in the report's campaign list (`data-rgroup`) and in each slide's own pick
+  (`data-sgroup`), and the «گروه کمپین» dimension (`cgroup`, `groupOf`: first group containing the campaign,
+  else «بدون گروه»).
 - Report settings (`cfg`, key `slides:cfg:<reportId>`): `period {preset, from, to, exclude[]}`, `compare`,
   `campaigns` (null = all or the section's `defaultCampaigns`), `title`, `kicker`, `logo` (data URL),
-  `theme` (null = brand, or `{preset, accent, second}`), `mediums`, `metricLabels`, `slides[]`, `tpl`
+  `theme` (null = brand, or `{preset, accent, second}`), `mediums`, `groups`, `metricLabels`, `slides[]`, `tpl`
   (template text per slide), `tplSavedAt`.
 - Editing: every text node with `data-k` is `contenteditable` in edit mode; edits are saved per period
   (`slides:edits:<id>:<from>-<to>`). «ذخیره قالب» moves text edits into `cfg.tpl`; numbers (`c:<row>:<metric>`,

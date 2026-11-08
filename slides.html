@@ -941,7 +941,27 @@ function dimDefs(R){
   if(anyBudget(R) || anyNamed(R)) d.splice(3, 0, {id:'campaignName', label:'Campaign Name', ltr:true,
     key:r => r.cname || r.campaign, name:(k, r) => r.campaignName || r.campaignLabel || k});
   if(R.merged) d.push({id:'part', label:'بخش', key:r => r.part, name:(k, r) => r.partTitle});
+  if(campaignGroups().length) d.push({id:'cgroup', label:'گروه کمپین', key:r => groupOf(r.campaign), name:k => k});
   return d;
+}
+// Campaign groups the user builds in the settings (cfg.groups): a name and a
+// set of campaign keys. A campaign in several groups belongs to the first
+// one for the «گروه کمپین» dimension.
+const NO_GROUP = 'بدون گروه';
+const campaignGroups = () => (S.cfg && Array.isArray(S.cfg.groups) ? S.cfg.groups : []);
+function groupOf(key){
+  const g = campaignGroups().find(x => (x.campaigns || []).includes(key));
+  return g ? (g.name || NO_GROUP) : NO_GROUP;
+}
+// Ticks for groups: checked when all a group's campaigns are in `on`,
+// half-ticked (data-some) when some are.
+function groupTicks(on, attr, scope){
+  return campaignGroups().map((g, gi) => {
+    const keys = g.campaigns || [];
+    const n = keys.filter(k => on.has(k)).length;
+    const state = !keys.length || n === 0 ? '' : n === keys.length ? 'all' : 'some';
+    return `<label class="check"><input type="checkbox" ${scope}${attr}="${gi}" ${state === 'all' ? 'checked' : ''} ${state === 'some' ? 'data-some="1"' : ''} ${keys.length ? '' : 'disabled'}><b>${esc(g.name || ('گروه ' + fa(gi + 1)))}</b><span style="opacity:.6">${fa(keys.length)} کمپین</span></label>`;
+  }).join('');
 }
 function groupRows(R, rows, dimId){
   const dims = dimDefs(R);
@@ -992,7 +1012,7 @@ function defaultSlides(R){
 }
 function defaultCfg(){
   return {v:2, period:{preset:'lastWeek'}, compare:true, campaigns:null, title:'گزارش عملکرد کمپین‌ها',
-          kicker:'', actionLabel:'', logo:null, mediums:{}, slides:null, tpl:{}, tplSavedAt:null};
+          kicker:'', actionLabel:'', logo:null, mediums:{}, groups:[], slides:null, tpl:{}, tplSavedAt:null};
 }
 function loadCfg(R){
   const cfg = Object.assign(defaultCfg(), store.get(cfgKey(R), {}));
@@ -2069,6 +2089,8 @@ function renderSettings(R){
           <option value="report" ${own ? '' : 'selected'}>مثل کل گزارش</option>
           <option value="own" ${own ? 'selected' : ''}>انتخاب دستی برای همین اسلاید</option></select></div>
       ${own ? `<div class="row" style="margin-bottom:8px"><button type="button" class="btn sm" data-sall="${i}">همه</button><button type="button" class="btn sm" data-snone="${i}">هیچ‌کدوم</button></div>
+        ${campaignGroups().length ? `<div class="field"><span>گروه‌های کمپین — تیک هر گروه همه‌ی کمپین‌هاش رو تو این اسلاید تیک می‌زنه یا برمی‌داره</span>
+          <div class="metric-checks">${groupTicks(ownSet, 'data-sgroup', `data-s="${i}" `)}</div></div>` : ''}
         ${slideNameBlock(s, i, opts.filter(o => (o.active || ownSet.has(o.key)) && (!only || only.includes(o.part.id))))}
         <div class="camp-list sm">${opts.filter(o => (o.active || ownSet.has(o.key)) && (!only || only.includes(o.part.id))).map(o => campRow(o, ownSet.has(o.key), `data-s="${i}" data-scamp`)).join('')
           || '<div class="camp-row"><span></span><span>توی این بازه کمپینی نیست</span></div>'}</div>` : ''}`;
@@ -2132,6 +2154,8 @@ function renderSettings(R){
         <button type="button" class="btn sm" id="campNone">هیچ‌کدوم</button>
         ${Array.isArray(cfg.campaigns) ? '<button type="button" class="btn sm" id="campDefault">پیش‌فرض</button>' : ''}
       </div>
+      ${campaignGroups().length ? `<div class="field"><span>گروه‌های کمپین — تیک هر گروه همه‌ی کمپین‌هاش رو تیک می‌زنه یا برمی‌داره</span>
+        <div class="metric-checks">${groupTicks(sel === 'ALL' ? new Set(campaignOptions(R, null).map(o => o.key)) : sel, 'data-rgroup', '')}</div></div>` : ''}
       ${nameGroups.length ? `<div class="field"><span>Campaign Name — تیک هر اسم همه‌ی کمپین‌هاش رو تیک می‌زنه یا برمی‌داره</span>
         <div class="metric-checks" id="nameChecks">${nameGroups.map(g => `<label class="check"><input type="checkbox" data-cname="${esc(g.key)}"><span dir="ltr">${esc(g.label)}</span><span style="opacity:.6">${esc(fa(g.cost))}</span></label>`).join('')}</div></div>` : ''}
       <div class="camp-list" id="reportCamps">
@@ -2141,6 +2165,25 @@ function renderSettings(R){
       </div>
       ${mediumRows.length ? `<h3 style="margin-top:18px">نوع کمپین${someBudget && !budgetOnly ? ' (بخش‌های بودجه‌ای)' : ''}</h3><div class="camp-list">${mediumRows.map(([k, l]) => `<div class="camp-row"><span></span><span class="nm">${esc(l)}</span><span class="cs"></span>${medInput(k)}</div>`).join('')}</div>` : ''}
       <datalist id="mediumList">${mediumNames.map(m => `<option value="${esc(m)}">`).join('')}</datalist>
+    </section>
+
+    <section class="card"><h3>گروه‌های کمپین</h3><p class="hint">چند کمپین رو با یه اسم گروه کن. هر گروه تو فیلتر کمپین کل گزارش و هر اسلاید یه تیک می‌شه (همه‌ی کمپین‌هاش با هم)، و تو جدول و نمودار بُعد «گروه کمپین» رو می‌سازه. لیست هر گروه: کمپین‌هایی که این بازه دیتا دارن، به‌علاوه‌ی عضوهای گروه.</p>
+      ${campaignGroups().map((g, gi) => {
+        const members = new Set(g.campaigns || []);
+        const list = campaignOptions(R, win).filter(o => o.active || members.has(o.key));
+        return `<details class="slide-set" id="grp-${esc(g.id)}" ${S.focusGroup === g.id ? 'open' : ''}>
+          <summary><span class="num">${fa(gi + 1)}</span><span class="t">${esc(g.name || ('گروه ' + fa(gi + 1)))}<span class="ty">${fa(members.size)} کمپین</span></span></summary>
+          <div class="body">
+            <div class="row"><label class="field"><span>اسم گروه</span><input class="inp" data-gname="${gi}" value="${esc(g.name || '')}" placeholder="مثلاً کمپین‌های برندینگ"></label></div>
+            <div class="row" style="margin-bottom:8px">
+              <input class="search" data-gsearch="${gi}" type="search" placeholder="جست‌وجو…" style="flex:1">
+              <button type="button" class="btn sm" data-gall="${gi}">همه</button><button type="button" class="btn sm" data-gnone="${gi}">هیچ‌کدوم</button>
+            </div>
+            <div class="camp-list sm" data-glist="${gi}">${list.map(o => campRow(o, members.has(o.key), `data-g="${gi}" data-gcamp`)).join('') || '<div class="camp-row"><span></span><span>توی این بازه کمپینی نیست</span></div>'}</div>
+            <div class="set-foot"><button type="button" class="btn sm danger" data-gdel="${gi}">حذف گروه</button></div>
+          </div></details>`;
+      }).join('')}
+      <div class="set-foot" style="margin-top:10px"><button type="button" class="btn sm" id="groupAdd">+ گروه تازه</button></div>
     </section>
 
     <section class="card"><h3>اسم متریک‌ها</h3><p class="hint">اسمی که هر متریک تو همه‌ی اسلایدها (کارت‌ها، سرستون جدول‌ها، نمودارها، متن تحلیل) و تو لیست‌های تنظیمات می‌گیره. خالی = اسم پیش‌فرض. «هزینه به ازای …» خودش از اسم جدید پیروی می‌کنه مگه اینکه اونم عوض کنی. متنی که قبلاً مستقیم روی یه اسلاید عوض کردی همون می‌مونه (با «پیش‌فرض» اون اسلاید از اینجا می‌خونه).</p>
@@ -2310,6 +2353,63 @@ function wireSettings(R){
   }));
   $$('[data-camp]').forEach(b => b.addEventListener('change', syncNames));
   syncNames();
+  // Group ticks in the report's campaign list: all a group's campaigns at once.
+  $$('[data-rgroup]').forEach(b => b.addEventListener('change', () => {
+    const every = campaignOptions(R, null).map(o => o.key);
+    const set = new Set(Array.isArray(cfg.campaigns) ? cfg.campaigns : (campaignSelection(R) === 'ALL' ? every : Array.from(campaignSelection(R))));
+    (campaignGroups()[+b.dataset.rgroup].campaigns || []).forEach(k => b.checked ? set.add(k) : set.delete(k));
+    cfg.campaigns = set.size === every.length ? null : Array.from(set);
+    saveCfg(); rerender();
+  }));
+  $$('[data-sgroup][data-some], [data-rgroup][data-some]').forEach(b => { b.indeterminate = true; });
+  // The groups card.
+  const groups = () => (cfg.groups = Array.isArray(cfg.groups) ? cfg.groups : []);
+  $('#groupAdd').addEventListener('click', () => {
+    const g = {id:'g' + Date.now().toString(36), name:'', campaigns:[]};
+    groups().push(g);
+    S.focusGroup = g.id;
+    saveCfg(); rerender();
+    const inp = $(`[data-gname="${groups().length - 1}"]`);
+    if(inp){ inp.scrollIntoView({block:'center'}); inp.focus(); }
+  });
+  $$('[data-gname]').forEach(inp => inp.addEventListener('change', () => {
+    const g = groups()[+inp.dataset.gname];
+    g.name = inp.value.trim();
+    S.focusGroup = g.id;
+    saveCfg(); rerender();
+  }));
+  $$('[data-gcamp]').forEach(b => b.addEventListener('change', () => {
+    const g = groups()[+b.dataset.g];
+    const set = new Set(g.campaigns || []);
+    b.checked ? set.add(b.dataset.gcamp) : set.delete(b.dataset.gcamp);
+    g.campaigns = Array.from(set);
+    const ty = $(`#grp-${g.id} summary .ty`);
+    if(ty) ty.textContent = fa(g.campaigns.length) + ' کمپین';
+    saveCfg();
+  }));
+  $$('[data-gsearch]').forEach(inp => inp.addEventListener('input', () => {
+    const q = inp.value.trim().toLowerCase();
+    $$(`[data-glist="${inp.dataset.gsearch}"] label.camp-row`).forEach(r => { r.hidden = q && !r.dataset.q.includes(q); });
+  }));
+  const groupVisible = (gi, on) => {
+    const g = groups()[gi];
+    const set = new Set(g.campaigns || []);
+    $$(`[data-glist="${gi}"] label.camp-row`).filter(r => !r.hidden).forEach(r => {
+      const x = $('[data-gcamp]', r); x.checked = on;
+      on ? set.add(x.dataset.gcamp) : set.delete(x.dataset.gcamp);
+    });
+    g.campaigns = Array.from(set);
+    S.focusGroup = g.id;
+    saveCfg(); rerender();
+  };
+  $$('[data-gall]').forEach(b => b.addEventListener('click', () => groupVisible(+b.dataset.gall, true)));
+  $$('[data-gnone]').forEach(b => b.addEventListener('click', () => groupVisible(+b.dataset.gnone, false)));
+  $$('[data-gdel]').forEach(b => b.addEventListener('click', () => {
+    const g = groups()[+b.dataset.gdel];
+    if(!confirm(`گروه «${g.name || 'بی‌نام'}» حذف بشه؟ (کمپین‌ها دست نمی‌خورن)`)) return;
+    groups().splice(+b.dataset.gdel, 1);
+    saveCfg(); rerender();
+  }));
   const setAllVisible = v => { $$('#reportCamps label.camp-row').filter(r => !r.hidden).forEach(r => { $('input', r).checked = v; }); writeCamps(); syncNames(); };
   $('#campAll').addEventListener('click', () => setAllVisible(true));
   $('#campNone').addEventListener('click', () => setAllVisible(false));
@@ -2347,6 +2447,11 @@ function wireSettings(R){
       const ids = boxes.filter(b => b.checked).map(b => b.dataset.spart);
       if(!ids.length){ el.checked = true; toast('حداقل یه بخش باید بمونه'); return; }
       if(ids.length === boxes.length) delete s.parts; else s.parts = ids;
+      saveCfg(); rerender(['set-' + s.id]); return;
+    }else if(el.dataset.sgroup !== undefined){
+      const set = new Set(s.campaigns || []);
+      (campaignGroups()[+el.dataset.sgroup].campaigns || []).forEach(k => el.checked ? set.add(k) : set.delete(k));
+      s.campaigns = Array.from(set);
       saveCfg(); rerender(['set-' + s.id]); return;
     }else if(el.dataset.sname !== undefined){
       // All the name's campaigns, also ones that ran outside this period.
