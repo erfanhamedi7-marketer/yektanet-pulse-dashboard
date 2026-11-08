@@ -5,7 +5,7 @@ Read this first, then read the code you are about to change. `index.html` on `ma
 source of truth; this file is a map. The longer Persian history with every decision and number check
 is `docs/dashboard-handoff.md`.
 
-Last updated: 7 Nov 2026.
+Last updated: 8 Nov 2026.
 
 ---
 
@@ -269,7 +269,10 @@ Sheet ids are in the code; the main ones are repeated here for orientation.
   metrics, dimension (day, week, campaign, Campaign Name, medium, part), chart type, max rows, own period, own
   campaigns, parts.
 - Everything on a slide is `contenteditable`; «ذخیره قالب» keeps text edits as a template for later periods
-  (numbers stay per period). Drag handles reorder cards, tiles, table columns and slides.
+  (numbers stay per period). **Dates never go into a template** (`isDateKey`: the period line under a slide
+  title, the cover's period and «تاریخ تهیه»), and dates saved before that rule are ignored when applied.
+- Per-slide campaign pick («انتخاب دستی برای همین اسلاید») has Campaign Name ticks for sections with a
+  `campaignNameCol` (Firouzeh): a name ticks/unticks all its campaigns, also ones outside the period. Drag handles reorder cards, tiles, table columns and slides.
 - Storage: `localStorage` (`slides:cfg:<id>`, `slides:edits:<id>:<from>-<to>`, `slides:merges`) mirrored to
   the server store (`api/store.js`, debounced 2.5 s, `slides:pending` protects unsent changes).
 - Slides are always 1280×720, scaled with `transform: scale`. Charts use `responsive:false` (Chart.js

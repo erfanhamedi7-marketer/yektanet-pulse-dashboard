@@ -1160,7 +1160,14 @@ function saveEdits(){
   clearTimeout(editTimer);
   editTimer = setTimeout(()=>{ if(!store.set(S.editKey, S.edits)) toast('ذخیره نشد — حافظه‌ی مرورگر پر یا بسته‌ست'); }, 250);
 }
+// Dates always follow the report: the period line under a slide's title,
+// the cover's period and its «تاریخ تهیه» never go into a template (and
+// ones saved before this rule are not applied).
+function isDateKey(s, k){
+  return s && (s.type === 'cover' ? k === 'period' || k === 'foot' : k === 'kicker');
+}
 function isTemplateKey(s, k){
+  if(isDateKey(s, k)) return false;
   if(/^c:.*:name$/.test(k)) return true;               // a renamed row is text
   return !/^(c:|v:|d:)/.test(k);
 }
@@ -1187,7 +1194,9 @@ function saveTemplate(){
 const E = (k, html, ph, tag, cls) =>
   `<${tag || 'div'} class="${cls || ''}" data-k="${esc(k)}"${ph ? ` data-ph="${esc(ph)}"` : ''}>${html}</${tag || 'div'}>`;
 function applyEdits(el, sid){
-  const ed = Object.assign({}, (S.cfg.tpl || {})[sid], S.edits[sid]);
+  const s = S.cfg.slides.find(x => x.id === sid);
+  const tpl = Object.fromEntries(Object.entries((S.cfg.tpl || {})[sid] || {}).filter(([k]) => !isDateKey(s, k)));
+  const ed = Object.assign({}, tpl, S.edits[sid]);
   $$('[data-k]', el).forEach(n => { if(ed[n.dataset.k] !== undefined) n.innerHTML = ed[n.dataset.k]; });
   $$('[data-row]', el).forEach(r => { if(ed['hide:' + r.dataset.row]) r.remove(); });
   if(document.body.classList.contains('editing')) $$('[data-k]', el).forEach(n => n.setAttribute('contenteditable', 'true'));
@@ -2004,6 +2013,21 @@ function renderSettings(R){
     return {key, label:nameLabelOf(part, raw) + (R.merged ? ' — ' + part.title : ''),
             cost:shown.filter(o => keys.includes(o.key)).reduce((t, o) => t + o.cost, 0)};
   }).sort((a, b) => b.cost - a.cost);
+  // A slide's own Campaign Name ticks, over the campaigns its list shows:
+  // ticked when all a name's campaigns are, half-ticked when some are.
+  const slideNameBlock = (s, i, listed) => {
+    const groups = Array.from(campaignNameGroups(R, listed.map(o => o.key)).entries());
+    if(!groups.length) return '';
+    const on = new Set(s.campaigns || []);
+    const items = groups.map(([key, keys]) => {
+      const {part, raw} = splitKey(R, keys[0]);
+      const n = keys.filter(k => on.has(k)).length;
+      return {key, label:nameLabelOf(part, raw) + (R.merged ? ' — ' + part.title : ''), state:n === 0 ? '' : n === keys.length ? 'all' : 'some',
+              cost:listed.filter(o => keys.includes(o.key)).reduce((t, o) => t + o.cost, 0)};
+    }).sort((a, b) => b.cost - a.cost);
+    return `<div class="field"><span>Campaign Name — تیک هر اسم همه‌ی کمپین‌هاش رو تو این اسلاید تیک می‌زنه یا برمی‌داره</span>
+      <div class="metric-checks">${items.map(g => `<label class="check"><input type="checkbox" data-s="${i}" data-sname="${esc(g.key)}" ${g.state === 'all' ? 'checked' : ''} ${g.state === 'some' ? 'data-some="1"' : ''}><span dir="ltr">${esc(g.label)}</span><span style="opacity:.6">${esc(fa(g.cost))}</span></label>`).join('')}</div></div>`;
+  };
   const slideOpts = (s, i) => {
     const metBox = m => `<label class="check"><input type="checkbox" data-s="${i}" data-metric="${m.id}" ${(s.metrics || []).includes(m.id) ? 'checked' : ''}>${esc(m.label)}</label>`;
     const usable = defs.filter(m => m.ok && !(m.groupOnly && s.type === 'kpis'));
@@ -2045,6 +2069,7 @@ function renderSettings(R){
           <option value="report" ${own ? '' : 'selected'}>مثل کل گزارش</option>
           <option value="own" ${own ? 'selected' : ''}>انتخاب دستی برای همین اسلاید</option></select></div>
       ${own ? `<div class="row" style="margin-bottom:8px"><button type="button" class="btn sm" data-sall="${i}">همه</button><button type="button" class="btn sm" data-snone="${i}">هیچ‌کدوم</button></div>
+        ${slideNameBlock(s, i, opts.filter(o => (o.active || ownSet.has(o.key)) && (!only || only.includes(o.part.id))))}
         <div class="camp-list sm">${opts.filter(o => (o.active || ownSet.has(o.key)) && (!only || only.includes(o.part.id))).map(o => campRow(o, ownSet.has(o.key), `data-s="${i}" data-scamp`)).join('')
           || '<div class="camp-row"><span></span><span>توی این بازه کمپینی نیست</span></div>'}</div>` : ''}`;
     return `<details class="slide-set ${s.on === false ? 'off' : ''}" id="set-${esc(s.id)}" ${S.focusSlide === s.id ? 'open' : ''}>
@@ -2162,6 +2187,18 @@ function wireSettings(R){
     open.forEach(id => { const x = document.getElementById(id); if(x) x.open = true; });
     window.scrollTo(0, y);
   };
+  // A slide's Campaign Name boxes follow its campaign ticks.
+  const syncSlideNames = i => {
+    const boxes = $$(`[data-s="${i}"][data-scamp]`);
+    const groups = campaignNameGroups(R, boxes.map(b => b.dataset.scamp));
+    $$(`[data-s="${i}"][data-sname]`).forEach(b => {
+      const keys = groups.get(b.dataset.sname) || [];
+      const n = keys.filter(k => { const x = boxes.find(y => y.dataset.scamp === k); return x && x.checked; }).length;
+      b.checked = n > 0 && n === keys.length;
+      b.indeterminate = n > 0 && n < keys.length;
+    });
+  };
+  $$('[data-sname][data-some]').forEach(b => { b.indeterminate = true; });
   // Period editors: the report's (scope 'r') and each slide's own.
   const perOf = scope => scope === 'r' ? (cfg.period = cfg.period || {preset:'lastWeek'}) : cfg.slides[+scope].period;
   const setPer = (scope, per) => {
@@ -2311,10 +2348,18 @@ function wireSettings(R){
       if(!ids.length){ el.checked = true; toast('حداقل یه بخش باید بمونه'); return; }
       if(ids.length === boxes.length) delete s.parts; else s.parts = ids;
       saveCfg(); rerender(['set-' + s.id]); return;
+    }else if(el.dataset.sname !== undefined){
+      // All the name's campaigns, also ones that ran outside this period.
+      const set = new Set(s.campaigns || []);
+      (campaignNameGroups(R, campaignOptions(R, null).map(o => o.key)).get(el.dataset.sname) || [])
+        .forEach(k => el.checked ? set.add(k) : set.delete(k));
+      s.campaigns = Array.from(set);
+      saveCfg(); rerender(['set-' + s.id]); return;
     }else if(el.dataset.scamp !== undefined){
       const set = new Set(s.campaigns || []);
       el.checked ? set.add(el.dataset.scamp) : set.delete(el.dataset.scamp);
       s.campaigns = Array.from(set);
+      syncSlideNames(el.dataset.s);
     }else if(el.dataset.prop === 'campMode'){
       if(el.value === 'own'){
         // Start from what the report counts now.
