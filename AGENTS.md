@@ -254,31 +254,85 @@ Sheet ids are in the code; the main ones are repeated here for orientation.
 
 ## 6. `slides.html` (weekly slide deck)
 
-- Engine: hidden iframe `/index.html?core`; `index.html` then skips `init` and exposes `window.dashCore`
-  (`PROJECTS, BRANDS, projectState, loadProject, messageRows, messageFields, messageSpec, campaignTypes,
-  campaignTypeGroup, lastWeekWithin, yesterdayWithin, weekStartFor, localIso, toInputDate, fromInputDate,
-  todayStr, normCampaign, campaignNameOf`). **This object is a contract — renaming any of these breaks slides.**
-  Rows come from `messageRows` (must keep `date`, `campaignLabel`, `extras`, `costExtras`).
-- Routes: `#` client list → `#<id>` deck → `#<id>/settings`; `#new-merge`, `#<merge-id>/parts` for merged
-  reports (several sections summed; campaign keys prefixed `part::campaign`).
-- Default deck (7 slides): cover, campaign types (list only, no numbers), KPI cards with change vs previous
-  period, daily chart, chart by medium, medium comparison table, analysis + next actions (auto draft).
-- Settings per report: period (presets, custom, excluded days), compare toggle, title, logo, theme palette,
-  campaign ticks (+ «نوع کمپین» per campaign = `cfg.mediums`), **Campaign Name ticks for `campaignNameCol`
-  projects** (a name ticks/unticks all its campaigns across the whole sheet), metric renames, and per slide:
-  metrics, dimension (day, week, campaign, Campaign Name, medium, part), chart type, max rows, own period, own
-  campaigns, parts.
-- Everything on a slide is `contenteditable`; «ذخیره قالب» keeps text edits as a template for later periods
-  (numbers stay per period). **Dates never go into a template** (`isDateKey`: the period line under a slide
-  title, the cover's period and «تاریخ تهیه»), and dates saved before that rule are ignored when applied.
-- Per-slide campaign pick («انتخاب دستی برای همین اسلاید») has Campaign Name ticks for sections with a
-  `campaignNameCol` (Firouzeh): a name ticks/unticks all its campaigns, also ones outside the period. Drag handles reorder cards, tiles, table columns and slides.
-- Storage: `localStorage` (`slides:cfg:<id>`, `slides:edits:<id>:<from>-<to>`, `slides:merges`) mirrored to
-  the server store (`api/store.js`, debounced 2.5 s, `slides:pending` protects unsent changes).
-- Slides are always 1280×720, scaled with `transform: scale`. Charts use `responsive:false` (Chart.js
-  mis-measures under transforms). Center with flex, not `translate`, or print pagination breaks.
+### 6.1 Engine and data
+- Hidden iframe `/index.html?core`. In core mode (`CORE_MODE`, defined at the top of the `index.html` script)
+  `index.html` skips `init` and exposes `window.dashCore`: `PROJECTS, BRANDS, projectState, loadProject,
+  messageRows, messageFields, messageSpec, campaignTypes, campaignTypeGroup, lastWeekWithin, yesterdayWithin,
+  weekStartFor, localIso, toInputDate, fromInputDate, todayStr, normCampaign, campaignNameOf`.
+  **This object is a contract — renaming any of these breaks slides.**
+- Core mode also changes `loadProject`: non-budget sections get `includeUnmatchedCost = true` and
+  `hideZeroConversionCampaigns = false` (weekly reports count everything), and every extra **number column** of
+  the reference and cost tabs is kept (`numberColumns`, `NOT_METRICS`) → `project.extraMetricCols = {ref, cost}`.
+  Outside core mode the dashboard reads exactly what it did before.
+- Rows: `rowsFor(R, win, sel, only)` sets `core.projectState[part.id]` and calls `core.messageRows(part, win)`
+  for each part. `messageRows` must keep returning `date, campaign, campaignLabel, cost, impressions, clicks,
+  sessions, installs, action, extras, costExtras` (budget rows: `campaignName`, `sessions`). The slides add
+  `x` (extra columns), `part`, `partTitle`, `raw`, `cname` (Campaign Name key) and prefix `campaign` for
+  merged reports.
+- A "report" object: `{id, title, logo, theme, parts:[project…], merged, def}`. A single section is a report
+  with one part. Merged reports (`slides:merges` = `[{id:'merge-…', title, parts:[ids]}]`) key campaigns as
+  `partId::campaign` (`pkey`, `splitKey`); same-named extra columns are summed; the main action is the sum of
+  each part's action.
+- `computeData(R, sel, only, per)` → `{win, prev, days, rows, prevRows, excluded, t, pt}`; the previous period is
+  the same length right before; excluded days are removed from both sides (the previous side drops the same day
+  minus the period length). `dataFor(slide)` caches per (campaigns, parts, period) key in `S.cache`;
+  `saveCfg()` clears the cache.
 
----
+### 6.2 Metrics and dimensions
+- `metricDefs(R)`: cost, impressions, clicks, ctr, sessions, cps, stc, installs, cpi, actions, cpa, costShare,
+  plus `x:<col>` (count) and `xc:<col>` (cost per) for every extra column (`extraCols`). Availability comes from
+  `core.messageFields` (`hasOf`). Labels can be renamed per report (`cfg.metricLabels`); a cost-per label
+  follows its count's new name unless renamed itself.
+- `metricValue(id, totals, all)` computes everything from summed totals (combined rates, never row averages).
+- Dimensions (`dimDefs`): day, week (Saturday start), campaign, Campaign Name (budget parts or
+  `campaignNameCol` parts), medium, part (merged only). The old `type` dimension/level maps to medium.
+- **Medium = «نوع کمپین»** of a campaign: `cfg.mediums[key]` (typed in settings) → else the sheet's
+  `Campaign Type` folded by `campaignTypeGroup` → else `guessMedium(name)` (inapp, push, sms, vid, bnr,
+  native, cafe/cb…) → else «سایر». Only Firouzeh/Tara/Technopay/Agah sheets have `Campaign Type`.
+
+### 6.3 Slides
+- Types: `cover`, `campaigns` (campaign-type tiles, no numbers; `level` medium | campaign), `kpis` (cards;
+  up to 8 normal, 9–10 five columns, 11+ three compact rows), `chart` (`combo | bar | hbar | line | doughnut`,
+  first two metrics), `table` (dimension + metric columns, `maxRows`, optional `typeCol` for campaign tables,
+  zoomed down to fit), `text` (1–3 columns; default analysis = `analysisDraft`, a comparison with the previous
+  period, and an empty «اقدامات پیش رو»), `section` (separator: title only).
+- Default deck (`defaultSlides`): cover, campaigns, kpis, chart1 (daily cost + main action), chart2 (by medium),
+  mediums table, analysis.
+- Per slide (all optional): `metrics` (order = card/column order), `dim`, `chart`, `maxRows`, `typeCol`,
+  `level`, `tileOrder`, `campaigns` (own pick; Campaign Name ticks shown for `campaignNameCol` parts),
+  `parts` (merged reports), `period` (own preset/custom/excluded days), `cols`, `on`.
+- Report settings (`cfg`, key `slides:cfg:<reportId>`): `period {preset, from, to, exclude[]}`, `compare`,
+  `campaigns` (null = all or the section's `defaultCampaigns`), `title`, `kicker`, `logo` (data URL),
+  `theme` (null = brand, or `{preset, accent, second}`), `mediums`, `metricLabels`, `slides[]`, `tpl`
+  (template text per slide), `tplSavedAt`.
+- Editing: every text node with `data-k` is `contenteditable` in edit mode; edits are saved per period
+  (`slides:edits:<id>:<from>-<to>`). «ذخیره قالب» moves text edits into `cfg.tpl`; numbers (`c:<row>:<metric>`,
+  `v:`, `d:`) stay per period, and **dates never go into a template** (`isDateKey`: slide `kicker`, cover
+  `period` and `foot`; old saved dates are ignored when applied). «پیش‌فرض» on a slide resets its settings and
+  text (`resetSlide`). Table rows can be hidden (`hide:<rowKey>`).
+- Drag handles (pointer events on `document`, never `setPointerCapture`): KPI cards and campaign tiles, table
+  columns, whole slides in the deck (the deck folds while dragging; hidden slides keep their place) and in the
+  settings list.
+- Presentation mode and exports use `snapshot()` (charts → PNG, edit controls removed). PDF = `#printDeck` +
+  `window.print()` with `@page {size:1280px 720px}`. HTML = standalone file with `#slideCss`. File name
+  (`fileBase`): «گزارش کمپین <report title> - 2 تا 8 آبان» (Latin day numbers, Persian month, no year).
+
+### 6.4 Storage (shared between browsers)
+- `localStorage` is the page's working copy; every `store.set/del` of a `slides:` key is queued for the server
+  (`api/store.js`, one POST 2.5 s after the last change; «ذخیره قالب» sends at once). Server keys:
+  `<report>|cfg`, `<report>|edits|<from>-<to>`, `_|merges`. Opening a report pulls `<report>|` (server copy wins).
+- `slides:pending` remembers keys not yet confirmed; they win over the server copy on the next load (a reload
+  within 2.5 s, or the keepalive send on unload failing for bodies > 64 KB, used to lose changes).
+- `slides:synced`: a prefix synced once; afterwards a key missing on the server is treated as deleted.
+- `api/store.js` writes to the first tab of `STORE_SPREADSHEET_ID` (one row per key: key, time, user, JSON in
+  45,000-char pieces in D…Z). Without the id it answers 503 `no_store` and the page works locally only
+  (status pill: «ذخیره‌ی مشترک هنوز وصل نشده»).
+
+### 6.5 Layout rules
+- Slides are always 1280×720, scaled with `transform: scale(--k)`. Charts use `responsive:false` with the
+  canvas sized from the 1280 layout (Chart.js measures the scaled box otherwise). Center with flex, not
+  `translate`: print pagination uses the untransformed position. Text that doesn't fit is stepped down
+  (`fitSlideText`); tables use CSS `zoom`.
 
 ## 7. Design rules (Erfan's taste)
 
@@ -308,6 +362,9 @@ Sheet ids are in the code; the main ones are repeated here for orientation.
   report (it carries `minDate`/`maxDate`), otherwise settings render blank.
 - Drag-and-drop in slides uses pointer events on `document`; `setPointerCapture` breaks when the dragged node
   moves in the DOM.
+- Settings re-render on most changes (`rerender` keeps open panels and scroll). Listeners are attached to the
+  freshly rendered `.set-grid`, never to `#view`, or they pile up.
+- An inline Python/heredoc containing `$$(` can trip some shells' safety checks; write patch scripts to a file.
 - Charts are created through `makeChart`; `fmtNum` caches `Intl.NumberFormat` (don't call `toLocaleString`
   in loops).
 
@@ -361,6 +418,23 @@ Checklist:
 3. Check `index.html`, `report.html` (and `slides.html` if affected); desktop and mobile widths; no console errors.
 4. Quick syntax check of a big script: extract it and run `node --check`.
 
+### 9.1b Headless test harness (cloud / no Google access)
+Used for every slides change so far (keep it outside the repo):
+- Serve the repo with `python3 -m http.server 8765`; drive it with Playwright (Chromium).
+- Route `**/cdnjs.cloudflare.com/**` to a local `chart.umd.js` (`npm pack chart.js@4.4.1`), abort Google Fonts,
+  answer `**/api/me` with `{user:'test'}` and `**/api/sheet-data*` from a `mock.json` keyed
+  `spreadsheetId||sheet` → `{headers, rows}` (built from an xlsx export of the real sheet with openpyxl).
+- Answer `**/api/store*` with 503 `{code:'no_store'}`, or with an in-memory Map to test cross-browser sync
+  (two browser contexts = two browsers).
+- Pin the clock (`context.clock.setFixedTime(...)`) to a day your mock data covers: presets like «هفته قبل» move
+  with the calendar.
+- Run with `LANG=C.UTF-8`, or Chromium names Persian downloads "download".
+- Reading real sheets from a cloud session: `docs.google.com` and `*.vercel.app` are blocked by the proxy; the
+  Google Drive connector's `download_file_content` (xlsx export) works for small and medium sheets (the Arzplus
+  workbook is too big).
+- Before deploying, compare numbers with an independent Python sum over the same rows, and diff the dashboard's
+  section text before/after (`git worktree add` of the old commit on another port) when touching `index.html`.
+
 ### 9.2 Deploy
 ```bash
 git fetch origin main            # main may have moved (logo uploads from the web UI)
@@ -385,12 +459,40 @@ GitHub sometimes answers a push with a transient `500 Internal Server Error`; ju
   `Tocal - Metrix - Old`? Undecided.
 - Cost-per-KYC column in Arzplus Adgroup/Creative tables — Erfan will say later.
 - Mediums for projects without a `Campaign Type` column are guessed from campaign names; check before sending reports.
-- In slide settings, a single slide's own campaign pick is still campaign-by-campaign (no Campaign Name ticks).
 - The page HTML/JS is public (only data is locked); locking the page itself needs Vercel Routing Middleware.
 
 ---
 
-## 11. Keeping this file useful
+## 11. Recipes
+
+- **New client / section:** add the project object to `ALL_PROJECTS` (or to a generator such as
+  `yektanetExportSections`) in `index.html`, and in `report.html` if the weekly report should have it; add the
+  sheet id to `ALLOWED_SPREADSHEETS` in `api/sheet-data.js`; ask Erfan to share the sheet with the service
+  account; add a logo file and `BRANDS` entry if needed. It appears in the slides automatically.
+- **New business rule** (filter, conversion, column): change the project object in both `index.html` and
+  `report.html`; verify with Python; update `docs/dashboard-handoff.md` section 3 for that client.
+- **New metric in slides:** if it is a sheet column, it is already offered under «ستون‌های دیگه‌ی شیت»; a derived
+  one goes into `metricDefs` + `metricValue` (and `totals` if it needs a new sum).
+- **New slide type:** add it to `SLIDE_TYPES`, a renderer in `renderSlide`, defaults in `newSlide`, the
+  add-buttons lists, and its settings in `slideOpts` (exclude data controls with `noData` if it has no data).
+- **New report setting:** add to `defaultCfg`, read it where needed, render it in `renderSettings`, wire it in
+  `wireSettings` (call `saveCfg()` then `rerender()`); it syncs to the server automatically.
+
+## 12. Debugging common reports from Erfan
+
+- **"This number doesn't match the sheet"**: check the date range (today is never counted; «هفته قبل» is
+  Saturday–Friday), the section's campaign rules (`keep`, `excludeCampaign`, `rowFilter`, prefixes), the join
+  (`includeUnmatchedCost`; a campaign spelled differently in the two tabs never joins), filters (Campaign Name +
+  Campaign), and in slides the slide's own campaigns/parts/period and excluded days.
+- **"A campaign's cost isn't counted"**: usually it has cost rows but no conversion rows and the section lacks
+  `includeUnmatchedCost` (dashboard only; weekly reports always count it). Confirm with a script over both tabs.
+- **"My edit disappeared" (slides)**: per-period edits vs template (only text goes into a template; dates and
+  numbers don't), the server store overwriting (see 6.4), or the change was made in another browser before the
+  store was connected.
+- **"Quota exceeded"**: too many loads in a minute (60 reads/min for the service account); wait a minute.
+- **Blank page / no login**: `DASHBOARD_USERS` missing on Vercel, or the deploy failed (check the commit status).
+
+## 13. Keeping this file useful
 
 When you change behaviour, update in the same commit:
 - the relevant section of this file (key points, options table, project rules, traps), and
