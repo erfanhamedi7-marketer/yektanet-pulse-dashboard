@@ -5,7 +5,7 @@ Read this first, then read the code you are about to change. `index.html` on `ma
 source of truth; this file is a map. The longer Persian history with every decision and number check
 is `docs/dashboard-handoff.md`.
 
-Last updated: 8 Nov 2026.
+Last updated: 9 Nov 2026.
 
 ---
 
@@ -211,9 +211,11 @@ Sheet ids are in the code; the main ones are repeated here for orientation.
   real data** — compare with the `CPA - Profit` tab the first time).
 - **ویپاد** `wepod` — `Wepod - Metrix` (`v2_national`) × `Wepod - Yektanet`; `sign_up` as `costPerMetrics`
   (`sinceFirst`, count card, in client message).
-- **بلو** group `blue`: Blue (`Card Order`; all campaigns except `biz-*`, `bj*`, `inapp-cpc-shareit`,
-  `lba-bazar`; `includeUnmatchedCost`), Blue Business (`biz-*`), Blue Junior (separate sheet `1zBI8XWT…`,
-  `Add Child`, `includeUnmatchedCost`).
+- **بلو** group `blue` (4 parts): Blue (`Card Order`; all campaigns except `biz-*`, `sl-*`, `bj*`,
+  `inapp-cpc-shareit`, `lba-bazar`; `includeUnmatchedCost`), Blue Business (`biz-*`), **سوپر لیگ**
+  `blue-superleague` (`sl-*` only, same sheet/tabs, since 9 Nov; its campaigns start 7 Nov and have no Adtrace
+  rows yet, so Card Order is 0 until they appear), Blue Junior (separate sheet `1zBI8XWT…`, `Add Child`,
+  `includeUnmatchedCost`).
 - **بانکینو** `bankino` — `Bankino - Metrix` (`Open Account`) × `Bankino - Yektanet`.
 - **ارزپلاس** group `arzplus` (7 parts): Arzplus and Tochal app / Cafe Bazaar / web, plus Ramzarz News (CPI).
   Main conversion Purchase (Deposit (Web) for Arzplus web). App parts split by campaign prefix (`inap`; cafe
