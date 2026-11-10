@@ -303,6 +303,12 @@ Sheet ids are in the code; the main ones are repeated here for orientation.
 - Per slide (all optional): `metrics` (order = card/column order), `dim`, `chart`, `maxRows`, `typeCol`,
   `level`, `tileOrder`, `campaigns` (own pick; Campaign Name ticks shown for `campaignNameCol` parts),
   `parts` (merged reports), `period` (own preset/custom/excluded days), `cols`, `on`.
+- **Charts from an uploaded file**: a chart slide's «منبع دیتا» can be «فایل Excel یا CSV آپلودی»
+  (`slide.source = 'file'`, `slide.file = {name, sheets:{name:{headers, rows}}, sheet, labelCol, valueCols}`).
+  Parsed in the browser with SheetJS 0.18.5 (cdnjs, loaded on first upload, `loadXlsx`/`readTableFile`):
+  ≤ 10 sheets, ≤ 1000 rows, ≤ 30 columns, ≤ 8 MB; the header row is the first non-empty row. Numbers via
+  `parseNum` (Persian digits, `,`/`٬`, `%`, «تومان», `(1,234)`). Metric ids `f:<colIndex>`; rows keep the file's
+  order. The data lives in `cfg` (so it travels with templates and the server store); report filters don't apply.
 - **Slide groups** (`cfg.slideGroups = [{id, name, campaigns?, parts?, period?}]`, card «گروه‌های اسلاید»; a slide
   joins with `slide.group`). A group's campaigns/parts/period apply to all its slides; a slide's own setting wins
   (`effectiveOf(slide)` → used by `dataFor`, `slideParts`). «کپی گروه» clones every member slide (settings +

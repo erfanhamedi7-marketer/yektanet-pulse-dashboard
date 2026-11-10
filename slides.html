@@ -863,6 +863,7 @@ function extraCols(R){
 }
 const defsById = R => Object.fromEntries(metricDefs(R).map(m => [m.id, m]));
 function metricValue(id, t, all){
+  if(id.startsWith('f:')) return t[id] === undefined ? null : t[id];   // a column of an uploaded file
   const div = (a, b) => b > 0 ? a / b : null;
   switch(id){
     case 'cost': return t.cost;
@@ -1381,7 +1382,86 @@ function renderTableSlide(R, s, num){
   const body = !d.rows.length ? '<div class="s-empty">توی این بازه دیتایی نیست</div>' : tableHtml(R, s, d, groups, ms, dim);
   return `<section class="slide">${slideHead(R, s, periodOf(d))}<div class="s-body">${body}</div>${slideFoot(R, num)}</section>`;
 }
+// ---------- Charts from an uploaded Excel / CSV file ----------
+// A chart slide may take its data from a file instead of the sheets
+// (slide.source = 'file', slide.file = {name, sheets:{name:{headers, rows}},
+// sheet, labelCol, valueCols}). The file is read once in the browser and kept
+// in the report's settings, so it travels with the template and the server copy.
+const FILE_MAX_ROWS = 1000, FILE_MAX_COLS = 30, FILE_MAX_SHEETS = 10;
+let xlsxLoading = null;
+function loadXlsx(){
+  if(window.XLSX) return Promise.resolve(window.XLSX);
+  return xlsxLoading || (xlsxLoading = new Promise((resolve, reject) => {
+    const sc = document.createElement('script');
+    sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    sc.onload = () => resolve(window.XLSX);
+    sc.onerror = () => { xlsxLoading = null; reject(new Error('xlsx')); };
+    document.head.appendChild(sc);
+  }));
+}
+const FA_DIG = {'۰':'0','۱':'1','۲':'2','۳':'3','۴':'4','۵':'5','۶':'6','۷':'7','۸':'8','۹':'9','٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9'};
+function parseNum(v){
+  if(typeof v === 'number') return isFinite(v) ? v : null;
+  let t = String(v === null || v === undefined ? '' : v).trim().replace(/[۰-۹٠-٩]/g, c => FA_DIG[c]);
+  if(!t) return null;
+  const neg = /^\(.*\)$/.test(t);
+  t = t.replace(/[,٬\s٪%]|تومان|ریال|IRT|IRR/g, '').replace('٫', '.').replace(/^\((.*)\)$/, '$1');
+  const n = Number(t);
+  return isFinite(n) && t !== '' ? (neg ? -n : n) : null;
+}
+// All sheets of a workbook (or the one table of a CSV) as {headers, rows},
+// cut to sane sizes. The header row is the first row with anything in it.
+async function readTableFile(file){
+  const X = await loadXlsx();
+  const buf = await file.arrayBuffer();
+  const csv = /\.csv$/i.test(file.name) || /text\/csv/.test(file.type);
+  const wb = csv ? X.read(new TextDecoder('utf-8').decode(buf).replace(/^\uFEFF/, ''), {type:'string'})
+                 : X.read(buf, {type:'array'});
+  const sheets = {};
+  wb.SheetNames.slice(0, FILE_MAX_SHEETS).forEach(name => {
+    const grid = X.utils.sheet_to_json(wb.Sheets[name], {header:1, raw:false, defval:''})
+      .map(r => r.slice(0, FILE_MAX_COLS).map(c => String(c).slice(0, 120)));
+    const start = grid.findIndex(r => r.some(c => c !== ''));
+    if(start < 0) return;
+    const headers = grid[start].map((h, i) => h || ('ستون ' + (i + 1)));
+    const rows = grid.slice(start + 1).filter(r => r.some(c => c !== '')).slice(0, FILE_MAX_ROWS);
+    sheets[name] = {headers, rows};
+  });
+  return sheets;
+}
+// Sensible first pick: the first column as labels, the next numeric columns as values.
+function guessFileColumns(table){
+  const numeric = table.headers.map((h, i) => table.rows.filter(r => parseNum(r[i]) !== null).length >= Math.max(1, table.rows.length / 2));
+  const labelCol = numeric.findIndex(n => !n) >= 0 ? numeric.findIndex(n => !n) : 0;
+  const valueCols = table.headers.map((h, i) => i).filter(i => i !== labelCol && numeric[i]).slice(0, 2);
+  return {labelCol, valueCols};
+}
+function fileTable(s){
+  const f = s && s.file;
+  return f && f.sheets ? f.sheets[f.sheet] || f.sheets[Object.keys(f.sheets)[0]] : null;
+}
+function fileChartData(s){
+  const tb = fileTable(s);
+  if(!tb) return null;
+  const f = s.file, lc = +f.labelCol || 0;
+  const vcs = (f.valueCols || []).filter(i => i < tb.headers.length);
+  const defs = {};
+  vcs.forEach(i => { defs['f:' + i] = {id:'f:' + i, label:tb.headers[i], good:1, ok:true}; });
+  const groups = tb.rows.filter(r => String(r[lc] || '').trim() !== '').map((r, k) => ({
+    key:k, name:String(r[lc]).trim(), t:Object.fromEntries(vcs.map(i => ['f:' + i, parseNum(r[i])]))
+  }));
+  return {defs, ms:vcs.map(i => 'f:' + i), groups};
+}
 function renderChartSlide(R, s, num){
+  if(s.source === 'file'){
+    const f = fileChartData(s);
+    const ok = f && f.groups.length && f.ms.length;
+    return `<section class="slide">${slideHead(R, s, s.file ? 'منبع: ' + s.file.name : '')}
+      <div class="s-body">${ok ? `<div class="s-chart"><canvas data-chart="${esc(s.id)}"></canvas></div>
+        ${E('note', '', 'توضیح نمودار (اختیاری)', 'div', 's-note')}`
+        : `<div class="s-empty">${s.file ? 'یه ستون عددی برای نمودار انتخاب کن (تنظیمات همین اسلاید)' : 'فایل Excel یا CSV رو از تنظیمات همین اسلاید آپلود کن'}</div>`}</div>
+      ${slideFoot(R, num)}</section>`;
+  }
   const d = dataFor(s);
   return `<section class="slide">${slideHead(R, s, periodOf(d))}
     <div class="s-body">${d.rows.length ? `<div class="s-chart"><canvas data-chart="${esc(s.id)}"></canvas></div>
@@ -1509,15 +1589,26 @@ function alpha(hex, a){
   return `rgba(${parseInt(h.slice(0,2),16)},${parseInt(h.slice(2,4),16)},${parseInt(h.slice(4,6),16)},${a})`;
 }
 function drawChart(R, s, canvas){
-  const defs = defsById(R), th = themeOf(R), d = dataFor(s);
-  const ms = (s.metrics || []).filter(id => defs[id] && defs[id].ok).slice(0, s.chart === 'doughnut' ? 1 : 2);
-  if(!ms.length) return null;
-  let {dim, groups} = groupRows(R, d.rows, s.dim || 'day');
-  const all = d.t;
-  if(!dim.chrono && groups.length > 10){
-    const rest = groups.slice(9);
-    groups = groups.slice(0, 9).concat([{key:'__rest', name:'سایر', t:totals(rest.flatMap(g => g.rows))}]);
+  const th = themeOf(R);
+  let defs, ms, groups, all;
+  if(s.source === 'file'){
+    // An uploaded file: its rows in their own order, nothing grouped away.
+    const f = fileChartData(s);
+    if(!f) return null;
+    defs = f.defs; groups = f.groups; all = {};
+    ms = f.ms.slice(0, s.chart === 'doughnut' ? 1 : 2);
+  }else{
+    defs = defsById(R);
+    const d = dataFor(s);
+    ms = (s.metrics || []).filter(id => defs[id] && defs[id].ok).slice(0, s.chart === 'doughnut' ? 1 : 2);
+    const g = groupRows(R, d.rows, s.dim || 'day');
+    groups = g.groups; all = d.t;
+    if(!g.dim.chrono && groups.length > 10){
+      const rest = groups.slice(9);
+      groups = groups.slice(0, 9).concat([{key:'__rest', name:'سایر', t:totals(rest.flatMap(x => x.rows))}]);
+    }
   }
+  if(!ms.length) return null;
   const labels = groups.map(g => g.name);
   const colors = [th.accent, th.second];
   const font = {family:FONT, size:15};
@@ -2071,12 +2162,34 @@ function renderSettings(R){
     const metBox = m => `<label class="check"><input type="checkbox" data-s="${i}" data-metric="${m.id}" ${(s.metrics || []).includes(m.id) ? 'checked' : ''}>${esc(m.label)}</label>`;
     const usable = defs.filter(m => m.ok && !(m.groupOnly && s.type === 'kpis'));
     const extras = usable.filter(m => m.extra);
-    const mets = ['cover', 'text', 'campaigns', 'section'].includes(s.type) ? '' : `
+    const fileSrc = s.type === 'chart' && s.source === 'file';
+    const tb = fileSrc ? fileTable(s) : null;
+    const srcBlock = s.type !== 'chart' ? '' : `
+      <div class="field"><span>منبع دیتا</span><select class="inp" data-s="${i}" data-prop="source" style="max-width:340px">
+        <option value="sheet" ${fileSrc ? '' : 'selected'}>شیت‌های همین گزارش</option>
+        <option value="file" ${fileSrc ? 'selected' : ''}>فایل Excel یا CSV آپلودی</option></select></div>
+      ${fileSrc ? `<div class="own-period">
+        <div class="row" style="align-items:center;margin-bottom:12px">
+          <button type="button" class="btn sm primary" data-fileup="${i}">${s.file ? 'عوض کردن فایل' : 'آپلود فایل'} (xlsx, xls, csv)</button>
+          ${s.file ? `<span style="font-weight:700" dir="auto">${esc(s.file.name)}</span><span class="hint" style="margin:0">${fa(tb ? tb.rows.length : 0)} ردیف</span>
+            <button type="button" class="btn sm danger" data-filedel="${i}">حذف فایل</button>` : ''}
+        </div>
+        ${s.file && tb ? `<div class="row">
+          ${Object.keys(s.file.sheets).length > 1 ? `<label class="field"><span>شیت</span><select class="inp" data-s="${i}" data-prop="fsheet">
+            ${Object.keys(s.file.sheets).map(n => `<option value="${esc(n)}" ${n === s.file.sheet ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>` : ''}
+          <label class="field"><span>ستون برچسب‌ها (محور)</span><select class="inp" data-s="${i}" data-prop="flabel">
+            ${tb.headers.map((h, ci) => `<option value="${ci}" ${ci === +s.file.labelCol ? 'selected' : ''}>${esc(h)}</option>`).join('')}</select></label>
+        </div>
+        <div class="field"><span>ستون‌های عددی (نمودار: دو تای اول؛ دایره‌ای: فقط اولی)</span><div class="metric-checks">
+          ${tb.headers.map((h, ci) => ci === +s.file.labelCol ? '' : `<label class="check"><input type="checkbox" data-s="${i}" data-fval="${ci}" ${(s.file.valueCols || []).includes(ci) ? 'checked' : ''}>${esc(h)}</label>`).join('')}
+        </div></div>` : ''}
+      </div>` : ''}`;
+    const mets = ['cover', 'text', 'campaigns', 'section'].includes(s.type) || fileSrc ? '' : `
       <div class="field"><span>متریک‌ها${s.type === 'chart' ? ' (نمودار: دو تای اول؛ دایره‌ای: فقط اولی)' : ''}</span><div class="metric-checks">
         ${usable.filter(m => !m.extra).map(metBox).join('')}
       </div></div>
       ${extras.length ? `<div class="field"><span>ستون‌های دیگه‌ی شیت</span><div class="metric-checks">${extras.map(metBox).join('')}</div></div>` : ''}`;
-    const dims = s.type === 'chart' || s.type === 'table' ? `<div class="field"><span>بُعد</span><select class="inp" data-s="${i}" data-prop="dim">
+    const dims = (s.type === 'chart' && !fileSrc) || s.type === 'table' ? `<div class="field"><span>بُعد</span><select class="inp" data-s="${i}" data-prop="dim">
         ${dimDefs(R).map(dm => `<option value="${dm.id}" ${s.dim === dm.id ? 'selected' : ''}>${esc(dm.label)}</option>`).join('')}</select></div>` : '';
     const level = s.type === 'campaigns' ? `<div class="field"><span>چی لیست بشه</span><select class="inp" data-s="${i}" data-prop="level">
         ${Object.entries(LIST_LEVELS).map(([k, v]) => `<option value="${k}" ${(s.level === 'campaign' ? 'campaign' : 'medium') === k ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select></div>` : '';
@@ -2091,7 +2204,7 @@ function renderSettings(R){
     const ownSet = new Set(own ? s.campaigns : []);
     const only = slideParts(R, s);
     const ownPer = !!(s.period && s.period.preset);
-    const noData = s.type === 'cover' || s.type === 'section';
+    const noData = s.type === 'cover' || s.type === 'section' || fileSrc;
     const perBlock = noData ? '' : `
       <div class="field"><span>بازه‌ی این اسلاید</span>
         <select class="inp" data-s="${i}" data-prop="perMode" style="max-width:340px">
@@ -2119,7 +2232,7 @@ function renderSettings(R){
       <div class="body">
         ${s.type === 'cover' ? '<p class="hint">عنوان، برچسب و لوگوی جلد از بخش «عنوان و ظاهر» بالا میاد؛ روی خود اسلاید هم قابل ویرایشه.</p>'
           : `<div class="row"><div class="field"><span>عنوان اسلاید</span><input class="inp" data-s="${i}" data-prop="title" value="${esc(s.title)}"></div>${dims}${level}${ctype}${rows}${tcol}${cols}</div>`}
-        ${mets}${camps}
+        ${srcBlock}${mets}${camps}
         ${slideGroupsOf().length ? `<div class="field"><span>گروه اسلاید${slideGroupOf(s) ? ' — فیلترهای گروه برای این اسلاید اعمال می‌شن مگه اینکه خود اسلاید تنظیم خودش رو داشته باشه' : ''}</span>
           <select class="inp" data-s="${i}" data-prop="group" style="max-width:340px"><option value="">بدون گروه</option>
           ${slideGroupsOf().map(g => `<option value="${esc(g.id)}" ${s.group === g.id ? 'selected' : ''}>${esc(g.name || 'گروه بی‌نام')}</option>`).join('')}</select></div>` : ''}
@@ -2264,6 +2377,7 @@ function renderSettings(R){
         <button type="button" class="btn danger" id="cfgReset">برگشت به ساختار پیش‌فرض</button>
       </div>
       <input type="file" id="cfgFile" accept="application/json,.json" hidden>
+      <input type="file" id="chartFile" accept=".xlsx,.xls,.csv,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
     </section>
   </div>`;
   $('#deckActions').innerHTML = `<a class="btn primary" href="#${esc(R.id)}">${ICON.play}<span class="t">دیدن گزارش</span></a>`;
@@ -2528,6 +2642,23 @@ function wireSettings(R){
       el.checked ? set.add(el.dataset.scamp) : set.delete(el.dataset.scamp);
       s.campaigns = Array.from(set);
       syncSlideNames(el.dataset.s);
+    }else if(el.dataset.prop === 'source'){
+      s.source = el.value;
+      saveCfg(); rerender(['set-' + s.id]); return;
+    }else if(el.dataset.prop === 'fsheet'){
+      s.file.sheet = el.value;
+      Object.assign(s.file, guessFileColumns(fileTable(s)));
+      saveCfg(); rerender(['set-' + s.id]); return;
+    }else if(el.dataset.prop === 'flabel'){
+      s.file.labelCol = +el.value;
+      s.file.valueCols = (s.file.valueCols || []).filter(c => c !== +el.value);
+      saveCfg(); rerender(['set-' + s.id]); return;
+    }else if(el.dataset.fval !== undefined){
+      const set = new Set(s.file.valueCols || []);
+      el.checked ? set.add(+el.dataset.fval) : set.delete(+el.dataset.fval);
+      // Kept in the file's column order: the first two drawn are the leftmost.
+      s.file.valueCols = Array.from(set).sort((a, b) => a - b);
+      saveCfg(); return;
     }else if(el.dataset.prop === 'group'){
       if(el.value) s.group = el.value; else delete s.group;
       saveCfg(); rerender(['set-' + s.id]); return;
@@ -2642,6 +2773,39 @@ function wireSettings(R){
     document.addEventListener('pointerup', up);
     document.addEventListener('pointercancel', up);
   });
+  // Uploading a file for a chart slide.
+  $$('[data-fileup]').forEach(b => b.addEventListener('click', () => {
+    const inp = $('#chartFile');
+    inp.dataset.slide = b.dataset.fileup;
+    inp.value = '';
+    inp.click();
+  }));
+  $('#chartFile').addEventListener('change', async e => {
+    const file = e.target.files && e.target.files[0];
+    const sl = cfg.slides[+e.target.dataset.slide];
+    if(!file || !sl) return;
+    if(file.size > 8 * 1024 * 1024){ toast('فایل بزرگ‌تر از ۸ مگابایته'); return; }
+    setStatus('loading', 'در حال خوندن فایل…');
+    try{
+      const sheets = await readTableFile(file);
+      const names = Object.keys(sheets);
+      if(!names.length){ toast('توی این فایل جدولی پیدا نشد'); setStatus('live', 'آماده'); return; }
+      sl.file = {name:file.name, sheets, sheet:names[0], ...guessFileColumns(sheets[names[0]])};
+      sl.source = 'file';
+      saveCfg();
+      toast(`«${file.name}» خونده شد — ${fa(sheets[names[0]].rows.length)} ردیف`);
+      rerender(['set-' + sl.id]);
+    }catch(err){
+      toast(err.message === 'xlsx' ? 'کتابخونه‌ی Excel لود نشد — اینترنت رو چک کن' : 'این فایل خونده نشد — Excel (xlsx/xls) یا CSV باشه');
+    }
+    setStatus('live', 'آماده');
+  });
+  $$('[data-filedel]').forEach(b => b.addEventListener('click', () => {
+    const sl = cfg.slides[+b.dataset.filedel];
+    if(!confirm(`فایل «${sl.file.name}» از این اسلاید حذف بشه؟`)) return;
+    delete sl.file;
+    saveCfg(); rerender(['set-' + sl.id]);
+  }));
   // Slide groups.
   const sgroups = () => (cfg.slideGroups = Array.isArray(cfg.slideGroups) ? cfg.slideGroups : []);
   const sgDone = g => { S.focusSGroup = g.id; saveCfg(); rerender(['sgrp-' + g.id]); };
