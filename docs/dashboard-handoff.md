@@ -118,7 +118,7 @@
 - **کارت‌ها:** Cost اعلامی، Cost R واقعی، سود بازه، سشن (بازه)، باقی‌مانده‌ی بودجه (کل).
 - **دو فیلتر:** Campaign Name و Campaign — **همدیگه رو فیلتر می‌کنن** (انتخاب Campaign Name لیست Campaign رو محدود می‌کنه و برعکس).
 - **پیش‌فرض اسنپ‌پی:** `Merchant Aban 405` و `Cashback Aban 405` (از ۳۱ اکتبر؛ قبلش `Isfahan 405`، `Merchant Mehr 405`، `Social Mehr 405`). تو `index.html` و `report.html` هر دو.
-- **پیش‌فرض اسنپ‌کب:** `Snapp City - Oct 2026`، `Nov 2026` و `Box - Nov 2026` (از ۳ نوامبر؛ دو تای نوامبری از ۱ نوامبر دیتا دارن. از ۲۸ اکتبر فقط `Snapp City - Oct 2026` بود، جایگزین `Bike - Oct 2026` و `Pickup - Oct 2026`؛ قبل‌ترش `Oct 2026`). کمپین‌هاش `push_/inapp_/display_cab_360_<شهر>`ان و از ۱۷ اکتبر دیتا دارن. فیلتر روی Campaign Nameه؛ تو `index.html` و `report.html` هر دو.
+- **پیش‌فرض اسنپ‌کب:** `Snapp City - Oct 2026`، `Nov 2026`، `Box - Nov 2026` و `12th Birthday` (آخری از ۱۰ نوامبر، دیتا از ۷ نوامبر؛ بقیه از ۳ نوامبر؛ دو تای نوامبری از ۱ نوامبر دیتا دارن. از ۲۸ اکتبر فقط `Snapp City - Oct 2026` بود، جایگزین `Bike - Oct 2026` و `Pickup - Oct 2026`؛ قبل‌ترش `Oct 2026`). کمپین‌هاش `push_/inapp_/display_cab_360_<شهر>`ان و از ۱۷ اکتبر دیتا دارن. فیلتر روی Campaign Nameه؛ تو `index.html` و `report.html` هر دو.
 - **پیش‌فرض اسنپ‌بیمه:** `Campaign October 2026` (از ۲۶ اکتبر؛ قبلش بدون پیش‌فرض). دیتاش از ۲۴ اکتبر شروع می‌شه. تو `index.html` و `report.html` هر دو.
 - جدول بودجه/سود هر کمپین و نوارهای بودجه‌ی باقی‌مونده مربوط به کل عمر کمپین‌ان؛ فیلتر تاریخ روشون اثر نداره.
 
@@ -529,6 +529,7 @@
 69. **۸ نوامبر** — گزارش اسلایدی: گروه‌های اسلاید (فیلتر مشترک بازه/بخش/کمپین برای همه‌ی اسلایدهای گروه، کپی کل گروه).
 70. **۹ نوامبر** — بلو: زیرتب **سوپر لیگ** (`blue-superleague`، کمپین‌های `sl-`) و حذف `sl-` از بلو؛ `index.html` و `report.html`.
 71. **۱۰ نوامبر** — گزارش اسلایدی: نمودار از فایل Excel یا CSV آپلودی (انتخاب شیت، ستون برچسب و ستون‌های عددی).
+72. **۱۰ نوامبر** — پیش‌فرض اسنپ‌کب + `12th Birthday`.
 60. **۳ نوامبر** — پیش‌فرض اسنپ‌کب = `Snapp City - Oct 2026` + `Nov 2026` + `Box - Nov 2026`.
 61. **۳ نوامبر** — داشبورد **اسنپ‌باکس** (`snappbox`) به گروه اسنپ اضافه شد؛ همون ساختار `Blend Data` × `Budgeting`؛ تو `index.html`، `report.html` و `ALLOWED_SPREADSHEETS`.
 62. **۴ نوامبر** — **فیروزه** بازنویسی شد: GA4 - Daily Report × Yektanet - Export روی Date + Campaign، از ۲۸ اکتبر، همه‌ی کمپین‌ها، تبدیل Form OTP، هزینه به ازای Session و Engaged Session؛ فیلتر **Campaign Name** با گزینه‌ی عمومی تازه‌ی `campaignNameCol` (+ `subtitle` و `extra` برای پارت‌های `yektanetExportSections`). تو `index.html` و `report.html`.

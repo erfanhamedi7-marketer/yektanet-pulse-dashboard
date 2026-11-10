@@ -5,7 +5,7 @@ Read this first, then read the code you are about to change. `index.html` on `ma
 source of truth; this file is a map. The longer Persian history with every decision and number check
 is `docs/dashboard-handoff.md`.
 
-Last updated: 9 Nov 2026.
+Last updated: 10 Nov 2026.
 
 ---
 
@@ -202,7 +202,7 @@ Sheet ids are in the code; the main ones are repeated here for orientation.
   Click, `Cost R` real, `Cost` declared) and `Budgeting` (Total Budget, Spent, Remaining, Spent (Panel), Profit,
   Campaign Name). Daily profit = declared cost still inside the campaign budget − real cost. Defaults:
   Snapp Pay `Merchant Aban 405`, `Cashback Aban 405`; Snapp Cab `Snapp City - Oct 2026`, `Nov 2026`,
-  `Box - Nov 2026`; Snapp Bimeh `Campaign October 2026`; Snapp Box none. Snapp Pay's client message groups by
+  `Box - Nov 2026`, `12th Birthday` (added 10 Nov); Snapp Bimeh `Campaign October 2026`; Snapp Box none. Snapp Pay's client message groups by
   Campaign Name.
 - **طلاین** group `talaeen` — sheet `1r9f3Vdl…`, five parts: overview, app (Adtrace KYC), web
   (`Web - Campaign` Verified before 23 Oct, `Web - Total` KYC from 23 Oct; KYC from `Cost - Yektanet` as
