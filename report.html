@@ -1283,6 +1283,12 @@ function yektanetExportSections(){
      extra:{
        refSheet: 'GA4 - Daily Report',
        campaignNameCol: 'Campaign Name',
+       // GA4 tags the gold-affiliate traffic with the campaign "goldaffiliate"
+       // and puts the real Yektanet campaign (inapp-cpc-ga, push-cpc-ga…) in
+       // Session Medium; those rows take that campaign and the name
+       // «Gold Affiliate» (Erfan, 11 Nov).
+       refRowMap: r => String(r['Campaign'] || '').trim().toLowerCase() === 'goldaffiliate'
+         ? {...r, 'Campaign': r['Session Medium'], 'Campaign Name': 'Gold Affiliate'} : r,
        rowFilter: r => normDate(r['Date']) >= '20261028',
        cpaLabel: 'هزینه به ازای Form OTP',
        costPerMetrics: [
@@ -2003,8 +2009,11 @@ function readCampaignNames(project, rows){
     const byName = counts[c] = counts[c] || {};
     byName[n] = (byName[n] || 0) + 1;
   });
+  // A real name beats GA4's catch-all "Other": a campaign seen once under
+  // "Other" and once as Gold Affiliate is Gold Affiliate (Erfan, 11 Nov).
+  const other = normCampaign(NO_CAMPAIGN_NAME);
   project.campaignNameOf = Object.fromEntries(Object.entries(counts).map(([c, byName]) =>
-    [c, Object.entries(byName).sort((a,b)=>b[1]-a[1])[0][0]]));
+    [c, Object.entries(byName).sort((a,b)=>(a[0] === other) - (b[0] === other) || b[1]-a[1])[0][0]]));
   project.campaignNameLabels = {[normCampaign(NO_CAMPAIGN_NAME)]: NO_CAMPAIGN_NAME, ...labels};
 }
 // The Campaign Name list: each name with the spend of its campaigns.
@@ -4988,6 +4997,9 @@ async function loadProject(project){
       refSheetRows.forEach((rows, i)=>{ refSheetRows[i] = rows.filter(project.rowFilter); });
       costRows = costRows.filter(project.rowFilter);
     }
+    // refRowMap rewrites a conversion-sheet row before anything reads it
+    // (Firouzeh's gold-affiliate rows: campaign from Session Medium).
+    if(project.refRowMap) refSheetRows.forEach((rows, i)=>{ refSheetRows[i] = rows.map(project.refRowMap); });
     // Dimension tabs are independent of the join, so they are fetched on their
     // own and kept beside it.
     const dimTables = project.dimensionTables || [];

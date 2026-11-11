@@ -177,6 +177,7 @@ Yektanet) with **conversions** (installs, KYC, leads, purchases, sessions… fro
 | `excludeCampaign(key, ctx)` | Drop campaigns on both sides (`yektanetExportSections` parts use `keep`) |
 | `rowFilter(rawRow)` | Drop raw rows before anything (e.g. `advertiserIs('65519')`, Firouzeh's `Date >= 20261028`) |
 | `campaignKey(key)` | Map spellings to one key before the join (Talasea apps: `talaseaAppKey`) |
+| `refRowMap(rawRow)` | Rewrite a conversion-sheet row before anything reads it (after `rowFilter`). Firouzeh: GA4 rows with Campaign `goldaffiliate` take Session Medium as the campaign and Campaign Name «Gold Affiliate». |
 | `campaignNameCol` | Reference column grouping campaigns (Firouzeh's GA4 `Campaign Name`) → second filter, `readCampaignNames`, `campaignNameOf`. Campaigns the reference never names fall under `Other`. |
 | `unmatchedGroups`, `refSourceLabel` | Campaign table lists campaigns in three blocks: both sources, cost only, reference only, with badges naming the source (`'GA4'`) |
 | `defaultCampaigns` | Default campaign selection by exact name (budget sections: Campaign Names). Unknown names are silently ignored. |
@@ -229,6 +230,10 @@ Sheet ids are in the code; the main ones are repeated here for orientation.
   `Other`) and Campaign. Many non-sahel campaigns are named differently in GA4 and Yektanet
   (`rtg_movafaghiat` vs `Native-RTG_Movafaghiat`, `rub-pin` vs `rub-pin-cl`); **Erfan wants them shown
   separately, not mapped** — `unmatchedGroups` lists "cost only" and "GA4 only" blocks.
+  **Gold Affiliate (11 Nov):** GA4 tags that traffic with Campaign `goldaffiliate` and the real Yektanet campaign
+  (`inapp-cpc-ga`, `push-cpc-ga`, `sms-mn2-19a-ga`…) in **Session Medium**; `refRowMap` uses Session Medium as the
+  campaign and «Gold Affiliate» as its Campaign Name. When a campaign has several names, a real name beats
+  GA4's catch-all `Other` (`readCampaignNames`).
 - **تارا** group `tara`: Tara (`Yektanet - Export`, `Lead`, all except `inapp-cpi*`) and Tara App (`Tara - App
   Metrica` Sign Up × cost, only `inapp-cpi*`, CPI card).
 - **تکنوپی** `technopay` — `Validation` main, cost per `Lead`; GA4 `Validation` comparison (`compareConversion`).
