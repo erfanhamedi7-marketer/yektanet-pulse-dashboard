@@ -5,7 +5,7 @@ Read this first, then read the code you are about to change. `index.html` on `ma
 source of truth; this file is a map. The longer Persian history with every decision and number check
 is `docs/dashboard-handoff.md`.
 
-Last updated: 10 Nov 2026.
+Last updated: 11 Nov 2026.
 
 ---
 
@@ -331,7 +331,9 @@ Sheet ids are in the code; the main ones are repeated here for orientation.
   (`data-sgroup`), and the «گروه کمپین» dimension (`cgroup`, `groupOf`: first group containing the campaign,
   else «بدون گروه»).
 - Report settings (`cfg`, key `slides:cfg:<reportId>`): `period {preset, from, to, exclude[]}`, `compare`,
-  `campaigns` (null = all or the section's `defaultCampaigns`), `title`, `kicker`, `logo` (data URL),
+  `campaigns` (null = all or the section's `defaultCampaigns`), `campaignPeriods` (campaign key → optional
+  `{preset:'custom', from, to}`; blank endpoint inherits the active report/slide range; comparison uses the
+  preceding equal-length range), `title`, `kicker`, `logo` (data URL),
   `theme` (null = brand, or `{preset, accent, second}`), `mediums`, `groups`, `metricLabels`, `slides[]`, `tpl`
   (template text per slide), `tplSavedAt`.
 - Editing: every text node with `data-k` is `contenteditable` in edit mode; edits are saved per period

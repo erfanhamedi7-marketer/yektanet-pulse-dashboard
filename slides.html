@@ -1169,8 +1169,26 @@ function computeData(R, sel, only, per){
   const prev = {from:addDays(win.from, -days), to:addDays(win.from, -1)};
   const excluded = excludedIn(per, win);
   const skip = new Set(excluded), skipPrev = new Set(excluded.map(d => addDays(d, -days)));
-  const rows = rowsFor(R, win, sel, only).filter(r => !skip.has(r.date));
-  const prevRows = rowsFor(R, prev, sel, only).filter(r => !skipPrev.has(r.date));
+  // A campaign may use its own date window from report settings. Rows are
+  // loaded across the available sheet range, then each campaign gets either
+  // that override or the report/slide window. Comparison uses the matching
+  // immediately preceding window for each campaign.
+  const sourceRows = rowsFor(R, {from:R.minDate, to:R.maxDate}, sel, only);
+  const campaignWin = key => {
+    const override = S.cfg.campaignPeriods && S.cfg.campaignPeriods[key];
+    if(!override || override.preset !== 'custom') return win;
+    const from = override.from || win.from, to = override.to || win.to;
+    return from <= to ? {from, to} : {from:to, to:from};
+  };
+  const rows = sourceRows.filter(r => {
+    const w = campaignWin(r.campaign);
+    return r.date >= w.from && r.date <= w.to && (S.cfg.campaignPeriods && S.cfg.campaignPeriods[r.campaign] ? true : !skip.has(r.date));
+  });
+  const prevRows = sourceRows.filter(r => {
+    const w = campaignWin(r.campaign), n = daysBetween(w.from, w.to);
+    const from = addDays(w.from, -n), to = addDays(w.from, -1);
+    return r.date >= from && r.date <= to && (S.cfg.campaignPeriods && S.cfg.campaignPeriods[r.campaign] ? true : !skipPrev.has(r.date));
+  });
   return {win, prev, days, rows, prevRows, excluded, t:totals(rows), pt:prevRows.length ? totals(prevRows) : null};
 }
 // A slide of a merged report may show only some of its parts (Arzplus web
@@ -2173,6 +2191,18 @@ function renderSettings(R){
   const sel = campaignSelection(R);
   const opts = campaignOptions(R, win);
   const shown = opts.filter(o => o.active || (sel !== 'ALL' && sel.has(o.key)));
+  const periodOpts = campaignOptions(R, null).filter(o => o.active || (sel !== 'ALL' && sel.has(o.key)));
+  const campaignPeriodRows = periodOpts.map(o => {
+    const p = cfg.campaignPeriods && cfg.campaignPeriods[o.key];
+    const from = p && p.from ? ymdToIso(p.from) : '';
+    const to = p && p.to ? ymdToIso(p.to) : '';
+    return `<div class="row" style="align-items:center;border-top:1px solid var(--line);padding:8px 0;gap:10px">
+      <span dir="auto" style="flex:1;min-width:150px;font-weight:650">${esc(o.label)}${R.merged ? ` <small>— ${esc(o.part.title)}</small>` : ''}</span>
+      <label class="field" style="flex:0 1 170px;margin:0"><span>از</span><input class="inp" type="date" data-cperiod="${esc(o.key)}" data-cpend="from" value="${esc(from)}" min="${esc(ymdToIso(R.minDate))}" max="${esc(ymdToIso(R.maxDate))}"></label>
+      <label class="field" style="flex:0 1 170px;margin:0"><span>تا</span><input class="inp" type="date" data-cperiod="${esc(o.key)}" data-cpend="to" value="${esc(to)}" min="${esc(ymdToIso(R.minDate))}" max="${esc(ymdToIso(R.maxDate))}"></label>
+      ${p ? `<button type="button" class="btn sm" data-cperiod-reset="${esc(o.key)}">مثل بازه‌ی گزارش</button>` : ''}
+    </div>`;
+  }).join('');
   const mediumNames = Array.from(new Set(['درون‌اپلیکیشنی', 'پویا', 'همسان', 'ویدیویی', 'بنری', 'پوش', 'پیامکی', 'پیام روبیکا', 'کافه بازار', 'سایر',
     ...R.parts.flatMap(p => Object.values(core.campaignTypes(p)).map(t => core.campaignTypeGroup(t))), ...Object.values(cfg.mediums || {})].filter(Boolean)));
   const budgetOnly = R.parts.every(p => p.kind === 'budget');
@@ -2360,6 +2390,9 @@ function renderSettings(R){
         ${shown.length ? shown.map(o => campRow(o, sel === 'ALL' || sel.has(o.key), 'data-camp', isBudgetKey(o.key) ? '<span></span>' : medInput(o.key))).join('')
           : '<div class="camp-row"><span></span><span>توی این بازه کمپینی نیست</span></div>'}
       </div>
+      <details class="slide-set" id="campaignPeriods" style="margin-top:12px"><summary><span class="t">بازه‌ی هر کمپین<span class="ty">در صورت خالی بودن تاریخ‌ها، بازه‌ی گزارش اعمال می‌شه</span></span></summary>
+        <div class="body">${campaignPeriodRows || '<div class="hint">کمپینی در این بازه نیست.</div>'}</div>
+      </details>
       ${mediumRows.length ? `<h3 style="margin-top:18px">نوع کمپین${someBudget && !budgetOnly ? ' (بخش‌های بودجه‌ای)' : ''}</h3><div class="camp-list">${mediumRows.map(([k, l]) => `<div class="camp-row"><span></span><span class="nm">${esc(l)}</span><span class="cs"></span>${medInput(k)}</div>`).join('')}</div>` : ''}
       <datalist id="mediumList">${mediumNames.map(m => `<option value="${esc(m)}">`).join('')}</datalist>
     </section>
@@ -2492,6 +2525,13 @@ function wireSettings(R){
     saveCfg(); rerender(openOf(scope));
   };
   view.addEventListener('click', e => {
+    const resetCampaignPeriod = e.target.closest('[data-cperiod-reset]');
+    if(resetCampaignPeriod){
+      if(cfg.campaignPeriods) delete cfg.campaignPeriods[resetCampaignPeriod.dataset.cperiodReset];
+      saveCfg(); S.data = computeData(R, campaignSelection(R)); loadEdits();
+      rerender(['campaignPeriods']);
+      return;
+    }
     const b = e.target.closest('[data-pscope][data-preset],[data-pscope][data-pexdel]');
     if(!b) return;
     const scope = b.dataset.pscope, cur = perOf(scope);
@@ -2507,6 +2547,18 @@ function wireSettings(R){
   });
   view.addEventListener('change', e => {
     const el = e.target;
+    if(el.dataset.cperiod !== undefined){
+      const key = el.dataset.cperiod;
+      const row = el.closest('.row');
+      const from = $('[data-cpend="from"]', row).value;
+      const to = $('[data-cpend="to"]', row).value;
+      cfg.campaignPeriods = cfg.campaignPeriods || {};
+      if(!from && !to) delete cfg.campaignPeriods[key];
+      else cfg.campaignPeriods[key] = {preset:'custom', ...(from ? {from:isoToYmd(from)} : {}), ...(to ? {to:isoToYmd(to)} : {})};
+      saveCfg();
+      S.data = computeData(R, campaignSelection(R)); loadEdits();
+      return;
+    }
     if(el.dataset.pscope === undefined) return;
     const scope = el.dataset.pscope, cur = perOf(scope);
     if(el.dataset.pend){
