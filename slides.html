@@ -232,6 +232,8 @@
   .client-card.new svg{width:20px;height:20px;flex-shrink:0;}
   .client-card{text-decoration:none;}
   .own-period{border:1px dashed var(--border-strong);border-radius:16px;padding:12px 14px 2px;margin-bottom:14px;background:var(--surface-2);}
+  .camp-row.cr-row{grid-template-columns:minmax(0,1fr) 150px 150px 34px;}
+  .cr-label{color:var(--accent-ink);font-weight:700;margin:0 8px;direction:rtl;unicode-bidi:isolate;}
   .ml-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:0 16px;}
   .ml-grid .field{margin-bottom:10px;}
   .tpl-pick{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);background:var(--surface);border-radius:999px;padding:4px 6px 4px 12px;font-size:13px;font-weight:600;}
@@ -280,6 +282,9 @@
     .s-frame{border-radius:10px;}
     .card{padding:18px 16px;}
     .camp-row{grid-template-columns:auto minmax(0,1fr) 120px;}
+    .camp-row.cr-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 34px;}
+    .camp-row.cr-row > .nm{grid-column:1 / -1;}
+    .camp-head.cr-row{display:none;}
     .camp-row .cs{display:none;}
     .row-x{display:none !important;}
   }
@@ -1161,6 +1166,18 @@ function resolvePeriod(R, per){
 function excludedIn(per, win){
   return win ? (per && per.exclude || []).filter(d => d >= win.from && d <= win.to).sort() : [];
 }
+// Dates of their own for some campaigns (cfg.campRanges = {key: {from, to}},
+// YYYYMMDD, either end optional): such a campaign counts only on its own
+// days, in the report and in the period it is compared with. Budget parts
+// key them by Campaign Name (cname).
+function campaignRangeFilter(){
+  const ranges = (S.cfg && S.cfg.campRanges) || {};
+  if(!Object.keys(ranges).length) return () => true;
+  return r => {
+    const rg = ranges[r.campaign] || (r.cname && ranges[r.cname]);
+    return !rg || ((!rg.from || r.date >= rg.from) && (!rg.to || r.date <= rg.to));
+  };
+}
 function computeData(R, sel, only, per){
   per = per || S.cfg.period;
   const win = resolvePeriod(R, per);
@@ -1169,8 +1186,9 @@ function computeData(R, sel, only, per){
   const prev = {from:addDays(win.from, -days), to:addDays(win.from, -1)};
   const excluded = excludedIn(per, win);
   const skip = new Set(excluded), skipPrev = new Set(excluded.map(d => addDays(d, -days)));
-  const rows = rowsFor(R, win, sel, only).filter(r => !skip.has(r.date));
-  const prevRows = rowsFor(R, prev, sel, only).filter(r => !skipPrev.has(r.date));
+  const inOwn = campaignRangeFilter();
+  const rows = rowsFor(R, win, sel, only).filter(r => !skip.has(r.date) && inOwn(r));
+  const prevRows = rowsFor(R, prev, sel, only).filter(r => !skipPrev.has(r.date) && inOwn(r));
   return {win, prev, days, rows, prevRows, excluded, t:totals(rows), pt:prevRows.length ? totals(prevRows) : null};
 }
 // A slide of a merged report may show only some of its parts (Arzplus web
@@ -2364,6 +2382,25 @@ function renderSettings(R){
       <datalist id="mediumList">${mediumNames.map(m => `<option value="${esc(m)}">`).join('')}</datalist>
     </section>
 
+    <section class="card"><h3>بازه‌ی هر کمپین</h3><p class="hint">برای هر کمپین می‌تونی تاریخ شروع و پایان خودش رو بذاری: دیتای اون کمپین فقط تو همون روزها حساب می‌شه (تو گزارش و تو مقایسه با بازه‌ی قبل). خالی = همه‌ی روزهای بازه‌ی گزارش. لیست: کمپین‌هایی که این بازه دیتا دارن، به‌علاوه‌ی کمپین‌هایی که بازه دارن.</p>
+      ${(() => {
+        const ranges = cfg.campRanges || {};
+        const list = campaignOptions(R, win).filter(o => o.active || ranges[o.key]);
+        const set = list.filter(o => ranges[o.key]).length;
+        const dateIn = (key, end) => `<input class="inp" type="date" data-crange="${esc(key)}" data-end="${end}" value="${ranges[key] && ranges[key][end] ? esc(ymdToIso(ranges[key][end])) : ''}" min="${esc(ymdToIso(R.minDate))}" max="${esc(ymdToIso(R.maxDate))}" aria-label="${end === 'from' ? 'از' : 'تا'}">`;
+        return `<div class="row" style="margin-bottom:10px"><input class="search" id="crSearch" type="search" placeholder="جست‌وجو…" style="flex:1">
+            ${set ? `<span class="badge">${fa(set)} کمپین با بازه‌ی خودش</span><button type="button" class="btn sm" id="crClearAll">پاک کردن همه</button>` : ''}</div>
+          <div class="camp-list sm" id="crList" style="max-height:340px">
+            <div class="camp-row camp-head cr-row"><span>کمپین</span><span>از</span><span>تا</span><span></span></div>
+            ${list.map(o => `<div class="camp-row cr-row" data-q="${esc((o.label + ' ' + (o.part ? o.part.title : '')).toLowerCase())}">
+              <span class="nm" title="${esc(o.label)}">${esc(o.label)}${R.merged ? `<span class="pt">${esc(o.part.title)}</span>` : ''}${ranges[o.key] ? `<span class="pt cr-label">${esc(periodLabel(ranges[o.key].from || win.from, ranges[o.key].to || win.to))}</span>` : ''}</span>
+              ${dateIn(o.key, 'from')}${dateIn(o.key, 'to')}
+              <span>${ranges[o.key] ? `<button type="button" class="btn sm" data-crclear="${esc(o.key)}" title="برگشت به بازه‌ی گزارش">×</button>` : ''}</span></div>`).join('')
+              || '<div class="camp-row"><span>توی این بازه کمپینی نیست</span></div>'}
+          </div>`;
+      })()}
+    </section>
+
     <section class="card"><h3>گروه‌های کمپین</h3><p class="hint">چند کمپین رو با یه اسم گروه کن. هر گروه تو فیلتر کمپین کل گزارش و هر اسلاید یه تیک می‌شه (همه‌ی کمپین‌هاش با هم)، و تو جدول و نمودار بُعد «گروه کمپین» رو می‌سازه. لیست هر گروه: کمپین‌هایی که این بازه دیتا دارن، به‌علاوه‌ی عضوهای گروه.</p>
       ${campaignGroups().map((g, gi) => {
         const members = new Set(g.campaigns || []);
@@ -2601,6 +2638,30 @@ function wireSettings(R){
     saveCfg(); rerender();
   }));
   $$('[data-sgroup][data-some], [data-rgroup][data-some]').forEach(b => { b.indeterminate = true; });
+  // Dates of their own for campaigns.
+  $$('[data-crange]').forEach(inp => inp.addEventListener('change', () => {
+    const key = inp.dataset.crange;
+    cfg.campRanges = cfg.campRanges || {};
+    const rg = Object.assign({}, cfg.campRanges[key]);
+    if(inp.value) rg[inp.dataset.end] = isoToYmd(inp.value); else delete rg[inp.dataset.end];
+    if(rg.from && rg.to && rg.from > rg.to) [rg.from, rg.to] = [rg.to, rg.from];
+    if(rg.from || rg.to) cfg.campRanges[key] = rg; else delete cfg.campRanges[key];
+    saveCfg(); rerender();
+  }));
+  $$('[data-crclear]').forEach(b => b.addEventListener('click', () => {
+    delete (cfg.campRanges || {})[b.dataset.crclear];
+    saveCfg(); rerender();
+  }));
+  const crAll = $('#crClearAll');
+  if(crAll) crAll.addEventListener('click', () => {
+    if(!confirm('بازه‌ی همه‌ی کمپین‌ها پاک بشه و همه با بازه‌ی گزارش حساب بشن؟')) return;
+    cfg.campRanges = {}; saveCfg(); rerender();
+  });
+  const crs = $('#crSearch');
+  if(crs) crs.addEventListener('input', () => {
+    const q = crs.value.trim().toLowerCase();
+    $$('#crList .camp-row[data-q]').forEach(r => { r.hidden = q && !r.dataset.q.includes(q); });
+  });
   // The groups card.
   const groups = () => (cfg.groups = Array.isArray(cfg.groups) ? cfg.groups : []);
   $('#groupAdd').addEventListener('click', () => {

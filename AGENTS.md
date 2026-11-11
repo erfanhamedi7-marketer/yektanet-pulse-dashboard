@@ -308,6 +308,9 @@ Sheet ids are in the code; the main ones are repeated here for orientation.
 - Per slide (all optional): `metrics` (order = card/column order), `dim`, `chart`, `maxRows`, `typeCol`,
   `level`, `tileOrder`, `campaigns` (own pick; Campaign Name ticks shown for `campaignNameCol` parts),
   `parts` (merged reports), `period` (own preset/custom/excluded days), `cols`, `on`.
+- **Dates per campaign** (`cfg.campRanges = {key: {from, to}}`, YYYYMMDD, either end optional; card «بازه‌ی هر کمپین»):
+  a campaign with a range counts only on its own days, in the period and in the comparison period
+  (`campaignRangeFilter`, applied in `computeData`). Budget parts key it by Campaign Name (`cname`).
 - **Several templates per report**: each template is a whole cfg (slides, settings, filters, saved text) with its
   own per-period edits. List: `slides:tpls:<id>` = `{list:[{id, name}]}` (synced); the open one is per browser
   (`slides:tplActive:<id>`, not synced). The first template has id `main` and the old keys (`slides:cfg:<id>`,
