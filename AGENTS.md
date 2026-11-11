@@ -333,7 +333,8 @@ Sheet ids are in the code; the main ones are repeated here for orientation.
 - Report settings (`cfg`, key `slides:cfg:<reportId>`): `period {preset, from, to, exclude[]}`, `compare`,
   `campaigns` (null = all or the section's `defaultCampaigns`), `campaignPeriods` (campaign key → optional
   `{preset:'custom', from, to}`; blank endpoint inherits the active report/slide range; comparison uses the
-  preceding equal-length range), `title`, `kicker`, `logo` (data URL),
+  preceding equal-length range; edited as «از/تا» date inputs in each row of the settings campaign list
+  `#reportCamps`, `data-cperiod`/`data-cpend`; budget sections match by the row's Campaign Name `r.cname`), `title`, `kicker`, `logo` (data URL),
   `theme` (null = brand, or `{preset, accent, second}`), `mediums`, `groups`, `metricLabels`, `slides[]`, `tpl`
   (template text per slide), `tplSavedAt`.
 - Editing: every text node with `data-k` is `contenteditable` in edit mode; edits are saved per period

@@ -232,6 +232,9 @@
   .client-card.new svg{width:20px;height:20px;flex-shrink:0;}
   .client-card{text-decoration:none;}
   .own-period{border:1px dashed var(--border-strong);border-radius:16px;padding:12px 14px 2px;margin-bottom:14px;background:var(--surface-2);}
+  .camp-row.rc-row{grid-template-columns:auto minmax(0,1fr) 110px 170px 140px 140px;}
+  .camp-row.rc-row input[type=date]{padding:6px 8px;font-size:12px;}
+  .camp-row.rc-row.has-period input[data-cperiod]{border-color:var(--accent-ink);background:#fff;}
   .ml-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:0 16px;}
   .ml-grid .field{margin-bottom:10px;}
   .tpl-pick{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);background:var(--surface);border-radius:999px;padding:4px 6px 4px 12px;font-size:13px;font-weight:600;}
@@ -280,6 +283,11 @@
     .s-frame{border-radius:10px;}
     .card{padding:18px 16px;}
     .camp-row{grid-template-columns:auto minmax(0,1fr) 120px;}
+    .camp-row.rc-row{display:flex;flex-wrap:wrap;}
+    .camp-row.rc-row > .nm{flex:1 1 60%;}
+    .camp-row.rc-row > input.inp{flex:1 1 100%;}
+    .camp-row.rc-row > input[type=date]{flex:1 1 40%;}
+    .camp-head.rc-row{display:none;}
     .camp-row .cs{display:none;}
     .row-x{display:none !important;}
   }
@@ -2193,19 +2201,12 @@ function renderSettings(R){
   const win = d.win || {from:R.minDate, to:R.maxDate};
   const sel = campaignSelection(R);
   const opts = campaignOptions(R, win);
-  const shown = opts.filter(o => o.active || (sel !== 'ALL' && sel.has(o.key)));
-  const periodOpts = campaignOptions(R, null).filter(o => o.active || (sel !== 'ALL' && sel.has(o.key)));
-  const campaignPeriodRows = periodOpts.map(o => {
-    const p = cfg.campaignPeriods && cfg.campaignPeriods[o.key];
-    const from = p && p.from ? ymdToIso(p.from) : '';
-    const to = p && p.to ? ymdToIso(p.to) : '';
-    return `<div class="row" style="align-items:center;border-top:1px solid var(--line);padding:8px 0;gap:10px">
-      <span dir="auto" style="flex:1;min-width:150px;font-weight:650">${esc(o.label)}${R.merged ? ` <small>— ${esc(o.part.title)}</small>` : ''}</span>
-      <label class="field" style="flex:0 1 170px;margin:0"><span>از</span><input class="inp" type="date" data-cperiod="${esc(o.key)}" data-cpend="from" value="${esc(from)}" min="${esc(ymdToIso(R.minDate))}" max="${esc(ymdToIso(R.maxDate))}"></label>
-      <label class="field" style="flex:0 1 170px;margin:0"><span>تا</span><input class="inp" type="date" data-cperiod="${esc(o.key)}" data-cpend="to" value="${esc(to)}" min="${esc(ymdToIso(R.minDate))}" max="${esc(ymdToIso(R.maxDate))}"></label>
-      ${p ? `<button type="button" class="btn sm" data-cperiod-reset="${esc(o.key)}">مثل بازه‌ی گزارش</button>` : ''}
-    </div>`;
-  }).join('');
+  const ownPeriods = cfg.campaignPeriods || {};
+  const shown = opts.filter(o => o.active || (sel !== 'ALL' && sel.has(o.key)) || ownPeriods[o.key]);
+  // A campaign's own dates sit in its row of the list (empty = the report's period).
+  const periodInputs = key => ['from', 'to'].map(end => `<input class="inp" type="date" data-cperiod="${esc(key)}" data-cpend="${end}"
+      value="${ownPeriods[key] && ownPeriods[key][end] ? esc(ymdToIso(ownPeriods[key][end])) : ''}" min="${esc(ymdToIso(R.minDate))}" max="${esc(ymdToIso(R.maxDate))}"
+      aria-label="${end === 'from' ? 'بازه‌ی خود کمپین از' : 'بازه‌ی خود کمپین تا'}" title="بازه‌ی خود این کمپین — خالی = بازه‌ی گزارش">`).join('');
   const mediumNames = Array.from(new Set(['درون‌اپلیکیشنی', 'پویا', 'همسان', 'ویدیویی', 'بنری', 'پوش', 'پیامکی', 'پیام روبیکا', 'کافه بازار', 'سایر',
     ...R.parts.flatMap(p => Object.values(core.campaignTypes(p)).map(t => core.campaignTypeGroup(t))), ...Object.values(cfg.mediums || {})].filter(Boolean)));
   const budgetOnly = R.parts.every(p => p.kind === 'budget');
@@ -2389,13 +2390,11 @@ function renderSettings(R){
       ${nameGroups.length ? `<div class="field"><span>Campaign Name — تیک هر اسم همه‌ی کمپین‌هاش رو تیک می‌زنه یا برمی‌داره</span>
         <div class="metric-checks" id="nameChecks">${nameGroups.map(g => `<label class="check"><input type="checkbox" data-cname="${esc(g.key)}"><span dir="ltr">${esc(g.label)}</span><span style="opacity:.6">${esc(fa(g.cost))}</span></label>`).join('')}</div></div>` : ''}
       <div class="camp-list" id="reportCamps">
-        <div class="camp-row camp-head"><span></span><span>کمپین</span><span class="cs">هزینه‌ی بازه</span><span>نوع کمپین</span></div>
-        ${shown.length ? shown.map(o => campRow(o, sel === 'ALL' || sel.has(o.key), 'data-camp', isBudgetKey(o.key) ? '<span></span>' : medInput(o.key))).join('')
+        <div class="camp-row camp-head rc-row"><span></span><span>کمپین</span><span class="cs">هزینه‌ی بازه</span><span>نوع کمپین</span><span title="بازه‌ی خود کمپین — خالی = بازه‌ی گزارش">از</span><span>تا</span></div>
+        ${shown.length ? shown.map(o => campRow(o, sel === 'ALL' || sel.has(o.key), 'data-camp', (isBudgetKey(o.key) ? '<span></span>' : medInput(o.key)) + periodInputs(o.key))
+            .replace('class="camp-row"', `class="camp-row rc-row${ownPeriods[o.key] ? ' has-period' : ''}"`)).join('')
           : '<div class="camp-row"><span></span><span>توی این بازه کمپینی نیست</span></div>'}
       </div>
-      <details class="slide-set" id="campaignPeriods" style="margin-top:12px"><summary><span class="t">بازه‌ی هر کمپین<span class="ty">در صورت خالی بودن تاریخ‌ها، بازه‌ی گزارش اعمال می‌شه</span></span></summary>
-        <div class="body">${campaignPeriodRows || '<div class="hint">کمپینی در این بازه نیست.</div>'}</div>
-      </details>
       ${mediumRows.length ? `<h3 style="margin-top:18px">نوع کمپین${someBudget && !budgetOnly ? ' (بخش‌های بودجه‌ای)' : ''}</h3><div class="camp-list">${mediumRows.map(([k, l]) => `<div class="camp-row"><span></span><span class="nm">${esc(l)}</span><span class="cs"></span>${medInput(k)}</div>`).join('')}</div>` : ''}
       <datalist id="mediumList">${mediumNames.map(m => `<option value="${esc(m)}">`).join('')}</datalist>
     </section>
@@ -2552,7 +2551,7 @@ function wireSettings(R){
     const el = e.target;
     if(el.dataset.cperiod !== undefined){
       const key = el.dataset.cperiod;
-      const row = el.closest('.row');
+      const row = el.closest('.camp-row, .row');
       const from = $('[data-cpend="from"]', row).value;
       const to = $('[data-cpend="to"]', row).value;
       cfg.campaignPeriods = cfg.campaignPeriods || {};
