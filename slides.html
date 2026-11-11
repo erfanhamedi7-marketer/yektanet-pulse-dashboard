@@ -234,6 +234,10 @@
   .own-period{border:1px dashed var(--border-strong);border-radius:16px;padding:12px 14px 2px;margin-bottom:14px;background:var(--surface-2);}
   .ml-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:0 16px;}
   .ml-grid .field{margin-bottom:10px;}
+  .tpl-pick{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);background:var(--surface);border-radius:999px;padding:4px 6px 4px 12px;font-size:13px;font-weight:600;}
+  .tpl-pick svg{width:15px;height:15px;color:var(--text-muted);flex-shrink:0;}
+  .tpl-pick select{border:none;background:transparent;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);max-width:160px;cursor:pointer;}
+  .tpl-pick select:focus{outline:none;}
   .swatches{display:flex;gap:8px;flex-wrap:wrap;}
   .sw{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--border);border-radius:999px;padding:5px 12px 5px 6px;
     background:var(--surface-2);cursor:pointer;font-size:12.5px;font-weight:600;color:var(--text);}
@@ -522,18 +526,24 @@ const store = {
 // Server keys: "<report>|cfg", "<report>|edits|<from>-<to>", "_|merges", so one
 // read by "<report>|" brings a report's settings, template and every period's
 // edits.
+// A report's further templates add ".<templateId>" (local: after the report
+// id; server: after "cfg"/"edits"), so one read by "<report>|" still brings
+// all of a report's templates. The first template has no suffix: reports
+// saved before templates existed keep their keys.
 function remoteKey(k){
   let m;
-  if((m = /^slides:cfg:(.+)$/.exec(k))) return m[1] + '|cfg';
-  if((m = /^slides:edits:([^:]+):(.+)$/.exec(k))) return m[1] + '|edits|' + m[2];
+  if((m = /^slides:cfg:([^.]+)(\.[\w-]+)?$/.exec(k))) return m[1] + '|cfg' + (m[2] || '');
+  if((m = /^slides:edits:([^:.]+)(\.[\w-]+)?:(.+)$/.exec(k))) return m[1] + '|edits' + (m[2] || '') + '|' + m[3];
+  if((m = /^slides:tpls:(.+)$/.exec(k))) return m[1] + '|tpls';
   if(k === 'slides:merges') return '_|merges';
   return null;
 }
 function localKeyOf(rk){
   const p = rk.split('|');
   if(p[0] === '_' && p[1] === 'merges') return 'slides:merges';
-  if(p[1] === 'cfg') return 'slides:cfg:' + p[0];
-  if(p[1] === 'edits') return 'slides:edits:' + p[0] + ':' + p.slice(2).join('|');
+  if(/^cfg(\.[\w-]+)?$/.test(p[1])) return 'slides:cfg:' + p[0] + p[1].slice(3);
+  if(/^edits(\.[\w-]+)?$/.test(p[1])) return 'slides:edits:' + p[0] + p[1].slice(5) + ':' + p.slice(2).join('|');
+  if(p[1] === 'tpls') return 'slides:tpls:' + p[0];
   return null;
 }
 const remote = {state:'unknown', reason:null, pending:new Map(), timer:null, busy:false, savedAt:null};
@@ -981,7 +991,24 @@ function groupRows(R, rows, dimId){
 }
 
 // ---------- Settings per report ----------
-const cfgKey = R => 'slides:cfg:' + R.id;
+// Several templates per report: each is a whole set of settings, slides and
+// saved text (its own cfg key) with its own per-period edits. The list
+// (slides:tpls:<id>) is shared; which one is open is this browser's choice.
+const MAIN_TPL = 'main';
+const tplListKey = R => 'slides:tpls:' + R.id;
+const tplActiveKey = R => 'slides:tplActive:' + R.id;
+function tplList(R){
+  const t = store.get(tplListKey(R), null);
+  return t && Array.isArray(t.list) && t.list.length ? t.list : [{id:MAIN_TPL, name:'قالب اصلی'}];
+}
+function activeTpl(R){
+  const list = tplList(R), a = local.get(tplActiveKey(R), null);
+  return list.some(x => x.id === a) ? a : list[0].id;
+}
+const tplSuffix = id => id === MAIN_TPL ? '' : '.' + id;
+const cfgKeyOf = (R, id) => 'slides:cfg:' + R.id + tplSuffix(id);
+const cfgKey = R => cfgKeyOf(R, activeTpl(R));
+function saveTplList(R, list){ store.set(tplListKey(R), {list}); }
 const SLIDE_TYPES = {
   cover:'جلد', campaigns:'کمپین‌های اجرا شده (نوع کمپین‌ها)', kpis:'آمار کلی (کارت‌ها)', chart:'نمودار', table:'جدول مقایسه', text:'متن / تحلیل', section:'جداکننده'
 };
@@ -1189,7 +1216,7 @@ function partsLabel(R, s){
 // cells stay with their own period, since next week they'd be wrong.
 function editsKey(){
   const w = S.data && S.data.win;
-  return 'slides:edits:' + S.report.id + ':' + (w ? w.from + '-' + w.to : 'none');
+  return 'slides:edits:' + S.report.id + tplSuffix(activeTpl(S.report)) + ':' + (w ? w.from + '-' + w.to : 'none');
 }
 function loadEdits(){ S.editKey = editsKey(); S.edits = store.get(S.editKey, {}); }
 let editTimer = null;
@@ -1790,6 +1817,24 @@ async function openReport(R, view){
   else if(!remote.pending.size) setStatus('live', 'همگام‌سازی شد — ' + new Date().toLocaleTimeString('fa-IR', {hour:'2-digit', minute:'2-digit'}));
   view === 'settings' ? renderSettings(R) : renderDeck(R);
 }
+function switchTemplate(R, id, view){
+  local.set(tplActiveKey(R), id);
+  S.cache = {};
+  loadCfg(R);
+  document.body.style.setProperty('--page-accent', themeOf(R).accent);
+  S.data = computeData(R, campaignSelection(R));
+  loadEdits();
+  view === 'settings' ? renderSettings(R) : renderDeck(R);
+}
+function templatePicker(R, view){
+  const list = tplList(R), act = activeTpl(R);
+  return `<label class="tpl-pick" title="قالب‌های این گزارش — از تنظیمات اضافه یا عوض می‌شن">${ICON.note}
+    <select id="tplSelect" data-view="${view}" aria-label="قالب">${list.map(t => `<option value="${esc(t.id)}" ${t.id === act ? 'selected' : ''}>${esc(t.name || 'قالب')}</option>`).join('')}</select></label>`;
+}
+function wireTemplatePicker(R){
+  const sel = $('#tplSelect');
+  if(sel) sel.addEventListener('change', () => { switchTemplate(R, sel.value, sel.dataset.view); toast('قالب «' + sel.selectedOptions[0].textContent + '» باز شد'); });
+}
 function backBar(R){
   return `<div class="deck-bar"><div class="deck-id">
     <a class="btn icon" href="#" title="همه‌ی مشتری‌ها" aria-label="همه‌ی مشتری‌ها">${ICON.back}</a>
@@ -1828,6 +1873,7 @@ function renderDeck(R){
       ${['chart', 'table', 'kpis', 'campaigns', 'text', 'section'].map(t => `<button type="button" class="btn sm" data-add="${t}">+ ${esc(SLIDE_TYPES[t])}</button>`).join('')}
     </div></div>`;
   $('#deckActions').innerHTML = `
+    ${templatePicker(R, 'deck')}
     <button type="button" class="btn ${S.cfg.tplSavedAt ? 'saved' : ''}" id="saveTpl" title="${esc(savedLabel())}">${ICON.save}<span class="t">ذخیره قالب</span></button>
     <a class="btn" href="#${esc(R.id)}/settings">${ICON.gear}<span class="t">تنظیمات</span></a>
     <button type="button" class="btn ${editing ? 'on' : ''}" id="editToggle" aria-pressed="${editing}">${ICON.pen}<span class="t">ویرایش</span></button>
@@ -2011,6 +2057,7 @@ function wireDeck(R){
       case 'present': openPresent(enabledSlides().findIndex(s => s.id === sid)); break;
     }
   });
+  wireTemplatePicker(R);
   $('#saveTpl').addEventListener('click', () => {
     saveTemplate();
     renderDeck(R);
@@ -2248,6 +2295,21 @@ function renderSettings(R){
   const tplN = templateCount();
 
   $('#view').innerHTML = backBar(R) + `<div class="set-grid">
+    <section class="card"><h3>قالب‌های این گزارش</h3><p class="hint">هر قالب یه نسخه‌ی کامل از گزارشه: اسلایدها، تنظیمات، فیلترها و متن‌های ذخیره‌شده. هر چی تو این صفحه و روی اسلایدها عوض کنی، تو قالب باز ذخیره می‌شه. قالب باز رو از بالای صفحه (کنار «دیدن گزارش») یا با «باز کردن» عوض کن.</p>
+      <div class="camp-list" style="max-height:none">${tplList(R).map((t, ti) => `<div class="camp-row" style="grid-template-columns:minmax(0,1fr) auto">
+        <span class="row" style="gap:8px;align-items:center;flex-wrap:nowrap"><input class="inp" data-tplname="${ti}" value="${esc(t.name || '')}" placeholder="اسم قالب" style="max-width:260px">
+          ${t.id === activeTpl(R) ? '<span class="badge">باز</span>' : ''}</span>
+        <span class="set-foot" style="flex-wrap:nowrap">
+          ${t.id === activeTpl(R) ? '' : `<button type="button" class="btn sm" data-tplopen="${esc(t.id)}">باز کردن</button>`}
+          <button type="button" class="btn sm" data-tplcopy="${esc(t.id)}">کپی</button>
+          ${tplList(R).length > 1 ? `<button type="button" class="btn sm danger" data-tpldel="${esc(t.id)}">حذف</button>` : ''}
+        </span></div>`).join('')}</div>
+      <div class="set-foot" style="margin-top:10px">
+        <button type="button" class="btn sm" id="tplNewCopy">+ قالب تازه (کپی از قالب باز)</button>
+        <button type="button" class="btn sm" id="tplNewBlank">+ قالب تازه (ساختار پیش‌فرض)</button>
+      </div>
+    </section>
+
     <section class="card"><h3>بازه‌ی گزارش</h3><p class="hint">دیتای شیت از ${esc(jFull(R.minDate))} تا ${esc(jFull(R.maxDate))}ه. امروز هیچ‌وقت حساب نمی‌شه. هر اسلاید می‌تونه بازه‌ی خودش رو داشته باشه (تنظیمات همون اسلاید).</p>
       ${periodEditor(R, per, 'r')}
       <label class="check"><input type="checkbox" id="cmpToggle" ${cfg.compare ? 'checked' : ''}>مقایسه با بازه‌ی هم‌طولِ قبل (درصد تغییر روی کارت‌ها)</label>
@@ -2380,7 +2442,7 @@ function renderSettings(R){
       <input type="file" id="chartFile" accept=".xlsx,.xls,.csv,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
     </section>
   </div>`;
-  $('#deckActions').innerHTML = `<a class="btn primary" href="#${esc(R.id)}">${ICON.play}<span class="t">دیدن گزارش</span></a>`;
+  $('#deckActions').innerHTML = `${templatePicker(R, 'settings')}<a class="btn primary" href="#${esc(R.id)}">${ICON.play}<span class="t">دیدن گزارش</span></a>`;
   if(S.focusSlide){
     const el = document.getElementById('set-' + S.focusSlide);
     if(el) el.scrollIntoView({block:'center'});
@@ -2908,6 +2970,42 @@ function wireSettings(R){
     if(!confirm('متن‌های ذخیره‌شده تو قالب پاک بشن؟ (اسلایدها و تنظیمات می‌مونن)')) return;
     cfg.tpl = {}; cfg.tplSavedAt = null; saveCfg(); rerender();
   });
+  // Templates.
+  wireTemplatePicker(R);
+  const tplNew = fromId => {
+    const name = prompt('اسم قالب تازه:', fromId ? (tplList(R).find(t => t.id === fromId) || {}).name + ' (کپی)' : 'قالب تازه');
+    if(name === null) return;
+    const id = 't' + uid();
+    const list = tplList(R).concat([{id, name:name.trim() || 'قالب تازه'}]);
+    // A copy takes the whole settings of the template it copies (slides, filters,
+    // saved text); a blank one starts from the default structure.
+    if(fromId){
+      const src = fromId === activeTpl(R) ? S.cfg : store.get(cfgKeyOf(R, fromId), {});
+      store.set(cfgKeyOf(R, id), JSON.parse(JSON.stringify(src)));
+    }
+    saveTplList(R, list);
+    switchTemplate(R, id, 'settings');
+    toast('قالب «' + (name.trim() || 'قالب تازه') + '» ساخته و باز شد');
+  };
+  $('#tplNewCopy').addEventListener('click', () => tplNew(activeTpl(R)));
+  $('#tplNewBlank').addEventListener('click', () => tplNew(null));
+  $$('[data-tplcopy]').forEach(b => b.addEventListener('click', () => tplNew(b.dataset.tplcopy)));
+  $$('[data-tplopen]').forEach(b => b.addEventListener('click', () => switchTemplate(R, b.dataset.tplopen, 'settings')));
+  $$('[data-tplname]').forEach(inp => inp.addEventListener('change', () => {
+    const list = tplList(R);
+    list[+inp.dataset.tplname].name = inp.value.trim() || 'قالب';
+    saveTplList(R, list); rerender();
+  }));
+  $$('[data-tpldel]').forEach(b => b.addEventListener('click', () => {
+    const list = tplList(R), t = list.find(x => x.id === b.dataset.tpldel);
+    if(!confirm(`قالب «${t.name}» و همه‌ی اسلایدها، تنظیمات و متن‌هاش حذف بشه؟`)) return;
+    store.del(cfgKeyOf(R, t.id));
+    const pre = 'slides:edits:' + R.id + tplSuffix(t.id) + ':';
+    local.keys().filter(k => k.startsWith(pre)).forEach(k => store.del(k));
+    const rest = list.filter(x => x.id !== t.id);
+    saveTplList(R, rest);
+    switchTemplate(R, t.id === activeTpl(R) ? rest[0].id : activeTpl(R), 'settings');
+  }));
   $('#cfgReset').addEventListener('click', () => {
     if(!confirm('همه‌ی تنظیمات و قالب این گزارش (بازه، کمپین‌ها، مدیوم‌ها، اسلایدها، متن‌ها، لوگو) به حالت پیش‌فرض برگرده؟')) return;
     store.del(cfgKey(R)); loadCfg(R); rerender();

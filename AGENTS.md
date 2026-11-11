@@ -303,6 +303,13 @@ Sheet ids are in the code; the main ones are repeated here for orientation.
 - Per slide (all optional): `metrics` (order = card/column order), `dim`, `chart`, `maxRows`, `typeCol`,
   `level`, `tileOrder`, `campaigns` (own pick; Campaign Name ticks shown for `campaignNameCol` parts),
   `parts` (merged reports), `period` (own preset/custom/excluded days), `cols`, `on`.
+- **Several templates per report**: each template is a whole cfg (slides, settings, filters, saved text) with its
+  own per-period edits. List: `slides:tpls:<id>` = `{list:[{id, name}]}` (synced); the open one is per browser
+  (`slides:tplActive:<id>`, not synced). The first template has id `main` and the old keys (`slides:cfg:<id>`,
+  `slides:edits:<id>:<period>`); others add `.<tplId>` (`slides:cfg:<id>.<t>`, `slides:edits:<id>.<t>:<period>`;
+  server `<id>|cfg.<t>`, `<id>|edits.<t>|<period>`, `<id>|tpls`). `cfgKey(R)` / `editsKey()` follow the open
+  template; `switchTemplate` reloads. UI: picker in the toolbar (`templatePicker`), card «قالب‌های این گزارش» in
+  settings (new as copy / blank, rename, open, copy, delete).
 - **Charts from an uploaded file**: a chart slide's «منبع دیتا» can be «فایل Excel یا CSV آپلودی»
   (`slide.source = 'file'`, `slide.file = {name, sheets:{name:{headers, rows}}, sheet, labelCol, valueCols}`).
   Parsed in the browser with SheetJS 0.18.5 (cdnjs, loaded on first upload, `loadXlsx`/`readTableFile`):
