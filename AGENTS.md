@@ -329,12 +329,14 @@ Sheet ids are in the code; the main ones are repeated here for orientation.
 - **Campaign groups** (`cfg.groups = [{id, name, campaigns:[keys]}]`, card «گروه‌های کمپین» in settings): each
   group is a one-tick shortcut in the report's campaign list (`data-rgroup`) and in each slide's own pick
   (`data-sgroup`), and the «گروه کمپین» dimension (`cgroup`, `groupOf`: first group containing the campaign,
-  else «بدون گروه»).
+  else «بدون گروه»). A group may carry its own dates `period {from?, to?}` (yyyymmdd, «از/تا» in the
+  group card, `data-gperiod`/`data-gpend`): in `computeData` its campaigns (matched by `r.campaign` or, for budget
+  sections like Snapp, the Campaign Name key `r.cname`; first dated group wins) use that window instead of the
+  report/slide one, on every slide; a blank end inherits the active window; comparison = the preceding
+  equal-length window; the report's excluded days don't apply to them. (The earlier per-campaign
+  `cfg.campaignPeriods` was removed and is ignored.)
 - Report settings (`cfg`, key `slides:cfg:<reportId>`): `period {preset, from, to, exclude[]}`, `compare`,
-  `campaigns` (null = all or the section's `defaultCampaigns`), `campaignPeriods` (campaign key → optional
-  `{preset:'custom', from, to}`; blank endpoint inherits the active report/slide range; comparison uses the
-  preceding equal-length range; edited as «از/تا» date inputs in each row of the settings campaign list
-  `#reportCamps`, `data-cperiod`/`data-cpend`; budget sections match by the row's Campaign Name `r.cname`), `title`, `kicker`, `logo` (data URL),
+  `campaigns` (null = all or the section's `defaultCampaigns`), `title`, `kicker`, `logo` (data URL),
   `theme` (null = brand, or `{preset, accent, second}`), `mediums`, `groups`, `metricLabels`, `slides[]`, `tpl`
   (template text per slide), `tplSavedAt`.
 - Editing: every text node with `data-k` is `contenteditable` in edit mode; edits are saved per period

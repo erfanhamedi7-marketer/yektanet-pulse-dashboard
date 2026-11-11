@@ -232,9 +232,9 @@
   .client-card.new svg{width:20px;height:20px;flex-shrink:0;}
   .client-card{text-decoration:none;}
   .own-period{border:1px dashed var(--border-strong);border-radius:16px;padding:12px 14px 2px;margin-bottom:14px;background:var(--surface-2);}
-  .camp-row.rc-row{grid-template-columns:auto minmax(0,1fr) 110px 170px 140px 140px;}
-  .camp-row.rc-row input[type=date]{padding:6px 8px;font-size:12px;}
-  .camp-row.rc-row.has-period input[data-cperiod]{border-color:var(--accent-ink);background:#fff;}
+  .grp-period{align-items:flex-end;flex-wrap:wrap;margin-bottom:10px;}
+  .grp-period .field{flex:0 0 170px;}
+  .grp-period .hint{flex:1 1 220px;margin:0;}
   .ml-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:0 16px;}
   .ml-grid .field{margin-bottom:10px;}
   .tpl-pick{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);background:var(--surface);border-radius:999px;padding:4px 6px 4px 12px;font-size:13px;font-weight:600;}
@@ -283,11 +283,6 @@
     .s-frame{border-radius:10px;}
     .card{padding:18px 16px;}
     .camp-row{grid-template-columns:auto minmax(0,1fr) 120px;}
-    .camp-row.rc-row{display:flex;flex-wrap:wrap;}
-    .camp-row.rc-row > .nm{flex:1 1 60%;}
-    .camp-row.rc-row > input.inp{flex:1 1 100%;}
-    .camp-row.rc-row > input[type=date]{flex:1 1 40%;}
-    .camp-head.rc-row{display:none;}
     .camp-row .cs{display:none;}
     .row-x{display:none !important;}
   }
@@ -968,6 +963,12 @@ function dimDefs(R){
 // one for the «گروه کمپین» dimension.
 const NO_GROUP = 'بدون گروه';
 const campaignGroups = () => (S.cfg && Array.isArray(S.cfg.groups) ? S.cfg.groups : []);
+// « — ۲ تا ۸ آبان» after a group's campaign count when it has its own dates.
+function groupPeriodLabel(g){
+  if(!g.period || !(g.period.from || g.period.to)) return '';
+  const f = g.period.from, t = g.period.to;
+  return ' — ' + (f && t ? periodLabel(f <= t ? f : t, f <= t ? t : f) : f ? 'از ' + periodLabel(f, f) : 'تا ' + periodLabel(t, t));
+}
 function groupOf(key){
   const g = campaignGroups().find(x => (x.campaigns || []).includes(key));
   return g ? (g.name || NO_GROUP) : NO_GROUP;
@@ -1182,12 +1183,15 @@ function computeData(R, sel, only, per){
   // that override or the report/slide window. Comparison uses the matching
   // immediately preceding window for each campaign.
   const sourceRows = rowsFor(R, {from:R.minDate, to:R.maxDate}, sel, only);
-  // Budget sections (Snapp) list Campaign Names, so their periods are keyed by
-  // the row's Campaign Name key (cname), not its inner campaign.
-  const periodOf = r => S.cfg.campaignPeriods && (S.cfg.campaignPeriods[r.campaign] || (r.cname && S.cfg.campaignPeriods[r.cname]));
+  // A campaign group may carry its own dates (cfg.groups[].period); its
+  // campaigns use them instead of the report/slide window. Budget sections
+  // (Snapp) list Campaign Names, so members match the row's cname too.
+  const dated = campaignGroups().filter(g => g.period && (g.period.from || g.period.to) && (g.campaigns || []).length)
+    .map(g => ({period:g.period, keys:new Set(g.campaigns)}));
+  const periodOf = r => { const g = dated.find(x => x.keys.has(r.campaign) || (r.cname && x.keys.has(r.cname))); return g ? g.period : null; };
   const campaignWin = r => {
     const override = periodOf(r);
-    if(!override || override.preset !== 'custom') return win;
+    if(!override) return win;
     const from = override.from || win.from, to = override.to || win.to;
     return from <= to ? {from, to} : {from:to, to:from};
   };
@@ -2201,12 +2205,7 @@ function renderSettings(R){
   const win = d.win || {from:R.minDate, to:R.maxDate};
   const sel = campaignSelection(R);
   const opts = campaignOptions(R, win);
-  const ownPeriods = cfg.campaignPeriods || {};
-  const shown = opts.filter(o => o.active || (sel !== 'ALL' && sel.has(o.key)) || ownPeriods[o.key]);
-  // A campaign's own dates sit in its row of the list (empty = the report's period).
-  const periodInputs = key => ['from', 'to'].map(end => `<input class="inp" type="date" data-cperiod="${esc(key)}" data-cpend="${end}"
-      value="${ownPeriods[key] && ownPeriods[key][end] ? esc(ymdToIso(ownPeriods[key][end])) : ''}" min="${esc(ymdToIso(R.minDate))}" max="${esc(ymdToIso(R.maxDate))}"
-      aria-label="${end === 'from' ? 'بازه‌ی خود کمپین از' : 'بازه‌ی خود کمپین تا'}" title="بازه‌ی خود این کمپین — خالی = بازه‌ی گزارش">`).join('');
+  const shown = opts.filter(o => o.active || (sel !== 'ALL' && sel.has(o.key)));
   const mediumNames = Array.from(new Set(['درون‌اپلیکیشنی', 'پویا', 'همسان', 'ویدیویی', 'بنری', 'پوش', 'پیامکی', 'پیام روبیکا', 'کافه بازار', 'سایر',
     ...R.parts.flatMap(p => Object.values(core.campaignTypes(p)).map(t => core.campaignTypeGroup(t))), ...Object.values(cfg.mediums || {})].filter(Boolean)));
   const budgetOnly = R.parts.every(p => p.kind === 'budget');
@@ -2390,9 +2389,8 @@ function renderSettings(R){
       ${nameGroups.length ? `<div class="field"><span>Campaign Name — تیک هر اسم همه‌ی کمپین‌هاش رو تیک می‌زنه یا برمی‌داره</span>
         <div class="metric-checks" id="nameChecks">${nameGroups.map(g => `<label class="check"><input type="checkbox" data-cname="${esc(g.key)}"><span dir="ltr">${esc(g.label)}</span><span style="opacity:.6">${esc(fa(g.cost))}</span></label>`).join('')}</div></div>` : ''}
       <div class="camp-list" id="reportCamps">
-        <div class="camp-row camp-head rc-row"><span></span><span>کمپین</span><span class="cs">هزینه‌ی بازه</span><span>نوع کمپین</span><span title="بازه‌ی خود کمپین — خالی = بازه‌ی گزارش">از</span><span>تا</span></div>
-        ${shown.length ? shown.map(o => campRow(o, sel === 'ALL' || sel.has(o.key), 'data-camp', (isBudgetKey(o.key) ? '<span></span>' : medInput(o.key)) + periodInputs(o.key))
-            .replace('class="camp-row"', `class="camp-row rc-row${ownPeriods[o.key] ? ' has-period' : ''}"`)).join('')
+        <div class="camp-row camp-head"><span></span><span>کمپین</span><span class="cs">هزینه‌ی بازه</span><span>نوع کمپین</span></div>
+        ${shown.length ? shown.map(o => campRow(o, sel === 'ALL' || sel.has(o.key), 'data-camp', isBudgetKey(o.key) ? '<span></span>' : medInput(o.key))).join('')
           : '<div class="camp-row"><span></span><span>توی این بازه کمپینی نیست</span></div>'}
       </div>
       ${mediumRows.length ? `<h3 style="margin-top:18px">نوع کمپین${someBudget && !budgetOnly ? ' (بخش‌های بودجه‌ای)' : ''}</h3><div class="camp-list">${mediumRows.map(([k, l]) => `<div class="camp-row"><span></span><span class="nm">${esc(l)}</span><span class="cs"></span>${medInput(k)}</div>`).join('')}</div>` : ''}
@@ -2404,9 +2402,14 @@ function renderSettings(R){
         const members = new Set(g.campaigns || []);
         const list = campaignOptions(R, win).filter(o => o.active || members.has(o.key));
         return `<details class="slide-set" id="grp-${esc(g.id)}" ${S.focusGroup === g.id ? 'open' : ''}>
-          <summary><span class="num">${fa(gi + 1)}</span><span class="t">${esc(g.name || ('گروه ' + fa(gi + 1)))}<span class="ty">${fa(members.size)} کمپین</span></span></summary>
+          <summary><span class="num">${fa(gi + 1)}</span><span class="t">${esc(g.name || ('گروه ' + fa(gi + 1)))}<span class="ty">${fa(members.size)} کمپین${groupPeriodLabel(g)}</span></span></summary>
           <div class="body">
             <div class="row"><label class="field"><span>اسم گروه</span><input class="inp" data-gname="${gi}" value="${esc(g.name || '')}" placeholder="مثلاً کمپین‌های برندینگ"></label></div>
+            <div class="row grp-period">
+              ${['from', 'to'].map(end => `<label class="field"><span>${end === 'from' ? 'بازه‌ی گروه — از' : 'تا'}</span><input class="inp" type="date" data-gperiod="${gi}" data-gpend="${end}"
+                value="${g.period && g.period[end] ? esc(ymdToIso(g.period[end])) : ''}" min="${esc(ymdToIso(R.minDate))}" max="${esc(ymdToIso(R.maxDate))}"></label>`).join('')}
+              <span class="hint">خالی = بازه‌ی گزارش/اسلاید. با تاریخ، کمپین‌های این گروه تو همه‌ی اسلایدها با همین بازه حساب می‌شن (مقایسه با بازه‌ی هم‌طول قبلش).</span>
+            </div>
             <div class="row" style="margin-bottom:8px">
               <input class="search" data-gsearch="${gi}" type="search" placeholder="جست‌وجو…" style="flex:1">
               <button type="button" class="btn sm" data-gall="${gi}">همه</button><button type="button" class="btn sm" data-gnone="${gi}">هیچ‌کدوم</button>
@@ -2527,13 +2530,6 @@ function wireSettings(R){
     saveCfg(); rerender(openOf(scope));
   };
   view.addEventListener('click', e => {
-    const resetCampaignPeriod = e.target.closest('[data-cperiod-reset]');
-    if(resetCampaignPeriod){
-      if(cfg.campaignPeriods) delete cfg.campaignPeriods[resetCampaignPeriod.dataset.cperiodReset];
-      saveCfg(); S.data = computeData(R, campaignSelection(R)); loadEdits();
-      rerender(['campaignPeriods']);
-      return;
-    }
     const b = e.target.closest('[data-pscope][data-preset],[data-pscope][data-pexdel]');
     if(!b) return;
     const scope = b.dataset.pscope, cur = perOf(scope);
@@ -2549,18 +2545,6 @@ function wireSettings(R){
   });
   view.addEventListener('change', e => {
     const el = e.target;
-    if(el.dataset.cperiod !== undefined){
-      const key = el.dataset.cperiod;
-      const row = el.closest('.camp-row, .row');
-      const from = $('[data-cpend="from"]', row).value;
-      const to = $('[data-cpend="to"]', row).value;
-      cfg.campaignPeriods = cfg.campaignPeriods || {};
-      if(!from && !to) delete cfg.campaignPeriods[key];
-      else cfg.campaignPeriods[key] = {preset:'custom', ...(from ? {from:isoToYmd(from)} : {}), ...(to ? {to:isoToYmd(to)} : {})};
-      saveCfg();
-      S.data = computeData(R, campaignSelection(R)); loadEdits();
-      return;
-    }
     if(el.dataset.pscope === undefined) return;
     const scope = el.dataset.pscope, cur = perOf(scope);
     if(el.dataset.pend){
@@ -2671,14 +2655,24 @@ function wireSettings(R){
     S.focusGroup = g.id;
     saveCfg(); rerender();
   }));
+  $$('[data-gperiod]').forEach(inp => inp.addEventListener('change', () => {
+    const g = groups()[+inp.dataset.gperiod];
+    const box = inp.closest('.grp-period');
+    const from = $('[data-gpend="from"]', box).value, to = $('[data-gpend="to"]', box).value;
+    if(!from && !to) delete g.period;
+    else g.period = {...(from ? {from:isoToYmd(from)} : {}), ...(to ? {to:isoToYmd(to)} : {})};
+    S.focusGroup = g.id;
+    saveCfg(); S.data = computeData(R, campaignSelection(R)); loadEdits(); rerender();
+  }));
   $$('[data-gcamp]').forEach(b => b.addEventListener('change', () => {
     const g = groups()[+b.dataset.g];
     const set = new Set(g.campaigns || []);
     b.checked ? set.add(b.dataset.gcamp) : set.delete(b.dataset.gcamp);
     g.campaigns = Array.from(set);
     const ty = $(`#grp-${g.id} summary .ty`);
-    if(ty) ty.textContent = fa(g.campaigns.length) + ' کمپین';
+    if(ty) ty.textContent = fa(g.campaigns.length) + ' کمپین' + groupPeriodLabel(g);
     saveCfg();
+    if(g.period){ S.data = computeData(R, campaignSelection(R)); loadEdits(); }
   }));
   $$('[data-gsearch]').forEach(inp => inp.addEventListener('input', () => {
     const q = inp.value.trim().toLowerCase();
