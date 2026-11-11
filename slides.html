@@ -1174,20 +1174,23 @@ function computeData(R, sel, only, per){
   // that override or the report/slide window. Comparison uses the matching
   // immediately preceding window for each campaign.
   const sourceRows = rowsFor(R, {from:R.minDate, to:R.maxDate}, sel, only);
-  const campaignWin = key => {
-    const override = S.cfg.campaignPeriods && S.cfg.campaignPeriods[key];
+  // Budget sections (Snapp) list Campaign Names, so their periods are keyed by
+  // the row's Campaign Name key (cname), not its inner campaign.
+  const periodOf = r => S.cfg.campaignPeriods && (S.cfg.campaignPeriods[r.campaign] || (r.cname && S.cfg.campaignPeriods[r.cname]));
+  const campaignWin = r => {
+    const override = periodOf(r);
     if(!override || override.preset !== 'custom') return win;
     const from = override.from || win.from, to = override.to || win.to;
     return from <= to ? {from, to} : {from:to, to:from};
   };
   const rows = sourceRows.filter(r => {
-    const w = campaignWin(r.campaign);
-    return r.date >= w.from && r.date <= w.to && (S.cfg.campaignPeriods && S.cfg.campaignPeriods[r.campaign] ? true : !skip.has(r.date));
+    const w = campaignWin(r);
+    return r.date >= w.from && r.date <= w.to && (periodOf(r) ? true : !skip.has(r.date));
   });
   const prevRows = sourceRows.filter(r => {
-    const w = campaignWin(r.campaign), n = daysBetween(w.from, w.to);
+    const w = campaignWin(r), n = daysBetween(w.from, w.to);
     const from = addDays(w.from, -n), to = addDays(w.from, -1);
-    return r.date >= from && r.date <= to && (S.cfg.campaignPeriods && S.cfg.campaignPeriods[r.campaign] ? true : !skipPrev.has(r.date));
+    return r.date >= from && r.date <= to && (periodOf(r) ? true : !skipPrev.has(r.date));
   });
   return {win, prev, days, rows, prevRows, excluded, t:totals(rows), pt:prevRows.length ? totals(prevRows) : null};
 }
