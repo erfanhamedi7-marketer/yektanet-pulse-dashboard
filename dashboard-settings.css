@@ -1,0 +1,16 @@
+[data-settings-hidden]{display:none!important}
+.settings-dialog{box-sizing:border-box;width:min(42rem,94vw);max-height:86dvh;padding:1.4rem;color:#292820;background:#fffdf7;border:1px solid #d9d5c8;border-radius:16px;font:inherit}
+.settings-dialog::backdrop{background:rgb(35 35 30 / .38)}
+.settings-dialog h2{margin:0}.settings-dialog p{font-size:.9rem}
+.settings-dialog details{border-top:1px solid #dedbce;padding:.65rem 0}
+.settings-dialog summary{font-weight:700;cursor:pointer}
+.settings-dialog label{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin:.55rem 0}
+.settings-dialog label[hidden]{display:none}
+.settings-dialog select,.settings-dialog input:not([type=checkbox]){font:inherit;max-width:65%;border:1px solid #ccc8bb;padding:.3rem;border-radius:5px;background:white}
+.settings-dialog select[multiple]{height:7rem;min-width:40%}
+.settings-dialog fieldset{margin:.65rem 0;border:1px solid #dedbce;border-radius:8px}
+.settings-dialog footer{display:flex;flex-wrap:wrap;gap:.5rem;position:sticky;bottom:0;background:#fffdf7;padding:.7rem 0}
+.settings-dialog button,.settings-source button{font:inherit;cursor:pointer;border-radius:6px;padding:.35rem .75rem;background:#fff;border:1px solid #c6c3b7}
+.settings-dialog button[type=submit]{background:#245a46;color:white}
+.settings-warning{padding:.5rem 1rem;background:#fff3d4;color:#574320;text-align:center}
+@media print{.settings-dialog,.settings-open,.settings-warning{display:none!important}}

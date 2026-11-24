@@ -11,6 +11,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="/auth.js"></script>
+<script src="/dashboard-settings.js"></script>
+<link rel="stylesheet" href="/dashboard-settings.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
   :root{
@@ -836,11 +838,13 @@
 function sheetRows(json){
   if(json.data) return json.data;
   const headers = json.headers || [];
-  return (json.rows || []).map(row => {
+  const rows = (json.rows || []).map(row => {
     const obj = {};
     headers.forEach((h, i) => { obj[h] = row[i]; });
     return obj;
   });
+  rows.headers = headers;
+  return rows;
 }
 // Google counts each API call against a quota of 60 reads a minute, so the
 // tabs asked for in the same moment are gathered per spreadsheet and fetched
@@ -1785,7 +1789,7 @@ function normalizeRefRows(rows, conversionCol, installsCol, adgroupCol, creative
     const campaign = normCampaign(campaignRaw);
     if(!date || !campaign) return null;
     return {
-      date, campaign, campaignLabel: cellText(campaignRaw),
+      sourceRow:r, date, campaign, campaignLabel: cellText(campaignRaw),
       adgroup: cellText(r[adgroupCol]) || '(بدون Adgroup)',
       creative: cellText(r[creativeCol]) || '(بدون Creative)',
       installs: installsCol ? toNumber(r[installsCol]) : 0,
@@ -1815,7 +1819,7 @@ function normalizeCostRows(rows, impressionsCol, clicksCol, diag, extraCols, cos
     }
     // Cell had something in it but we read 0 — an unsupported number format.
     if(diag && rawCost && !/^[0-]*$/.test(latinizeDigits(rawCost).replace(/\D/g,'')||'0') && cost===0) diag.unreadableCost++;
-    return {date, campaign, campaignLabel: cellText(r['Campaign']),
+    return {sourceRow:r, date, campaign, campaignLabel: cellText(r['Campaign']),
             cost, impressions: toNumber(r[impressionsCol]), clicks: toNumber(r[clicksCol]),
             extras: (extraCols||[]).reduce((acc,col)=>{ acc[col] = toNumber(r[col]); return acc; }, {})};
   }).filter(Boolean);
@@ -1829,7 +1833,7 @@ function normalizeBlendRows(rows){
     const campaign = normCampaign(r['Campaign']);
     if(!date || !campaign) return null;
     return {
-      date, campaign,
+      sourceRow:r, date, campaign,
       campaignLabel: cellText(r['Campaign']),
       campaignName: cellText(r['Campaign Name']) || '(بدون نام)',
       sessions: toNumber(r['Sessions']),
@@ -1848,7 +1852,7 @@ function normalizeBudgetRows(rows){
     const campaign = normCampaign(r['Campaign']);
     if(!campaign) return null;
     return {
-      campaign,
+      sourceRow:r, campaign,
       campaignLabel: cellText(r['Campaign']),
       campaignName: cellText(r['Campaign Name']) || '(بدون نام)',
       totalBudget: toNumber(r['Total Budget']),
@@ -1907,7 +1911,7 @@ function buildBudgetDaily(project, window){
 
   const keys = Object.keys(byDate).sort();
   return {
-    labels: keys.map(fmtDateLabel),
+    dates: keys, labels: keys.map(fmtDateLabel),
     cost: keys.map(k=>byDate[k].cost),
     costReal: keys.map(k=>byDate[k].costReal),
     profit: keys.map(k=>byDate[k].profit),
@@ -1954,7 +1958,7 @@ function normalizeDimensionRows(rows, dimCol, metricCol){
     const date = normDate(r['Date']);
     const label = cellText(r[dimCol]);
     if(!date || !label) return null;
-    return {date, label, value: toNumber(r[metricCol])};
+    return {sourceRow:r, date, label, value: toNumber(r[metricCol])};
   }).filter(Boolean);
 }
 function normalizeCompareRows(rows, sessionsCol){
@@ -1962,7 +1966,7 @@ function normalizeCompareRows(rows, sessionsCol){
     const date = normDate(r['Date']);
     const campaign = normCampaign(r['Campaign']);
     if(!date || !campaign) return null;
-    return {date, campaign, sessions: toNumber(r[sessionsCol])};
+    return {sourceRow:r, date, campaign, sessions: toNumber(r[sessionsCol])};
   }).filter(Boolean);
 }
 function normalizeCmpConvRows(rows, col, campaignCol){
@@ -1970,7 +1974,7 @@ function normalizeCmpConvRows(rows, col, campaignCol){
     const date = normDate(r['Date']);
     const campaign = normCampaign(r[campaignCol || 'Campaign']);
     if(!date || !campaign) return null;
-    return {date, campaign, value: toNumber(r[col])};
+    return {sourceRow:r, date, campaign, value: toNumber(r[col])};
   }).filter(Boolean);
 }
 // The second source's conversions in a window, under the same campaign filter
@@ -2256,7 +2260,7 @@ function applySegFilter(project, refRows, costRows){
   const segCost = costRows.map(r=>{
     const a = all[dayKey(r)] || 0, b = picked[dayKey(r)] || 0;
     const share = a > 0 ? b / a : 0;
-    return share > 0 ? {...r, cost: r.cost*share, impressions: r.impressions*share, clicks: r.clicks*share,
+    return share > 0 ? {...r, sourceWeight:share, cost: r.cost*share, impressions: r.impressions*share, clicks: r.clicks*share,
                         extras: scale(r.extras, share)} : null;
   }).filter(Boolean);
   return {refRows: segRows, costRows: segCost};
@@ -3025,6 +3029,7 @@ function renderSectionsShell(){
       if(matched.length && matched.length < p.campaignOptions.length) initial = new Set(matched);
     }
     projectState[p.id] = { campaigns: initial, subCampaigns: 'ALL', campaignNames: 'ALL', from: null, to: null };
+    preferences.initialize(p);
     renderCampaignDropdown(p);
     wireCampaignToggle(p);
 
@@ -3052,7 +3057,7 @@ function renderSectionsShell(){
       document.getElementById(`ownPreset7-${p.id}`).addEventListener('click', e=>setOwnPreset(p, 7, e.target));
       document.getElementById(`ownPreset30-${p.id}`).addEventListener('click', e=>setOwnPreset(p, 30, e.target));
       // Default: last {defaultRangeDays} days
-      setOwnPreset(p, p.defaultRangeDays || 30, document.getElementById(`ownPreset30-${p.id}`));
+      preferences.applyDate(p);
     }
   });
 }
@@ -3877,6 +3882,7 @@ function updateBudgetSection(project){
      delta: prev ? withDays(deltaOf(daily.totals.sessions, prev.totals.sessions, 'up')) : null},
     {label:'باقی‌مانده‌ی بودجه (کل)', value: fmtMoney(totals.remaining)}
   ];
+  preferences.cards(project, cards, daily.dates, null);
   renderKpiCards(project, cards);
 
   // Declared cost, real cost and profit share one axis by default — all three
@@ -4153,7 +4159,7 @@ function fitKpiValues(root){
 function renderKpiCards(project, cards){
   const el = document.getElementById(`kpis-${project.id}`);
   if(!el) return;
-  el.style.gridTemplateColumns = `repeat(${cards.length}, minmax(0, 1fr))`;
+  el.style.gridTemplateColumns = `repeat(${Math.max(1,Math.min(cards.length, 6))}, minmax(0, 1fr))`;
   el.innerHTML = cards.map(c=>{
     const d = c.delta;
     const dir = d ? (d.pct > 0.5 ? 'up' : d.pct < -0.5 ? 'down' : 'flat') : null;
@@ -4234,6 +4240,7 @@ function chartPicks(project){
   if(!ctx) return [];
   const avail = id => ctx.metrics.some(m=>m.id===id);
   const sel = (projectState[project.id].chartPicks || ctx.defaults).filter(avail);
+  if(projectState[project.id].chartPicks) return sel;
   return sel.length ? sel : ctx.defaults.filter(avail).slice(0, 1);
 }
 // The selected cards carry their series' colour along their top edge.
@@ -4761,6 +4768,7 @@ function updateCpiSection(project){
                 metric:{id:'per-' + m.col, label:`هزینه به ازای ${name}`, data:series},
                 delta: prev && before.since && !(prevWin.from < before.since) ? withDays(deltaOf(now.per, before.per, 'down')) : null});
   });
+  preferences.cards(project, cards, overall.dates, joined);
   renderKpiCards(project, cards);
 
   renderDimensionTables(project);
@@ -4793,7 +4801,7 @@ let shownSectionId = null;
 function updateSection(project){
   if(project.id !== shownSectionId){ project.stale = true; return; }
   project.stale = false;
-  try{ drawSection(project); }
+  try{ drawSection(project); preferences.layout(project); }
   catch(e){
     console.error('section failed:', project.id, e);
     const el = document.getElementById(`coverageNote-${project.id}`);
@@ -4908,6 +4916,7 @@ function drawSection(project){
                 delta: prev ? withDays(deltaOf(now.per, before.per, 'down')) : null});
   });
 
+  preferences.cards(project, cards, daily.dates, joined);
   renderKpiCards(project, cards);
 
   renderMetricChart(project, project.id, `trendChart-${project.id}`, {
@@ -4950,11 +4959,17 @@ async function loadProject(project){
     project.includeUnmatchedCost = true;
     project.hideZeroConversionCampaigns = false;
   }
+  project.sourceHeaders = new Map();
+  async function read(sheet){
+    const rows = await fetchSheetCached(project.spreadsheetId, sheet);
+    project.sourceHeaders.set(sheet, rows.headers || Object.keys(rows[0] || {}));
+    return rows;
+  }
   try{
     if(project.kind === 'budget'){
       const [blendRows, budgetRows] = await Promise.all([
-        fetchSheetCached(project.spreadsheetId, project.blendSheet),
-        fetchSheetCached(project.spreadsheetId, project.budgetSheet)
+        read(project.blendSheet),
+        read(project.budgetSheet)
       ]);
       const today = todayStr();
       // Same rule as the other sections: the day in progress isn't reported.
@@ -4982,15 +4997,15 @@ async function loadProject(project){
     const refSheets = (Array.isArray(project.refSheet) ? project.refSheet : [project.refSheet])
       .map(entry => typeof entry === 'string' ? {sheet: entry, conversionCol: project.conversionCol} : entry);
     let [refSheetRows, costRows, compareOrNull] = await Promise.all([
-      Promise.all(refSheets.map(r => fetchSheetCached(project.spreadsheetId, r.sheet))),
-      fetchSheetCached(project.spreadsheetId, project.costSheet),
-      cmp ? fetchSheetCached(project.spreadsheetId, cmp.sheet) : null
+      Promise.all(refSheets.map(r => read(r.sheet))),
+      read(project.costSheet),
+      cmp ? read(cmp.sheet) : null
     ]);
     const compareRows = compareOrNull || [];
     // A second source's count of the same conversion (GA4 beside Yektanet).
     const cc = project.compareConversion;
     project.rawCmpConv = cc
-      ? normalizeCmpConvRows(await fetchSheetCached(project.spreadsheetId, cc.sheet), cc.col, cc.campaignCol) : [];
+      ? normalizeCmpConvRows(await read(cc.sheet), cc.col, cc.campaignCol) : [];
     // A section that covers only some rows of a shared tab narrows both sides
     // here; the cached sheet itself stays whole for the other sections.
     if(project.rowFilter){
@@ -5003,7 +5018,7 @@ async function loadProject(project){
     // Dimension tabs are independent of the join, so they are fetched on their
     // own and kept beside it.
     const dimTables = project.dimensionTables || [];
-    const dimRows = await Promise.all(dimTables.map(d => fetchSheetCached(project.spreadsheetId, d.sheet)));
+    const dimRows = await Promise.all(dimTables.map(d => read(d.sheet)));
     project.rawDims = dimTables.map((d, i) => normalizeDimensionRows(dimRows[i], d.dimCol, d.metricCol));
     const diag = {skippedRows:0, skippedCost:0, unreadableCost:0, excludedCost:0, futureRows:0};
     const refBySheet = refSheetRows.map((rows, i) =>
@@ -5020,6 +5035,7 @@ async function loadProject(project){
     // web reads Web - Campaign before 23 Oct and Web - Total from then on.
     project.rawRef = refBySheet.flatMap((rows, i) => {
       const e = refSheets[i];
+      rows.forEach(r=>{r.sourceSheet = e.sheet;});
       return rows.filter(r => (!e.keep || e.keep(r.campaign))
         && (!e.from || r.date >= e.from) && (!e.before || r.date < e.before));
     });
@@ -5391,7 +5407,7 @@ function reportSectionHtml(sec, notes){
     s.textContent = b.textContent;
     b.replaceWith(s);
   });
-  clone.querySelectorAll('.section-controls, .section-filter-bar, .report-card, .card.collapsed, .hint, button, input, textarea')
+  clone.querySelectorAll('[data-settings-hidden], .section-controls, .section-filter-bar, .report-card, .card.collapsed, .hint, button, input, textarea')
     .forEach(e=>e.remove());
   clone.querySelectorAll('[role="button"], [tabindex]').forEach(e=>{ e.removeAttribute('role'); e.removeAttribute('tabindex'); });
   clone.querySelectorAll('[id]').forEach(e=>e.removeAttribute('id'));
@@ -5539,7 +5555,13 @@ function switchTab(tabId){
   fitKpiValues(document.getElementById(`section-${shownId}`) || undefined);
 }
 
-async function init(){
+const preferences = dashboardSettings({
+  page: 'weekly', filterSlots, projectState, setOwnPreset, segSel, sectionRange, applySegFilter,
+  campaignFilter, budgetNameFilter, budgetCampaignFilter, toNumber, fmtNum, escapeHtml,
+  updateSection, normCampaign
+});
+async function init(user){
+  await preferences.load(user);
   setStatus('loading','در حال خوندن شیت‌های همه‌ی پروژه‌ها...');
   await Promise.all(PROJECTS.map(loadProject));
 

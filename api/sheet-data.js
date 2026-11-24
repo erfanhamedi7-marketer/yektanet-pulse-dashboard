@@ -77,7 +77,7 @@ async function readSheets(spreadsheetId, sheets){
   // ("1.48E+08") or rounded for width would otherwise reach the dashboard
   // already mangled. Dates still come through as their displayed string
   // rather than a serial number, which is what the front-end parses.
-  const ranges = sheets.map(sh => 'ranges=' + encodeURIComponent(`${sh}!A:Z`)).join('&');
+  const ranges = sheets.map(sh => 'ranges=' + encodeURIComponent("'" + sh.replace(/'/g, "''") + "'")).join('&');
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchGet?${ranges}`
     + `&valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=FORMATTED_STRING`;
   // A quota refusal is retried twice, a moment apart, before giving up.

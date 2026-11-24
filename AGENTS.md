@@ -76,10 +76,16 @@ Yektanet) with **conversions** (installs, KYC, leads, purchases, sessions… fro
 
 ## 3. Data flow and architecture (`index.html`)
 
+### Owner settings
+
+On the main dashboard and the weekly report, `e.hamedi` can open تنظیمات in each section. Every signed-in viewer receives the saved defaults. The two pages use independent keys (`preferences|dashboard|<id>` and `preferences|weekly|<id>`), and slides use neither. The server checks the signed session for every write to this namespace. Storage requires the Vercel `STORE_SPREADSHEET_ID` sheet shared with the service account as Editor. Saving a null value restores the section's built-in defaults.
+
+`dashboard-settings.js` handles campaign and date defaults, KPI and chart selection, section/table visibility, source-column tables, and derived metrics. Each operand is the sum of a source column under the section's data rules. Division by zero displays a dash. Budgeting rows have no date, so their totals cover the campaign lifetime. Dimension and session-comparison sheets retain their independent scopes.
+
 ### 3.1 Reading sheets
 - Browser calls `/api/sheet-data`. One request can carry several tabs of the same spreadsheet
   (`&sheet=A&sheet=B` → `{sheets:{A:{headers,rows},B:{…}}}`); one tab → `{headers, rows}`. Rows are arrays,
-  fully empty rows dropped. The server uses `values:batchGet`, `valueRenderOption=UNFORMATTED_VALUE`, range `A:Z`.
+  fully empty rows dropped. The server uses `values:batchGet` with `valueRenderOption=UNFORMATTED_VALUE` and reads the full named tab so columns beyond Z are selectable.
 - `fetchSheetData` batches tab requests per spreadsheet in the same tick (`sheetQueue`/`flushSheetQueue`);
   `fetchSheetCached` memoises per page load.
 - **Quota:** 60 read requests/minute for the service account, shared with the slide store. A page load is

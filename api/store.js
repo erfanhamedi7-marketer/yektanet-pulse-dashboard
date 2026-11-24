@@ -1,7 +1,7 @@
 const { JWT } = require('google-auth-library');
 const auth = require('./_auth');
 
-// Shared storage for the slide reports (slides.html): each report's settings,
+// Shared storage for dashboard preferences and the slide reports: each report's settings,
 // template and edits, and the merged-report list, so every browser a person
 // signs in from sees the same reports. Kept in one Google Sheet the service
 // account can edit — the first tab, one row per key:
@@ -55,6 +55,11 @@ module.exports = async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   const session = auth.getSession(req);
   if(!session){ res.status(401).json({ error: 'login required', code: 'auth' }); return; }
+  if(req.method === 'POST'){
+    if(!String(req.headers['content-type'] || '').toLowerCase().startsWith('application/json')){
+      res.status(415).json({ error:'expected JSON' }); return;
+    }
+  }
   if(!STORE_SPREADSHEET_ID){ res.status(503).json({ error: 'storage sheet not set', code: 'no_store' }); return; }
   try{
     if(req.method === 'GET'){
@@ -71,13 +76,22 @@ module.exports = async (req, res) => {
     if(req.method === 'POST'){
       const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
       const list = Array.isArray(body.items) ? body.items : [];
-      if(!list.length || list.some(it => !it || !KEY_RE.test(String(it.key || '')))){
+      if(!list.length || list.some(it => !it || typeof it.key !== 'string' || !KEY_RE.test(it.key))){
         res.status(400).json({ error: 'bad items' }); return;
+      }
+      if(list.some(it => it.key.startsWith('preferences|')) && session.user.toLowerCase() !== 'e.hamedi'){
+        res.status(403).json({error:'owner only'}); return;
       }
       const { rows, height } = await readAll();
       const at = new Map(rows.map(r => [r.key, r.row]));
       const updates = [], appends = [];
       list.forEach(it => {
+        // An append is atomic even when two owner sessions first save the same
+        // section concurrently. GET folds rows in sheet order, including resets.
+        if(it.key.startsWith('preferences|')){
+          appends.push(rowValues(it.key,it.value,session.user));
+          return;
+        }
         const row = at.get(it.key);
         // null deletes: the row is blanked and skipped from then on.
         const values = it.value === null ? Array(MAX_CHUNKS + 3).fill('') : rowValues(it.key, it.value, session.user);
