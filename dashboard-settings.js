@@ -148,7 +148,9 @@ function dashboardSettings(api) {
     }
     if(Array.isArray(cfg.chart)) state.chartPicks=cfg.chart.slice();
     if(!owner) return;
-    const button=el('button','تنظیمات'); button.className='preset-btn settings-open';
+    const button=el('button','⚙︎'); button.className='preset-btn settings-open';
+    button.title='تنظیمات';
+    button.setAttribute('aria-label','تنظیمات');
     button.onclick=()=>editor(p); section(p).querySelector('.section-controls').append(button);
   }
   function applyDate(p){

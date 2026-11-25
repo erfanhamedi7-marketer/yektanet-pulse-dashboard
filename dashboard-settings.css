@@ -14,3 +14,4 @@
 .settings-dialog button[type=submit]{background:#245a46;color:white}
 .settings-warning{padding:.5rem 1rem;background:#fff3d4;color:#574320;text-align:center}
 @media print{.settings-dialog,.settings-open,.settings-warning{display:none!important}}
+.preset-btn.settings-open{font-size:20px;line-height:1;min-width:36px;min-height:36px;padding:4px}
