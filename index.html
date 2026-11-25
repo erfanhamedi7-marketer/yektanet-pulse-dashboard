@@ -5683,33 +5683,8 @@ const preferences = dashboardSettings({
   updateSection, normCampaign
 });
 async function init(user){
-  try {
-    const response = await fetch('/api/store?dashboard=1',{cache:'no-store'});
-    if (!response.ok) throw Error(String(response.status));
-    const {pages,parameters,views} = await response.json();
-    const configured = [], seen = new Set(), issues = [];
-    for (const row of pages) {
-      if (!row[0] || String(row[1]).toLowerCase() === 'false') continue;
-      try {
-        if (seen.has(row[0])) throw Error('شناسهٔ تکراری');
-        const [project] = dashboardRegistry([row],parameters.filter(p=>p[0]===row[0]),ALL_PROJECTS);
-        if (project.kind === 'budget' ? !project.budgetSheet || !project.blendSheet : !project.refSheet || !project.costSheet) throw Error('نام تب منبع خالی است');
-        seen.add(project.id);
-        configured.push(project);
-      } catch (err) { issues.push(row[0]+' — '+err.message); }
-    }
-    if (issues.length) {
-      const warning = document.createElement('div');
-      warning.className = 'settings-warning';
-      warning.textContent = 'تنظیمات این بخش‌ها را در شیت بررسی کنید: '+issues.join('، ');
-      document.body.prepend(warning);
-    }
-    PROJECTS.splice(0,PROJECTS.length,...configured);
-    await preferences.load(user,views);
-  } catch (err) {
-    setStatus('err','خواندن تنظیمات داشبورد ممکن نشد — '+err.message);
-    return;
-  }
+  await loadDashboardPages(PROJECTS,ALL_PROJECTS);
+  await preferences.load(user);
   if (!PROJECTS.length) { setStatus('live','هیچ صفحهٔ فعالی در شیت تنظیمات نیست.'); return; }
   setStatus('loading','در حال خوندن شیت‌های همه‌ی پروژه‌ها...');
   await Promise.all(PROJECTS.map(loadProject));

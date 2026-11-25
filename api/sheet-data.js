@@ -1,6 +1,6 @@
 const { JWT } = require('google-auth-library');
 const auth = require('./_auth');
-const {readTabs,pagesTab,paramsTab} = require('../lib/dashboard-workbook');
+const {readPages} = require('../lib/dashboard-workbook');
 
 // Whitelist of spreadsheet IDs this endpoint is allowed to read, so it can't
 // be used as an open proxy to any sheet the service account happens to see.
@@ -100,22 +100,14 @@ async function registeredSource(id, sheets) {
   const store = process.env.STORE_SPREADSHEET_ID;
   if (!store || id === store) return false;
   if (!registryCache || Date.now()-registryCache.at > FRESH_MS) {
-    const [pages,params] = await readTabs(opts=>getClient().request(opts).then(r=>r.data),
-      'https://sheets.googleapis.com/v4/spreadsheets/'+store,[pagesTab,paramsTab]);
+    const pages = await readPages(opts=>getClient().request(opts).then(r=>r.data),
+      'https://sheets.googleapis.com/v4/spreadsheets/'+store);
     const sources = new Map();
-    const pageBooks = new Map(pages.filter(r=>r[0] && String(r[1]).toLowerCase()!=='false').map(r=>[r[0],r[6]]));
     for (const row of pages) {
-      const book = pageBooks.get(row[0]);
-      if (!book) continue;
+      const [page,enabled,,,,,book] = row;
+      if (!page || !book || String(enabled).toLowerCase()==='false') continue;
       if (!sources.has(book)) sources.set(book,new Set());
       for (const name of row.slice(7,9).filter(Boolean)) sources.get(book).add(name);
-    }
-    const sheetField = /^(refSheet(?:\.\d+\.sheet)?|costSheet|blendSheet|budgetSheet|(?:compareConversion|sessionsCompare)\.sheet|dimensionTables\.\d+\.sheet)$/;
-    for (const [page,path,type,name] of params) {
-      const book = pageBooks.get(page);
-      if (!book || type !== 'text' || !sheetField.test(path)) continue;
-      if (!sources.has(book)) sources.set(book,new Set());
-      sources.get(book).add(name);
     }
     registryCache = {at:Date.now(),sources};
   }

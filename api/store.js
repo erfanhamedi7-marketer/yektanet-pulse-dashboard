@@ -65,8 +65,8 @@ module.exports = async (req, res) => {
   try{
     if(req.method === 'GET'){
       if(req.query.dashboard === '1'){
-        const [pages,parameters,rows] = await workbook.readTabs(call,base(),[workbook.pagesTab,workbook.paramsTab,workbook.prefsTab]);
-        res.status(200).json({pages,parameters,views:workbook.decodeViews(rows)});
+        const pages = await workbook.readPages(call,base());
+        res.status(200).json({pages});
         return;
       }
       // Every key under a prefix ("<report>|"), so a report's settings and all
@@ -87,12 +87,6 @@ module.exports = async (req, res) => {
       }
       if(list.some(it => it.key.startsWith('preferences|')) && session.user.toLowerCase() !== 'e.hamedi'){
         res.status(403).json({error:'owner only'}); return;
-      }
-      if(list.some(it=>it.key.startsWith('preferences|dashboard|'))){
-        if(list.length !== 1) { res.status(400).json({error:'one dashboard section per save'}); return; }
-        await workbook.saveView(call,base(),list[0].key.slice('preferences|dashboard|'.length),list[0].value);
-        res.status(200).json({saved:1});
-        return;
       }
       const { rows, height } = await readAll();
       const at = new Map(rows.map(r => [r.key, r.row]));

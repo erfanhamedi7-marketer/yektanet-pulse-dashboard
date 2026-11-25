@@ -78,12 +78,11 @@ Yektanet) with **conversions** (installs, KYC, leads, purchases, sessions… fro
 
 ### Owner settings
 
-The main dashboard now loads its page catalogue, parameter rows and view defaults from the
-`Dashboard Pages`, `Dashboard Parameters` and `Dashboard Views` tabs of STORE_SPREADSHEET_ID.
-`Dashboard Guide` documents the editable columns. The main-dashboard gear writes to Views.
-The built-in catalogue supplies named JavaScript rules and the separate slide engine.
-Weekly-report preferences and slides still use Sheet1. New data workbooks for the main
-dashboard are authorized by the enabled page and its configured source tabs.
+Dashboard Pages is the shared customer catalogue for the main dashboard and weekly report.
+A new enabled row creates a page on both. Existing sections inherit the calculations of their
+own engine. Each gear saves its own defaults in the internal Sheet1 tab using the dashboard
+or weekly preference namespace. Slides also depend on Sheet1. Keep this tab when editing
+the workbook. Additional source workbooks must be shared with the service account.
 
 On the main dashboard and the weekly report, `e.hamedi` can open تنظیمات in each section. Every signed-in viewer receives the saved defaults. Weekly defaults use `preferences|weekly|<id>`. The server checks the signed session for every settings write. Storage requires the Vercel `STORE_SPREADSHEET_ID` sheet shared with the service account as Editor.
 
