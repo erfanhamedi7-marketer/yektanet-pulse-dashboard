@@ -1,5 +1,6 @@
 const { JWT } = require('google-auth-library');
 const auth = require('./_auth');
+const workbook = require('../lib/dashboard-workbook');
 
 // Shared storage for dashboard preferences and the slide reports: each report's settings,
 // template and edits, and the merged-report list, so every browser a person
@@ -31,7 +32,7 @@ const call = (opts) => getClient().request(opts).then(r => r.data);
 // Every row as {row, key, updatedAt, user, value}; row is the sheet's 1-based
 // row. `height` is how many rows the sheet has in use, header included.
 async function readAll(){
-  const data = await call({ url: `${base()}/values/${encodeURIComponent('A1:Z')}?valueRenderOption=UNFORMATTED_VALUE` });
+  const data = await call({ url: `${base()}/values/${encodeURIComponent("'Sheet1'!A1:Z")}?valueRenderOption=UNFORMATTED_VALUE` });
   const values = data.values || [];
   const rows = values.map((r, i) => {
     const key = String(r[0] || '');
@@ -63,6 +64,11 @@ module.exports = async (req, res) => {
   if(!STORE_SPREADSHEET_ID){ res.status(503).json({ error: 'storage sheet not set', code: 'no_store' }); return; }
   try{
     if(req.method === 'GET'){
+      if(req.query.dashboard === '1'){
+        const [pages,parameters,rows] = await workbook.readTabs(call,base(),[workbook.pagesTab,workbook.paramsTab,workbook.prefsTab]);
+        res.status(200).json({pages,parameters,views:workbook.decodeViews(rows)});
+        return;
+      }
       // Every key under a prefix ("<report>|"), so a report's settings and all
       // its periods' edits come in one read.
       const prefix = String(req.query.prefix || '');
@@ -82,6 +88,12 @@ module.exports = async (req, res) => {
       if(list.some(it => it.key.startsWith('preferences|')) && session.user.toLowerCase() !== 'e.hamedi'){
         res.status(403).json({error:'owner only'}); return;
       }
+      if(list.some(it=>it.key.startsWith('preferences|dashboard|'))){
+        if(list.length !== 1) { res.status(400).json({error:'one dashboard section per save'}); return; }
+        await workbook.saveView(call,base(),list[0].key.slice('preferences|dashboard|'.length),list[0].value);
+        res.status(200).json({saved:1});
+        return;
+      }
       const { rows, height } = await readAll();
       const at = new Map(rows.map(r => [r.key, r.row]));
       const updates = [], appends = [];
@@ -95,7 +107,7 @@ module.exports = async (req, res) => {
         const row = at.get(it.key);
         // null deletes: the row is blanked and skipped from then on.
         const values = it.value === null ? Array(MAX_CHUNKS + 3).fill('') : rowValues(it.key, it.value, session.user);
-        if(row) updates.push({ range: `A${row}:Z${row}`, values: [values] });
+        if(row) updates.push({ range: `'Sheet1'!A${row}:Z${row}`, values: [values] });
         else if(it.value !== null) appends.push(values);
       });
       if(updates.length){
@@ -105,7 +117,7 @@ module.exports = async (req, res) => {
       if(appends.length){
         // A sheet with nothing in it gets its header row first.
         const header = height ? [] : [['key', 'updatedAt', 'user', 'value (JSON, continues to the right)']];
-        await call({ url: `${base()}/values/${encodeURIComponent('A1:Z')}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
+        await call({ url: `${base()}/values/${encodeURIComponent("'Sheet1'!A1:Z")}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
                      method: 'POST', data: { values: [...header, ...appends] } });
       }
       res.status(200).json({ saved: list.length, at: Date.now() });

@@ -78,7 +78,14 @@ Yektanet) with **conversions** (installs, KYC, leads, purchases, sessions… fro
 
 ### Owner settings
 
-On the main dashboard and the weekly report, `e.hamedi` can open تنظیمات in each section. Every signed-in viewer receives the saved defaults. The two pages use independent keys (`preferences|dashboard|<id>` and `preferences|weekly|<id>`), and slides use neither. The server checks the signed session for every write to this namespace. Storage requires the Vercel `STORE_SPREADSHEET_ID` sheet shared with the service account as Editor. Saving a null value restores the section's built-in defaults.
+The main dashboard now loads its page catalogue, parameter rows and view defaults from the
+`Dashboard Pages`, `Dashboard Parameters` and `Dashboard Views` tabs of STORE_SPREADSHEET_ID.
+`Dashboard Guide` documents the editable columns. The main-dashboard gear writes to Views.
+The built-in catalogue supplies named JavaScript rules and the separate slide engine.
+Weekly-report preferences and slides still use Sheet1. New data workbooks for the main
+dashboard are authorized by the enabled page and its configured source tabs.
+
+On the main dashboard and the weekly report, `e.hamedi` can open تنظیمات in each section. Every signed-in viewer receives the saved defaults. Weekly defaults use `preferences|weekly|<id>`. The server checks the signed session for every settings write. Storage requires the Vercel `STORE_SPREADSHEET_ID` sheet shared with the service account as Editor.
 
 `dashboard-settings.js` handles campaign and date defaults, KPI and chart selection, section/table visibility, source-column tables, and derived metrics. Each operand is the sum of a source column under the section's data rules. Division by zero displays a dash. Budgeting rows have no date, so their totals cover the campaign lifetime. Dimension and session-comparison sheets retain their independent scopes.
 

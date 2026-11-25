@@ -183,8 +183,12 @@ function dashboardSettings(api) {
       item.nodes.forEach(n=>n.toggleAttribute('data-settings-hidden',hidden.has(item.key)));
     }
   }
-  async function load(user){
+  async function load(user, views){
     owner=String(user).toLowerCase()==='e.hamedi';
+    if(views){
+      for(const [id,value] of Object.entries(views)) configs.set(id,value);
+      return;
+    }
     try{
       const response=await fetch('/api/store?prefix='+encodeURIComponent(prefix),{cache:'no-store'});
       if(!response.ok) throw Error();
