@@ -315,6 +315,21 @@
     background:radial-gradient(circle, var(--soft), transparent 68%);pointer-events:none;
   }
   .slide img{display:block;}
+  .mock-stage{height:100%;display:grid;place-items:center;border-radius:24px;background:linear-gradient(140deg,#f8f6f1,var(--soft));}
+  .mock-device{position:relative;display:grid;place-items:center;direction:ltr;}
+  .mock-screen{width:100%;height:100%;overflow:hidden;background:#fff;display:grid;place-items:center;grid-template: minmax(0,1fr) / minmax(0,1fr);}
+  .mock-screen img{width:100%;height:100%;min-height:0;object-fit:contain;}
+  .mock-desktop{width:700px;height:396px;padding:10px 10px 17px;border-radius:15px;background:#343941;margin-bottom:40px;
+    box-shadow:0 12px 26px rgba(31,35,40,.16);}
+  .mock-desktop::before,.mock-desktop::after{content:'';position:absolute;top:100%;background:#8a9097;}
+  .mock-desktop::before{width:50px;height:24px;}
+  .mock-desktop::after{width:142px;height:6px;margin-top:24px;border-radius:6px;}
+  .mock-mobile{width:211px;height:438px;padding:11px 7px;border-radius:31px;background:#343941;
+    border:2px solid #899098;box-shadow:0 10px 24px rgba(31,35,40,.2);}
+  .mock-mobile .mock-screen{border-radius:19px;}
+  .mock-upload{position:relative;cursor:pointer;}
+  .mock-upload input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;}
+  .mock-upload:focus-within{outline:2px solid currentColor;}
   .slide.has-annotation .s-body{transform:scale(.77);transform-origin:top center;}
   .slide.has-annotation .sec-wrap,.slide.has-annotation .cv-text{bottom:164px;}
   .slide-annotation{position:absolute;bottom:74px;right:64px;left:64px;height:96px;display:flex;align-items:center;
@@ -1040,8 +1055,11 @@ const cfgKeyOf = (R, id) => 'slides:cfg:' + R.id + tplSuffix(id);
 const cfgKey = R => cfgKeyOf(R, activeTpl(R));
 function saveTplList(R, list){ store.set(tplListKey(R), {list}); }
 const SLIDE_TYPES = {
+  desktop:'اسکرین‌شات دسکتاپ', mobile:'اسکرین‌شات موبایل',
   cover:'جلد', campaigns:'کمپین‌های اجرا شده (نوع کمپین‌ها)', kpis:'آمار کلی (کارت‌ها)', chart:'نمودار', table:'جدول مقایسه', text:'متن / تحلیل', section:'جداکننده'
 };
+const ADD_SLIDES = ['chart', 'table', 'kpis', 'campaigns', 'text', 'section', 'desktop', 'mobile'];
+const isMockup = s => s.type === 'desktop' || s.type === 'mobile';
 const CHART_TYPES = {combo:'ستونی + خطی', bar:'ستونی', hbar:'ستونی افقی', line:'خطی', doughnut:'دایره‌ای'};
 const LIST_LEVELS = {medium:'نوع کمپین', campaign:'اسم کمپین‌ها'};
 const PRESETS = [
@@ -1285,6 +1303,7 @@ function isDateKey(s, k){
   return s && (s.type === 'cover' ? k === 'period' || k === 'foot' : k === 'kicker');
 }
 function isTemplateKey(s, k){
+  if(k === 'screenshot') return false;
   if(isDateKey(s, k)) return false;
   if(/^c:.*:name$/.test(k)) return true;               // a renamed row is text
   return !/^(c:|v:|d:)/.test(k);
@@ -1650,6 +1669,13 @@ function renderSectionSlide(R, s, num){
 }
 function renderSlide(R, s, num){
   switch(s.type){
+    case 'desktop': case 'mobile': {
+      const src = S.edits[s.id]?.screenshot;
+      return `<section class="slide">${slideHead(R, s, periodOf(S.data))}
+        <div class="s-body"><div class="mock-stage"><div class="mock-device mock-${s.type}"><div class="mock-screen">
+        ${src ? `<img src="${esc(src)}" alt="اسکرین‌شات تبلیغ">` : ''}
+        </div></div></div></div>${slideFoot(R, num)}</section>`;
+    }
     case 'cover': return renderCover(R, s);
     case 'campaigns': return renderTypesSlide(R, s, num);
     case 'kpis': return renderKpis(R, s, num);
@@ -1947,6 +1973,62 @@ function editAnnotation(R, sid){
   };
   dialog.showModal();
 }
+function mockUpload(s){
+  return `<label class="btn sm mock-upload">${S.edits[s.id]?.screenshot ? 'تعویض تصویر' : 'آپلود اسکرین‌شات'}
+    <input type="file" accept="image/png,image/jpeg,image/webp" data-screenshot="${esc(s.id)}"></label>
+    ${S.edits[s.id]?.screenshot ? `<button type="button" class="btn sm" data-clearshot="${esc(s.id)}">حذف تصویر</button>` : ''}`;
+}
+const pendingScreenshots = new WeakMap();
+function refreshMockup(sid){
+  if($('#deck')) renderDeck(S.report);
+  else { S.focusSlide = sid; renderSettings(S.report); }
+}
+$('#view').addEventListener('click', e => {
+  const button = e.target.closest('[data-clearshot]');
+  if(!button) return;
+  const sid = button.dataset.clearshot;
+  pendingScreenshots.delete(S.cfg.slides.find(s => s.id === sid));
+  const edits = {...S.edits, [sid]:{...S.edits[sid]}};
+  delete edits[sid].screenshot;
+  if(!store.set(S.editKey, edits)){ toast('حذف تصویر ذخیره نشد'); return; }
+  S.edits = edits;
+  refreshMockup(sid);
+});
+$('#view').addEventListener('change', async e => {
+  const input = e.target.closest('input[data-screenshot]');
+  if(!input) return;
+  const file = input.files[0], sid = input.dataset.screenshot;
+  input.value = '';
+  if(!file) return;
+  const editKey = S.editKey, slide = S.cfg.slides.find(s => s.id === sid);
+  const url = URL.createObjectURL(file);
+  pendingScreenshots.set(slide, url);
+  try{
+    const image = new Image();
+    image.src = url;
+    await image.decode();
+    const scale = Math.min(1, 1440 / Math.max(image.naturalWidth, image.naturalHeight));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+    const src = canvas.toDataURL('image/webp', .83);
+    if(S.editKey !== editKey || !S.cfg.slides.includes(slide) || pendingScreenshots.get(slide) !== url) return;
+    const edits = {...S.edits, [sid]:{...S.edits[sid], screenshot:src}};
+    if(JSON.stringify(edits).length > 1000000){
+      toast('فضای تصاویر این بازه پر شده؛ تصویر کوچک‌تری انتخاب کن.');
+      return;
+    }
+    if(!store.set(editKey, edits)){ toast('تصویر ذخیره نشد؛ فضای ذخیره‌سازی در دسترس نیست.'); return; }
+    S.edits = edits;
+    refreshMockup(sid);
+    toast('اسکرین‌شات ذخیره شد');
+  }catch{ toast('تصویر خوانده نشد؛ یک فایل PNG، JPG یا WebP انتخاب کن.'); }
+  finally{ URL.revokeObjectURL(url); }
+});
 function renderDeck(R){
   destroyCharts();
   const editing = document.body.classList.contains('editing');
@@ -1957,6 +2039,7 @@ function renderDeck(R){
       <div class="slide-tools">
         <span class="lbl"><button type="button" class="slide-grip" data-sgrip title="بکش تا ترتیب اسلاید عوض بشه" aria-label="جابه‌جا کردن اسلاید">⠿</button><b>${fa(i + 1)}</b>${esc(SLIDE_TYPES[s.type] || s.type)}${isEdited(s.id) ? ' <span class="badge">ویرایش‌شده</span>' : ''}${Array.isArray(s.campaigns) ? ` — <span title="این اسلاید فقط کمپین‌های انتخابی خودش رو می‌شمره">${fa(s.campaigns.length)} کمپین انتخابی</span>` : ''}${partsLabel(R, s) ? ` — فقط ${esc(partsLabel(R, s))}` : ''}${s.period && s.period.preset ? ' — بازه‌ی جدا' : ''}${slideGroupOf(s) ? ` <span class="badge" title="گروه اسلاید">${esc(slideGroupOf(s).name || 'گروه')}</span>` : ''}</span>
         <span class="grp">
+          ${isMockup(s) ? mockUpload(s) : ''}
           <button type="button" class="btn sm" data-act="annotation">${annotationText(s.id) ? 'ویرایش توضیحات' : 'افزودن توضیحات'}</button>
           <button type="button" class="btn sm icon" data-act="up" title="جابه‌جایی به بالا" aria-label="بالا" ${i === 0 ? 'disabled' : ''}>${ICON.up}</button>
           <button type="button" class="btn sm icon" data-act="down" title="جابه‌جایی به پایین" aria-label="پایین" ${i === slides.length - 1 ? 'disabled' : ''}>${ICON.down}</button>
@@ -1969,7 +2052,7 @@ function renderDeck(R){
       <div class="s-frame" style="${themeVars(R)}">${renderSlide(R, s, i + 1)}</div>
     </div>`).join('')}
     <div class="add-slide"><span>افزودن اسلاید${hiddenCount ? ` — ${fa(hiddenCount)} اسلاید پنهان تو تنظیمات` : ''}</span>
-      ${['chart', 'table', 'kpis', 'campaigns', 'text', 'section'].map(t => `<button type="button" class="btn sm" data-add="${t}">+ ${esc(SLIDE_TYPES[t])}</button>`).join('')}
+      ${ADD_SLIDES.map(t => `<button type="button" class="btn sm" data-add="${t}">+ ${esc(SLIDE_TYPES[t])}</button>`).join('')}
     </div></div>`;
   $('#deckActions').innerHTML = `
     ${templatePicker(R, 'deck')}
@@ -2336,7 +2419,7 @@ function renderSettings(R){
           ${tb.headers.map((h, ci) => ci === +s.file.labelCol ? '' : `<label class="check"><input type="checkbox" data-s="${i}" data-fval="${ci}" ${(s.file.valueCols || []).includes(ci) ? 'checked' : ''}>${esc(h)}</label>`).join('')}
         </div></div>` : ''}
       </div>` : ''}`;
-    const mets = ['cover', 'text', 'campaigns', 'section'].includes(s.type) || fileSrc ? '' : `
+    const mets = isMockup(s) || ['cover', 'text', 'campaigns', 'section'].includes(s.type) || fileSrc ? '' : `
       <div class="field"><span>متریک‌ها${s.type === 'chart' ? ' (نمودار: دو تای اول؛ دایره‌ای: فقط اولی)' : ''}</span><div class="metric-checks">
         ${usable.filter(m => !m.extra).map(metBox).join('')}
       </div></div>
@@ -2356,7 +2439,7 @@ function renderSettings(R){
     const ownSet = new Set(own ? s.campaigns : []);
     const only = slideParts(R, s);
     const ownPer = !!(s.period && s.period.preset);
-    const noData = s.type === 'cover' || s.type === 'section' || fileSrc;
+    const noData = isMockup(s) || s.type === 'cover' || s.type === 'section' || fileSrc;
     const perBlock = noData ? '' : `
       <div class="field"><span>بازه‌ی این اسلاید</span>
         <select class="inp" data-s="${i}" data-prop="perMode" style="max-width:340px">
@@ -2384,7 +2467,7 @@ function renderSettings(R){
       <div class="body">
         ${s.type === 'cover' ? '<p class="hint">عنوان، برچسب و لوگوی جلد از بخش «عنوان و ظاهر» بالا میاد؛ روی خود اسلاید هم قابل ویرایشه.</p>'
           : `<div class="row"><div class="field"><span>عنوان اسلاید</span><input class="inp" data-s="${i}" data-prop="title" value="${esc(s.title)}"></div>${dims}${level}${ctype}${rows}${tcol}${cols}</div>`}
-        ${srcBlock}${mets}${camps}
+        ${isMockup(s) ? mockUpload(s) : ''}${srcBlock}${mets}${camps}
         ${slideGroupsOf().length ? `<div class="field"><span>گروه اسلاید${slideGroupOf(s) ? ' — فیلترهای گروه برای این اسلاید اعمال می‌شن مگه اینکه خود اسلاید تنظیم خودش رو داشته باشه' : ''}</span>
           <select class="inp" data-s="${i}" data-prop="group" style="max-width:340px"><option value="">بدون گروه</option>
           ${slideGroupsOf().map(g => `<option value="${esc(g.id)}" ${s.group === g.id ? 'selected' : ''}>${esc(g.name || 'گروه بی‌نام')}</option>`).join('')}</select></div>` : ''}
@@ -2537,7 +2620,7 @@ function renderSettings(R){
 
     <section class="card"><h3>اسلایدها، متریک‌ها، ابعاد و کمپین‌ها</h3><p class="hint">ترتیب، نمایش، عنوان، متریک‌ها، بُعد، نوع نمودار و کمپین‌های هر اسلاید. تغییرها همون لحظه ذخیره می‌شن.</p>
       ${cfg.slides.map(slideOpts).join('')}
-      <div class="set-foot" style="margin-top:12px">${['chart', 'table', 'kpis', 'campaigns', 'text', 'section'].map(t => `<button type="button" class="btn sm" data-add="${t}">+ ${esc(SLIDE_TYPES[t])}</button>`).join('')}</div>
+      <div class="set-foot" style="margin-top:12px">${ADD_SLIDES.map(t => `<button type="button" class="btn sm" data-add="${t}">+ ${esc(SLIDE_TYPES[t])}</button>`).join('')}</div>
     </section>
 
     <section class="card"><h3>قالب، ذخیره و انتقال</h3><p class="hint">${esc(savedLabel())}${tplN ? ` — ${fa(tplN)} متن ویرایش‌شده تو قالب` : ''}. تنظیمات این صفحه خودکار ذخیره می‌شن؛ متن‌هایی که روی اسلایدها عوض می‌کنی با «ذخیره قالب» (بالای اسلایدها) تو قالب این مشتری می‌مونن. همه‌چیز تو همین مرورگره؛ برای مرورگر دیگه خروجی بگیر و اونجا وارد کن.</p>
