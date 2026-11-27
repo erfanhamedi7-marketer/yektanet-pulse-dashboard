@@ -39,7 +39,8 @@ Last updated: 24 Nov 2026.
 
 Every slide has an optional plain-text annotation in its toolbar. It is stored with the period edits,
 can be promoted with Save Template, and appears in presentation, PDF and HTML snapshots.
-Desktop and mobile screenshot slides each have two matching devices. Both screenshots, their crops and
+Desktop and mobile screenshot slides each have two independently selectable devices. Each slot defaults
+to the slide type until its device is set in the template. Both screenshots, their crops and
 their captions belong to the report period. The original screenshot field is slot one. Snapshots embed only the visible crop.
 
 A private, multi-client marketing-performance dashboard for the ad agency team (Yektanet). Each client

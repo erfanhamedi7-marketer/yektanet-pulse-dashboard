@@ -510,6 +510,7 @@
 <dialog id="shotDialog" aria-labelledby="shotTitle">
   <form>
     <h2 id="shotTitle"></h2>
+    <label>نوع قاب<select class="inp" name="device"><option value="desktop">دسکتاپ</option><option value="mobile">موبایل</option></select></label>
     <label>تصویر تبلیغ<input name="file" type="file" accept="image/png,image/jpeg,image/webp"></label>
     <div class="crop-preview"></div>
     <small>برای تنظیم برش، تصویر را بکش یا از کنترل‌های زیر استفاده کن.</small>
@@ -1702,7 +1703,7 @@ function renderSlide(R, s, num){
       return `<section class="slide">${slideHead(R, s, periodOf(S.data))}
         <div class="s-body"><div class="mock-stage">${[1,2].map(slot => {
           const shot = readShot(s.id, slot);
-          return `<figure class="mock-item"><div class="mock-platform"><div class="mock-device mock-${s.type}"><div class="mock-screen">
+          return `<figure class="mock-item"><div class="mock-platform"><div class="mock-device mock-${deviceForSlot(s, slot)}"><div class="mock-screen">
             ${shot.src ? `<img src="${esc(shot.src)}" style="${cropStyle(shot)}" alt="تصویر تبلیغ ${fa(slot)}">` : ''}
             </div></div></div><figcaption class="mock-caption">${esc(shot.caption)}</figcaption></figure>`;
         }).join('')}</div></div>${slideFoot(R, num)}</section>`;
@@ -2005,6 +2006,10 @@ function editAnnotation(R, sid){
   dialog.showModal();
 }
 const shotKey = slot => slot === 1 ? 'screenshot' : 'screenshot2';
+function deviceForSlot(slide, slot){
+  const type = slide.devices?.[slot - 1];
+  return type === 'mobile' || type === 'desktop' ? type : slide.type;
+}
 function readShot(sid, slot){
   const ed = S.edits[sid] || {};
   return {x:50, y:50, zoom:1, caption:'', ...ed['mock' + slot], src:ed[shotKey(slot)] || ''};
@@ -2041,8 +2046,10 @@ function editShot(sid, slot){
   const slide = S.cfg.slides.find(s => s.id === sid), editKey = S.editKey;
   const shot = readShot(sid, slot), preview = $('.crop-preview', dialog), msg = $('[role=status]', dialog);
   const image = new Image(), save = $('button[type=submit]', form);
-  $('#shotTitle').textContent = SLIDE_TYPES[slide.type] + ' · ماک‌آپ ' + fa(slot);
-  preview.className = 'crop-preview ' + slide.type;
+  $('#shotTitle').textContent = 'ویرایش ماک‌آپ ' + fa(slot);
+  fields.device.value = deviceForSlot(slide, slot);
+  fields.device.onchange = () => { preview.className = 'crop-preview ' + fields.device.value; };
+  fields.device.onchange();
   preview.replaceChildren(image);
   fields.file.value = '';
   fields.caption.value = shot.caption;
@@ -2119,6 +2126,12 @@ function editShot(sid, slot){
     if(JSON.stringify(edits).length > 1000000){ msg.textContent = 'فضای تصاویر این بازه پر شده؛ تصویر کوچک‌تری انتخاب کن.'; return; }
     if(!store.set(editKey,edits)){ msg.textContent = 'ذخیره‌سازی در دسترس نیست.'; return; }
     S.edits = edits;
+    if(fields.device.value !== deviceForSlot(slide, slot)){
+      const devices = [deviceForSlot(slide, 1), deviceForSlot(slide, 2)];
+      devices[slot - 1] = fields.device.value;
+      slide.devices = devices;
+      saveCfg();
+    }
     dialog.close();
     if($('#deck')) renderDeck(S.report);
     else { S.focusSlide = sid; renderSettings(S.report); }
