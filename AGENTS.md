@@ -39,7 +39,8 @@ Last updated: 24 Nov 2026.
 
 Every slide has an optional plain-text annotation in its toolbar. It is stored with the period edits,
 can be promoted with Save Template, and appears in presentation, PDF and HTML snapshots.
-An annotated slide keeps its original 1280×720 content area and adds a 120px band below it.
+An annotated slide keeps the main content at its original size. The extra 120px places the note just above the footer.
+Each slide supports a font size in pixels or automatic sizing in the annotation editor.
 Desktop and mobile screenshot slides each have two independently selectable devices. Each slot defaults
 to the slide type until its device is set in the template. Both screenshots, their crops and
 their captions belong to the report period. The original screenshot field is slot one. Snapshots embed only the visible crop.
