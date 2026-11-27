@@ -143,7 +143,12 @@
   .deck.sorting .slide-item{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:8px 10px;}
   .slide-item.sdragging{outline:2px dashed var(--accent-ink);outline-offset:2px;background:var(--accent-soft) !important;}
   .slide-item.sdragging .slide-grip{cursor:grabbing;}
-  .slide-tools .grp{display:flex;gap:4px;}
+  .slide-tools .grp{display:flex;flex-wrap:wrap;gap:4px;}
+  @media(max-width:640px){.slide-tools{flex-wrap:wrap;}}
+  #annotationDialog{width:min(440px,92vw);border:1px solid var(--border);border-radius:16px;padding:20px;color:var(--text);}
+  #annotationDialog::backdrop{background:rgba(21,23,28,.35);}
+  #annotationDialog textarea{display:block;width:100%;margin:12px 0;padding:10px;font:inherit;resize:vertical;}
+  #annotationDialog .actions{display:flex;gap:8px;flex-wrap:wrap;}
   .s-frame{
     position:relative;width:100%;aspect-ratio:16/9;border-radius:18px;overflow:hidden;
     box-shadow:0 1px 2px rgba(58,46,24,.06), 0 24px 48px -28px rgba(58,46,24,.38);background:#fff;
@@ -310,6 +315,11 @@
     background:radial-gradient(circle, var(--soft), transparent 68%);pointer-events:none;
   }
   .slide img{display:block;}
+  .slide.has-annotation .s-body{transform:scale(.77);transform-origin:top center;}
+  .slide.has-annotation .sec-wrap,.slide.has-annotation .cv-text{bottom:164px;}
+  .slide-annotation{position:absolute;bottom:74px;right:64px;left:64px;height:96px;display:flex;align-items:center;
+    padding:8px 20px;border-inline-start:5px solid var(--ink);border-radius:12px;background:#faf7f0;color:#20232a;
+    white-space:pre-wrap;overflow-wrap:anywhere;font-size:21px;line-height:1.4;}
   .s-head{position:relative;display:flex;justify-content:space-between;align-items:flex-start;gap:28px;height:96px;}
   .s-titles{display:flex;gap:18px;align-items:stretch;min-width:0;}
   .s-bar{width:8px;border-radius:8px;background:var(--grad);flex-shrink:0;}
@@ -469,6 +479,17 @@
 </div>
 <div id="printDeck"></div>
 <input type="file" id="logoFile" accept="image/*" hidden>
+<dialog id="annotationDialog" aria-labelledby="annotationLabel">
+  <form method="dialog">
+    <label id="annotationLabel" for="annotationText">توضیحات اسلاید</label>
+    <textarea id="annotationText" rows="4" autofocus></textarea>
+    <div class="actions">
+      <button class="btn primary" value="save">ذخیره</button>
+      <button class="btn" value="cancel" formnovalidate>انصراف</button>
+      <button class="btn danger" value="remove" formnovalidate>حذف باکس</button>
+    </div>
+  </form>
+</dialog>
 
 <script>
 (function(){
@@ -1882,6 +1903,50 @@ function savedLabel(){
   return S.cfg.tplSavedAt ? 'قالب ذخیره‌شده: ' + new Date(S.cfg.tplSavedAt).toLocaleString('fa-IR', {month:'long', day:'numeric', hour:'2-digit', minute:'2-digit'}) : 'هنوز قالبی ذخیره نشده';
 }
 
+function annotationText(sid){
+  return S.edits[sid]?.annotation ?? S.cfg.tpl?.[sid]?.annotation ?? '';
+}
+function drawAnnotation(slide, text){
+  const box = document.createElement('aside');
+  const words = document.createElement('span');
+  box.className = 'slide-annotation';
+  words.textContent = text;
+  box.appendChild(words);
+  slide.appendChild(box);
+  let size = 21;
+  while(words.offsetHeight > box.clientHeight - 16 && size > 14) box.style.fontSize = --size + 'px';
+  return box;
+}
+function editAnnotation(R, sid){
+  const dialog = $('#annotationDialog'), input = $('#annotationText');
+  input.value = annotationText(sid);
+  input.setCustomValidity('');
+  input.oninput = () => input.setCustomValidity('');
+  dialog.querySelector('form').onsubmit = e => {
+    if(e.submitter?.value !== 'save' || !input.value.trim()) return;
+    const slide = $$('.slide-item').find(item => item.dataset.sid === sid)?.querySelector('.slide');
+    if(!slide) return;
+    const preview = drawAnnotation(slide, input.value.trim());
+    const fits = preview.firstChild.offsetHeight <= preview.clientHeight - 16;
+    preview.remove();
+    if(!fits){
+      e.preventDefault();
+      input.setCustomValidity('متن در باکس این اسلاید جا نمی‌شود. آن را کوتاه‌تر کن.');
+      input.reportValidity();
+    }
+  };
+  $('button[value="remove"]', dialog).hidden = !input.value;
+  dialog.returnValue = '';
+  dialog.onclose = () => {
+    if(!['save', 'remove'].includes(dialog.returnValue) || S.report !== R) return;
+    const text = dialog.returnValue === 'remove' ? '' : input.value.trim();
+    if(text === annotationText(sid)) return;
+    (S.edits[sid] = S.edits[sid] || {}).annotation = text;
+    if(!store.set(S.editKey, S.edits)) toast('ذخیره نشد — حافظه‌ی مرورگر پر یا بسته‌ست');
+    renderDeck(R);
+  };
+  dialog.showModal();
+}
 function renderDeck(R){
   destroyCharts();
   const editing = document.body.classList.contains('editing');
@@ -1892,6 +1957,7 @@ function renderDeck(R){
       <div class="slide-tools">
         <span class="lbl"><button type="button" class="slide-grip" data-sgrip title="بکش تا ترتیب اسلاید عوض بشه" aria-label="جابه‌جا کردن اسلاید">⠿</button><b>${fa(i + 1)}</b>${esc(SLIDE_TYPES[s.type] || s.type)}${isEdited(s.id) ? ' <span class="badge">ویرایش‌شده</span>' : ''}${Array.isArray(s.campaigns) ? ` — <span title="این اسلاید فقط کمپین‌های انتخابی خودش رو می‌شمره">${fa(s.campaigns.length)} کمپین انتخابی</span>` : ''}${partsLabel(R, s) ? ` — فقط ${esc(partsLabel(R, s))}` : ''}${s.period && s.period.preset ? ' — بازه‌ی جدا' : ''}${slideGroupOf(s) ? ` <span class="badge" title="گروه اسلاید">${esc(slideGroupOf(s).name || 'گروه')}</span>` : ''}</span>
         <span class="grp">
+          <button type="button" class="btn sm" data-act="annotation">${annotationText(s.id) ? 'ویرایش توضیحات' : 'افزودن توضیحات'}</button>
           <button type="button" class="btn sm icon" data-act="up" title="جابه‌جایی به بالا" aria-label="بالا" ${i === 0 ? 'disabled' : ''}>${ICON.up}</button>
           <button type="button" class="btn sm icon" data-act="down" title="جابه‌جایی به پایین" aria-label="پایین" ${i === slides.length - 1 ? 'disabled' : ''}>${ICON.down}</button>
           <button type="button" class="btn sm icon" data-act="hide" title="پنهان کردن این اسلاید" aria-label="پنهان کردن">${ICON.eyeOff}</button>
@@ -1919,6 +1985,11 @@ function renderDeck(R){
     const sid = item.dataset.sid;
     const slideEl = $('.slide', item);
     slideEl.dataset.sid = sid;
+    const annotation = annotationText(sid);
+    if(annotation){
+      slideEl.classList.add('has-annotation');
+      drawAnnotation(slideEl, annotation);
+    }
     applyEdits(slideEl, sid);
     const s = S.cfg.slides.find(x => x.id === sid);
     const cv = $('canvas[data-chart]', slideEl);
@@ -2074,6 +2145,7 @@ function wireDeck(R){
     const sid = act.closest('.slide-item').dataset.sid;
     const list = S.cfg.slides, idx = list.findIndex(s => s.id === sid);
     switch(act.dataset.act){
+      case 'annotation': editAnnotation(R, sid); break;
       case 'up': case 'down': {
         const vis = enabledSlides(), vi = vis.findIndex(s => s.id === sid);
         const other = vis[vi + (act.dataset.act === 'up' ? -1 : 1)];

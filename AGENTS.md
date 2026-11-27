@@ -37,6 +37,9 @@ Last updated: 24 Nov 2026.
 
 ## 1. What this is
 
+Every slide has an optional plain-text annotation in its toolbar. It is stored with the period edits,
+can be promoted with Save Template, and appears in presentation, PDF and HTML snapshots.
+
 A private, multi-client marketing-performance dashboard for the ad agency team (Yektanet). Each client
 ("project") has one or more Google Sheets filled daily by a separate data pipeline (Metabase/Yektanet
 exports, Adtrace, AppMetrica, Metrix, GA4 via Looker). The dashboard joins **cost** (what was spent on
