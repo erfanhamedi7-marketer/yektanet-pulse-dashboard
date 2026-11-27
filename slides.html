@@ -149,6 +149,18 @@
   #annotationDialog::backdrop{background:rgba(21,23,28,.35);}
   #annotationDialog textarea{display:block;width:100%;margin:12px 0;padding:10px;font:inherit;resize:vertical;}
   #annotationDialog .actions{display:flex;gap:8px;flex-wrap:wrap;}
+  #shotDialog{width:min(560px,94vw);max-height:92dvh;overflow:auto;border:1px solid var(--border);border-radius:16px;padding:20px;color:var(--text);}
+  #shotDialog::backdrop{background:rgba(21,23,28,.35);}
+  #shotDialog form{display:grid;gap:10px;}
+  #shotDialog h2{margin:0;font-size:18px;}
+  #shotDialog label{display:grid;gap:4px;}
+  #shotDialog textarea{width:100%;padding:8px;font:inherit;}
+  #shotDialog .actions{display:flex;flex-wrap:wrap;gap:8px;}
+  .crop-preview{position:relative;overflow:hidden;justify-self:center;direction:ltr;background:#eeeae4;touch-action:none;cursor:grab;}
+  .crop-preview.desktop{width:min(100%,480px);aspect-ratio:16/9;}
+  .crop-preview.mobile{width:min(154px,16vh);aspect-ratio:154/336;}
+  .crop-preview img{position:absolute;inset:0;pointer-events:none;}
+  .crop-preview img[hidden]{display:none;}
   .s-frame{
     position:relative;width:100%;aspect-ratio:16/9;border-radius:18px;overflow:hidden;
     box-shadow:0 1px 2px rgba(58,46,24,.06), 0 24px 48px -28px rgba(58,46,24,.38);background:#fff;
@@ -315,21 +327,22 @@
     background:radial-gradient(circle, var(--soft), transparent 68%);pointer-events:none;
   }
   .slide img{display:block;}
-  .mock-stage{height:100%;display:grid;place-items:center;border-radius:24px;background:linear-gradient(140deg,#f8f6f1,var(--soft));}
+  .mock-stage{height:100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:28px;}
+  .mock-item{margin:0;min-width:0;display:grid;grid-template-rows:minmax(0,1fr) 84px;gap:10px;}
+  .mock-platform{display:grid;place-items:center;border-radius:20px;background:linear-gradient(140deg,#f8f6f1,var(--soft));}
+  .mock-caption{padding:8px 16px;border:1px solid #e3ddd2;border-radius:12px;white-space:pre-wrap;overflow-wrap:anywhere;
+    font-size:18px;line-height:1.25;background:#fff;}
   .mock-device{position:relative;display:grid;place-items:center;direction:ltr;}
   .mock-screen{width:100%;height:100%;overflow:hidden;background:#fff;display:grid;place-items:center;grid-template: minmax(0,1fr) / minmax(0,1fr);}
-  .mock-screen img{width:100%;height:100%;min-height:0;object-fit:contain;}
-  .mock-desktop{width:700px;height:396px;padding:10px 10px 17px;border-radius:15px;background:#343941;margin-bottom:40px;
+  .mock-screen img,.crop-preview img{width:100%;height:100%;min-height:0;object-fit:cover;display:block;}
+  .mock-desktop{width:496px;height:292px;padding:8px 8px 14px;border-radius:13px;background:#343941;margin-bottom:30px;
     box-shadow:0 12px 26px rgba(31,35,40,.16);}
   .mock-desktop::before,.mock-desktop::after{content:'';position:absolute;top:100%;background:#8a9097;}
   .mock-desktop::before{width:50px;height:24px;}
   .mock-desktop::after{width:142px;height:6px;margin-top:24px;border-radius:6px;}
-  .mock-mobile{width:211px;height:438px;padding:11px 7px;border-radius:31px;background:#343941;
+  .mock-mobile{width:172px;height:360px;padding:10px 7px;border-radius:26px;background:#343941;
     border:2px solid #899098;box-shadow:0 10px 24px rgba(31,35,40,.2);}
   .mock-mobile .mock-screen{border-radius:19px;}
-  .mock-upload{position:relative;cursor:pointer;}
-  .mock-upload input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;}
-  .mock-upload:focus-within{outline:2px solid currentColor;}
   .slide.has-annotation .s-body{transform:scale(.77);transform-origin:top center;}
   .slide.has-annotation .sec-wrap,.slide.has-annotation .cv-text{bottom:164px;}
   .slide-annotation{position:absolute;bottom:74px;right:64px;left:64px;height:96px;display:flex;align-items:center;
@@ -494,6 +507,22 @@
 </div>
 <div id="printDeck"></div>
 <input type="file" id="logoFile" accept="image/*" hidden>
+<dialog id="shotDialog" aria-labelledby="shotTitle">
+  <form>
+    <h2 id="shotTitle"></h2>
+    <label>تصویر تبلیغ<input name="file" type="file" accept="image/png,image/jpeg,image/webp"></label>
+    <div class="crop-preview"></div>
+    <small>برای تنظیم برش، تصویر را بکش یا از کنترل‌های زیر استفاده کن.</small>
+    <label>بزرگ‌نمایی<input name="zoom" type="range" min="1" max="5" step=".01" dir="ltr"></label>
+    <label>موقعیت افقی<input name="x" type="range" min="0" max="100" step=".1" dir="ltr"></label>
+    <label>موقعیت عمودی<input name="y" type="range" min="0" max="100" step=".1" dir="ltr"></label>
+    <label>توضیح زیر ماک‌آپ<textarea name="caption" rows="2"></textarea></label>
+    <div class="actions"><button class="btn primary" type="submit">ذخیره</button>
+      <button class="btn" type="button" data-cancel>انصراف</button>
+      <button class="btn danger" type="button" data-remove>حذف تصویر</button></div>
+    <small role="status"></small>
+  </form>
+</dialog>
 <dialog id="annotationDialog" aria-labelledby="annotationLabel">
   <form method="dialog">
     <label id="annotationLabel" for="annotationText">توضیحات اسلاید</label>
@@ -1303,7 +1332,7 @@ function isDateKey(s, k){
   return s && (s.type === 'cover' ? k === 'period' || k === 'foot' : k === 'kicker');
 }
 function isTemplateKey(s, k){
-  if(k === 'screenshot') return false;
+  if(['screenshot','screenshot2','mock1','mock2'].includes(k)) return false;
   if(isDateKey(s, k)) return false;
   if(/^c:.*:name$/.test(k)) return true;               // a renamed row is text
   return !/^(c:|v:|d:)/.test(k);
@@ -1670,11 +1699,13 @@ function renderSectionSlide(R, s, num){
 function renderSlide(R, s, num){
   switch(s.type){
     case 'desktop': case 'mobile': {
-      const src = S.edits[s.id]?.screenshot;
       return `<section class="slide">${slideHead(R, s, periodOf(S.data))}
-        <div class="s-body"><div class="mock-stage"><div class="mock-device mock-${s.type}"><div class="mock-screen">
-        ${src ? `<img src="${esc(src)}" alt="اسکرین‌شات تبلیغ">` : ''}
-        </div></div></div></div>${slideFoot(R, num)}</section>`;
+        <div class="s-body"><div class="mock-stage">${[1,2].map(slot => {
+          const shot = readShot(s.id, slot);
+          return `<figure class="mock-item"><div class="mock-platform"><div class="mock-device mock-${s.type}"><div class="mock-screen">
+            ${shot.src ? `<img src="${esc(shot.src)}" style="${cropStyle(shot)}" alt="تصویر تبلیغ ${fa(slot)}">` : ''}
+            </div></div></div><figcaption class="mock-caption">${esc(shot.caption)}</figcaption></figure>`;
+        }).join('')}</div></div>${slideFoot(R, num)}</section>`;
     }
     case 'cover': return renderCover(R, s);
     case 'campaigns': return renderTypesSlide(R, s, num);
@@ -1973,36 +2004,19 @@ function editAnnotation(R, sid){
   };
   dialog.showModal();
 }
+const shotKey = slot => slot === 1 ? 'screenshot' : 'screenshot2';
+function readShot(sid, slot){
+  const ed = S.edits[sid] || {};
+  return {x:50, y:50, zoom:1, caption:'', ...ed['mock' + slot], src:ed[shotKey(slot)] || ''};
+}
+function cropStyle({x,y,zoom}){
+  return `object-position:${+x}% ${+y}%;transform-origin:${+x}% ${+y}%;transform:scale(${+zoom})`;
+}
 function mockUpload(s){
-  return `<label class="btn sm mock-upload">${S.edits[s.id]?.screenshot ? 'تعویض تصویر' : 'آپلود اسکرین‌شات'}
-    <input type="file" accept="image/png,image/jpeg,image/webp" data-screenshot="${esc(s.id)}"></label>
-    ${S.edits[s.id]?.screenshot ? `<button type="button" class="btn sm" data-clearshot="${esc(s.id)}">حذف تصویر</button>` : ''}`;
+  return [1,2].map(slot => `<button type="button" class="btn sm" data-shot="${esc(s.id)}" data-slot="${slot}">ویرایش ماک‌آپ ${fa(slot)}</button>`).join('');
 }
-const pendingScreenshots = new WeakMap();
-function refreshMockup(sid){
-  if($('#deck')) renderDeck(S.report);
-  else { S.focusSlide = sid; renderSettings(S.report); }
-}
-$('#view').addEventListener('click', e => {
-  const button = e.target.closest('[data-clearshot]');
-  if(!button) return;
-  const sid = button.dataset.clearshot;
-  pendingScreenshots.delete(S.cfg.slides.find(s => s.id === sid));
-  const edits = {...S.edits, [sid]:{...S.edits[sid]}};
-  delete edits[sid].screenshot;
-  if(!store.set(S.editKey, edits)){ toast('حذف تصویر ذخیره نشد'); return; }
-  S.edits = edits;
-  refreshMockup(sid);
-});
-$('#view').addEventListener('change', async e => {
-  const input = e.target.closest('input[data-screenshot]');
-  if(!input) return;
-  const file = input.files[0], sid = input.dataset.screenshot;
-  input.value = '';
-  if(!file) return;
-  const editKey = S.editKey, slide = S.cfg.slides.find(s => s.id === sid);
+async function compressShot(file){
   const url = URL.createObjectURL(file);
-  pendingScreenshots.set(slide, url);
   try{
     const image = new Image();
     image.src = url;
@@ -2015,20 +2029,103 @@ $('#view').addEventListener('change', async e => {
     ctx.fillStyle = '#fff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-    const src = canvas.toDataURL('image/webp', .83);
-    if(S.editKey !== editKey || !S.cfg.slides.includes(slide) || pendingScreenshots.get(slide) !== url) return;
-    const edits = {...S.edits, [sid]:{...S.edits[sid], screenshot:src}};
-    if(JSON.stringify(edits).length > 1000000){
-      toast('فضای تصاویر این بازه پر شده؛ تصویر کوچک‌تری انتخاب کن.');
-      return;
-    }
-    if(!store.set(editKey, edits)){ toast('تصویر ذخیره نشد؛ فضای ذخیره‌سازی در دسترس نیست.'); return; }
-    S.edits = edits;
-    refreshMockup(sid);
-    toast('اسکرین‌شات ذخیره شد');
-  }catch{ toast('تصویر خوانده نشد؛ یک فایل PNG، JPG یا WebP انتخاب کن.'); }
-  finally{ URL.revokeObjectURL(url); }
+    return canvas.toDataURL('image/webp', .83);
+  }finally{ URL.revokeObjectURL(url); }
+}
+$('#view').addEventListener('click', e => {
+  const button = e.target.closest('[data-shot]');
+  if(button) editShot(button.dataset.shot, +button.dataset.slot);
 });
+function editShot(sid, slot){
+  const dialog = $('#shotDialog'), form = $('form', dialog), fields = form.elements;
+  const slide = S.cfg.slides.find(s => s.id === sid), editKey = S.editKey;
+  const shot = readShot(sid, slot), preview = $('.crop-preview', dialog), msg = $('[role=status]', dialog);
+  const image = new Image(), save = $('button[type=submit]', form);
+  $('#shotTitle').textContent = SLIDE_TYPES[slide.type] + ' · ماک‌آپ ' + fa(slot);
+  preview.className = 'crop-preview ' + slide.type;
+  preview.replaceChildren(image);
+  fields.file.value = '';
+  fields.caption.value = shot.caption;
+  msg.textContent = '';
+  save.disabled = false;
+  function update(){
+    for(const key of ['x','y','zoom']){
+      fields[key].value = shot[key];
+      fields[key].disabled = !shot.src;
+    }
+    image.style.cssText = cropStyle(shot);
+    image.hidden = !shot.src;
+    if(shot.src && image.getAttribute('src') !== shot.src) image.src = shot.src;
+    if(!shot.src) image.removeAttribute('src');
+    $('[data-remove]', form).disabled = !shot.src;
+  }
+  for(const key of ['x','y','zoom']){
+    fields[key].oninput = () => { shot[key] = +fields[key].value; update(); };
+  }
+  let drag;
+  preview.onpointerdown = e => {
+    if(!shot.src || !image.naturalWidth) return;
+    const r = preview.getBoundingClientRect();
+    const scale = Math.max(r.width/image.naturalWidth, r.height/image.naturalHeight) * shot.zoom;
+    drag = {left:e.clientX, top:e.clientY, x:shot.x, y:shot.y,
+      dx:image.naturalWidth*scale-r.width, dy:image.naturalHeight*scale-r.height};
+    preview.setPointerCapture(e.pointerId);
+  };
+  preview.onpointermove = e => {
+    if(!drag) return;
+    const clamp = n => Math.max(0, Math.min(100,n));
+    if(drag.dx > .1) shot.x = clamp(drag.x - 100*(e.clientX-drag.left)/drag.dx);
+    if(drag.dy > .1) shot.y = clamp(drag.y - 100*(e.clientY-drag.top)/drag.dy);
+    update();
+  };
+  preview.onlostpointercapture = () => { drag = null; };
+  let generation = 0;
+  fields.file.onchange = async () => {
+    const file = fields.file.files[0];
+    if(!file) return;
+    const request = ++generation;
+    save.disabled = true;
+    try{
+      const src = await compressShot(file);
+      if(request !== generation) return;
+      Object.assign(shot,{src,x:50,y:50,zoom:1});
+      msg.textContent = '';
+      update();
+    }catch{ if(request === generation) msg.textContent = 'تصویر خوانده نشد. فایل دیگری انتخاب کن.'; }
+    finally{ if(request === generation) save.disabled = false; }
+  };
+  $('[data-remove]', form).onclick = () => {
+    generation++; save.disabled = false; fields.file.value = '';
+    Object.assign(shot,{src:'',x:50,y:50,zoom:1}); update();
+  };
+  $('[data-cancel]', form).onclick = () => dialog.close();
+  dialog.onclose = () => { generation++; };
+  form.onsubmit = e => {
+    e.preventDefault();
+    if(save.disabled) return;
+    if(S.editKey !== editKey || !S.cfg.slides.includes(slide)){ dialog.close(); return; }
+    const caption = fields.caption.value.trim();
+    const probe = document.createElement('div');
+    probe.className = 'mock-caption';
+    probe.style.cssText = 'position:fixed;visibility:hidden;width:562px;height:84px;box-sizing:border-box;font-family:Vazirmatn,system-ui,sans-serif';
+    probe.textContent = caption; form.append(probe);
+    const fits = probe.scrollHeight <= probe.clientHeight;
+    probe.remove();
+    if(!fits){ msg.textContent = 'توضیح را کوتاه‌تر کن تا زیر قاب جا بگیرد.'; return; }
+    const ed = {...S.edits[sid], ['mock'+slot]:{x:shot.x,y:shot.y,zoom:shot.zoom,caption}};
+    if(shot.src) ed[shotKey(slot)] = shot.src;
+    else delete ed[shotKey(slot)];
+    const edits = {...S.edits,[sid]:ed};
+    if(JSON.stringify(edits).length > 1000000){ msg.textContent = 'فضای تصاویر این بازه پر شده؛ تصویر کوچک‌تری انتخاب کن.'; return; }
+    if(!store.set(editKey,edits)){ msg.textContent = 'ذخیره‌سازی در دسترس نیست.'; return; }
+    S.edits = edits;
+    dialog.close();
+    if($('#deck')) renderDeck(S.report);
+    else { S.focusSlide = sid; renderSettings(S.report); }
+  };
+  update();
+  dialog.showModal();
+}
 function renderDeck(R){
   destroyCharts();
   const editing = document.body.classList.contains('editing');
@@ -3220,6 +3317,23 @@ function wireSettings(R){
 // editable, the editing-only controls and empty placeholders are gone.
 function snapshot(slideEl){
   const clone = slideEl.cloneNode(true);
+  // Embed only the visible rectangle in the client-facing copy. The editor
+  // keeps the original so a crop can be adjusted later.
+  const copies = $$('.mock-screen img', clone);
+  $$('.mock-screen img', slideEl).forEach((img,i) => {
+    const screen = img.parentElement, w = screen.clientWidth, h = screen.clientHeight;
+    const slot = Array.from(slideEl.querySelectorAll('.mock-item')).indexOf(img.closest('.mock-item')) + 1;
+    const {x,y,zoom} = readShot(slideEl.dataset.sid,slot);
+    const scale = Math.max(w/img.naturalWidth,h/img.naturalHeight) * zoom;
+    const sw = w/scale, sh = h/scale;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(Math.min(sw,w*2)));
+    canvas.height = Math.max(1, Math.round(canvas.width*h/w));
+    canvas.getContext('2d').drawImage(img,(img.naturalWidth-sw)*x/100,(img.naturalHeight-sh)*y/100,
+      sw,sh,0,0,canvas.width,canvas.height);
+    copies[i].removeAttribute('style');
+    copies[i].src = canvas.toDataURL('image/png');
+  });
   const srcCanvases = $$('canvas', slideEl), dstCanvases = $$('canvas', clone);
   dstCanvases.forEach((c, i) => {
     const img = document.createElement('img');
@@ -3238,13 +3352,18 @@ function snapshot(slideEl){
   clone.style.transform = 'none';
   return clone;
 }
-function deckSnapshots(){
-  return $$('#deck .s-frame > .slide').map(snapshot);
+async function deckSnapshots(){
+  const slides = $$('#deck .s-frame > .slide');
+  try{
+    await Promise.all($$('#deck .mock-screen img').map(img => img.decode()));
+    if(slides.some(s => !s.isConnected)) return [];
+    return slides.map(snapshot);
+  }catch{ toast('تصویر آماده نشد. گزارش را دوباره باز کن.'); return []; }
 }
 
 let presentIdx = 0, presentSlides = [];
-function openPresent(i){
-  presentSlides = deckSnapshots();
+async function openPresent(i){
+  presentSlides = await deckSnapshots();
   if(!presentSlides.length) return;
   presentIdx = Math.max(0, i);
   const ov = document.createElement('div');
@@ -3308,10 +3427,12 @@ function fileBase(){
   const name = `گزارش کمپین ${S.report.title}${range ? ' - ' + range : ''}`;
   return name.replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim();
 }
-function exportPdf(){
+async function exportPdf(){
+  const slides = await deckSnapshots();
+  if(!slides.length) return;
   const box = $('#printDeck');
   box.innerHTML = '';
-  deckSnapshots().forEach(sl => {
+  slides.forEach(sl => {
     const page = document.createElement('div');
     page.className = 'p-page';
     page.appendChild(sl);
@@ -3333,9 +3454,11 @@ function download(name, text, type){
   a.click();
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
 }
-function exportHtml(){
+async function exportHtml(){
   const R = S.report;
-  const frames = deckSnapshots().map(sl => `<div class="x-frame">${sl.outerHTML}</div>`).join('\n');
+  const slides = await deckSnapshots();
+  if(!slides.length) return;
+  const frames = slides.map(sl => `<div class="x-frame">${sl.outerHTML}</div>`).join('\n');
   const doc = `<!DOCTYPE html>
 <html lang="fa" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${esc(R.title + ' — ' + S.cfg.title + (S.data.win ? ' — ' + periodLabel(S.data.win.from, S.data.win.to) : ''))}</title>
