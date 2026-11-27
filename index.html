@@ -1432,7 +1432,7 @@ const ALL_PROJECTS = [
     id: 'appliance-city',
     title: 'شهر لوازم خانگی',
     tabTitle: 'شهر لوازم خانگی',
-    subtitle: 'Yektanet - Export — فقط کمپین‌های شامل -prf',
+    subtitle: CORE_MODE ? 'Yektanet - Export — همه کمپین‌ها' : 'Yektanet - Export — فقط کمپین‌های شامل -prf',
     logo: '/shahr-logo.svg',
     spreadsheetId: '1sjDcBvUZhJKpBzBngCWmxOXURR0MzPdjs9p8v5CyUxU',
     // One single sheet holds both the conversion data and the cost data.
@@ -1447,9 +1447,8 @@ const ALL_PROJECTS = [
     clicksCol: 'Click',
     ownDateFilter: true,
     defaultRangeDays: 30,
-    // Only performance campaigns: anything whose name doesn't contain "-prf"
-    // is dropped from the raw data (KPIs, chart and deep analysis alike).
-    excludeCampaign: (key) => !key.includes('-prf'),
+    // Slides use the full export. The dashboard focuses on performance campaigns.
+    excludeCampaign: CORE_MODE ? null : (key) => !key.includes('-prf'),
     // This export has no Adgroup/Creative columns, so there is nothing to
     // break a campaign down by.
     hideSegmentAnalysis: true,

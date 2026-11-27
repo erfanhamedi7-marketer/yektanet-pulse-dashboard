@@ -208,7 +208,8 @@ On the main dashboard and the weekly report, `e.hamedi` can open تنظیمات 
 Sheet ids are in the code; the main ones are repeated here for orientation.
 
 - **شهر لوازم خانگی** `appliance-city` — sheet `1sjDcBvUZh…`. Tab `Yektanet - Export` is both cost and
-  conversion; conversion `Lead`, "installs" = `Sessions`. Only campaigns containing `-prf`. Session comparison
+  conversion; conversion `Lead`, "installs" = `Sessions`. The slide deck includes all campaigns by default.
+  The dashboard filters to campaigns containing `-prf`. Session comparison
   with `Data Studio - GA4`.
 - **اسنپ** group `snapp` (`kind:'budget'`): اسنپ‌پی `1dgyCKN89…`, اسنپ‌کب `1u3kf4Cx…`, اسنپ‌بیمه `1SUcOo8o…`,
   اسنپ‌باکس `1wkhar01…` (added 3 Nov). Tabs `Blend Data` (Date, Campaign, Campaign Name, Sessions, Impression,
