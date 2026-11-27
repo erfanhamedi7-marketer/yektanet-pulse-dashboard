@@ -279,7 +279,8 @@
 
   /* Presentation */
   #present{position:fixed;inset:0;z-index:100;background:#F2EDE1;display:flex;align-items:center;justify-content:center;}
-  #present .p-stage{position:relative;box-shadow:0 30px 70px -30px rgba(0,0,0,.35);background:#fff;overflow:hidden;}
+  #present .p-viewport{width:100%;height:100%;overflow:auto;display:flex;scrollbar-width:none;}
+  #present .p-stage{position:relative;flex:none;margin:auto;box-shadow:0 30px 70px -30px rgba(0,0,0,.35);background:#fff;overflow:hidden;}
   #present .p-stage > .slide{position:absolute;top:0;right:0;transform-origin:top right;}
   #present .p-ctrl{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);display:flex;gap:8px;align-items:center;
     background:rgba(255,255,255,.92);border:1px solid var(--border);border-radius:999px;padding:5px 8px;font-size:13px;font-weight:700;opacity:.25;transition:opacity .2s;}
@@ -343,9 +344,14 @@
   .mock-mobile{width:172px;height:360px;padding:10px 7px;border-radius:26px;background:#343941;
     border:2px solid #899098;box-shadow:0 10px 24px rgba(31,35,40,.2);}
   .mock-mobile .mock-screen{border-radius:19px;}
-  .slide.has-annotation .s-body{transform:scale(.77);transform-origin:top center;}
-  .slide.has-annotation .sec-wrap,.slide.has-annotation .cv-text{bottom:164px;}
-  .slide-annotation{position:absolute;bottom:74px;right:64px;left:64px;height:96px;display:flex;align-items:center;
+  .slide.has-annotation{height:840px;}
+  .slide-surface{position:absolute;inset:0 0 auto;height:720px;padding:inherit;overflow:hidden;}
+  .s-frame:has(> .has-annotation),.x-frame:has(> .has-annotation){aspect-ratio:1280/840;}
+  @media print{
+    @page annotated{size:1280px 840px;margin:0;}
+    #printDeck .p-page:has(> .has-annotation),.x-frame:has(> .has-annotation){height:840px;page:annotated;}
+  }
+  .slide-annotation{position:absolute;top:732px;right:64px;left:64px;height:96px;display:flex;align-items:center;
     padding:8px 20px;border-inline-start:5px solid var(--ink);border-radius:12px;background:#faf7f0;color:#20232a;
     white-space:pre-wrap;overflow-wrap:anywhere;font-size:21px;line-height:1.4;}
   .s-head{position:relative;display:flex;justify-content:space-between;align-items:flex-start;gap:28px;height:96px;}
@@ -2180,6 +2186,10 @@ function renderDeck(R){
     slideEl.dataset.sid = sid;
     const annotation = annotationText(sid);
     if(annotation){
+      const surface = document.createElement('div');
+      surface.className = 'slide-surface';
+      surface.append(...slideEl.childNodes);
+      slideEl.appendChild(surface);
       slideEl.classList.add('has-annotation');
       drawAnnotation(slideEl, annotation);
     }
@@ -3381,7 +3391,7 @@ async function openPresent(i){
   presentIdx = Math.max(0, i);
   const ov = document.createElement('div');
   ov.id = 'present';
-  ov.innerHTML = `<div class="p-stage"></div><div class="p-ctrl">
+  ov.innerHTML = `<div class="p-viewport"><div class="p-stage"></div></div><div class="p-ctrl">
     <button type="button" class="btn sm" data-p="prev">قبلی</button><span id="pCount"></span>
     <button type="button" class="btn sm" data-p="next">بعدی</button><button type="button" class="btn sm" data-p="close">خروج (Esc)</button></div>`;
   document.body.appendChild(ov);
@@ -3398,11 +3408,12 @@ function showPresent(){
   if(!ov) return;
   const k = Math.min(window.innerWidth / 1280, window.innerHeight / 720);
   const stage = $('.p-stage', ov);
-  stage.style.width = 1280 * k + 'px'; stage.style.height = 720 * k + 'px';
   stage.innerHTML = '';
   const sl = presentSlides[presentIdx];
   sl.style.transform = `scale(${k})`;
   stage.appendChild(sl);
+  stage.style.width = 1280 * k + 'px'; stage.style.height = sl.offsetHeight * k + 'px';
+  stage.parentElement.scrollTop = 0;
   $('#pCount').textContent = `${fa(presentIdx + 1)} / ${fa(presentSlides.length)}`;
 }
 function stepPresent(dir){
