@@ -307,6 +307,9 @@ Sheet ids are in the code; the main ones are repeated here for orientation.
   `saveCfg()` clears the cache.
 
 ### 6.2 Metrics and dimensions
+- In slide settings, numeric columns from campaign/day source tabs have explicit sheet-qualified labels
+  (e.g. `Yektanet - Export · Sessions` and `GA4 - Daily Report · Sessions`). Each keeps its own
+  sum and cost-per value. Shared cost/reference tabs contribute once. Existing metric IDs retain their meaning.
 - `metricDefs(R)`: cost, impressions, clicks, ctr, sessions, cps, stc, installs, cpi, actions, cpa, costShare,
   plus `x:<col>` (count) and `xc:<col>` (cost per) for every extra column (`extraCols`). Availability comes from
   `core.messageFields` (`hasOf`). Labels can be renamed per report (`cfg.metricLabels`); a cost-per label

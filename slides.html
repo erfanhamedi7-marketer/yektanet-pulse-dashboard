@@ -927,7 +927,8 @@ function metricDefs(R){
   // Every other number column of the sheets (Session (Web), KYC (Web),
   // Deposit (Web), Lead, Sign Up…): its count, and cost per one.
   extraCols(R).forEach(col => {
-    const name = add({id:'x:' + col, good:1, ok:true, extra:col}, col);
+    const source = R.parts.find(p => p.slideSourceMetrics?.has(col))?.slideSourceMetrics.get(col);
+    const name = add({id:'x:' + col, good:1, ok:true, extra:col}, source?.label || col);
     add({id:'xc:' + col, money:true, good:-1, ok:true, extra:col}, 'هزینه به ازای ' + name);
   });
   return defs;
@@ -939,7 +940,9 @@ function partExtraCols(p){
   const ex = p.extraMetricCols || {ref:[], cost:[]};
   const further = (p.costPerMetrics || [])[0];
   const actionCol = (isSessionsCol(p.conversionCol) || p.kind === 'cpi') && further ? further.col : null;
-  return {ref: (ex.ref || []).filter(c => c !== actionCol), cost: (ex.cost || []).filter(c => c !== actionCol)};
+  const cols = {ref: (ex.ref || []).filter(c => c !== actionCol), cost: (ex.cost || []).filter(c => c !== actionCol)};
+  p.slideSourceMetrics?.forEach(f => cols[f.side].push(f.key));
+  return cols;
 }
 function extraCols(R){
   if(R._extra) return R._extra;

@@ -794,15 +794,31 @@ const CORE_MODE = !!(window.frameElement && /[?&]core\b/.test(location.search));
 // already reads (date, campaign, labels, cost, impressions, clicks) and those
 // named in `skip`. A column counts once any of its cells is a number.
 const NOT_METRICS = /^(date|campaign|campaign type|campaign name|network|ad ?group|creative|advertiser id|ad content|ad term|medium|source|term|content|tracker|platform|country|os|cost|impressions?|clicks?|year|month|week|day)$/i;
-function numberColumns(rows, skip){
+function numberColumns(rows, skip, includeStandardMeasures = false){
   const skipSet = new Set((skip || []).filter(Boolean).map(c => String(c).toLowerCase()));
   const cols = new Set();
-  (rows || []).slice(0, 5000).forEach(r => Object.keys(r).forEach(k => {
-    if(cols.has(k) || !k || NOT_METRICS.test(k.trim()) || skipSet.has(k.toLowerCase()) || / id$/i.test(k)) return;
+  (rows || []).forEach(r => Object.keys(r).forEach(k => {
+    if(cols.has(k) || !k || skipSet.has(k.toLowerCase()) || / id$/i.test(k)) return;
+    if(NOT_METRICS.test(k.trim()) && !(includeStandardMeasures && /^(cost|impressions?|clicks?)$/i.test(k.trim()))) return;
     const v = r[k];
-    if(typeof v === 'number' || (typeof v === 'string' && /^\s*[-+]?[\d۰-۹][\d۰-۹,.\s]*$/.test(v))) cols.add(k);
+    if(typeof v === 'number' || (typeof v === 'string' && /^\s*[-+(]?[\d۰-۹٠-٩][\d۰-۹٠-٩,.٫٬\s]*(?:e[+-]?\d+)?\)?(?:\s*IRT)?\s*$/i.test(v))) cols.add(k);
   }));
   return [...cols];
+}
+// Use separate keys before the campaign/day join. Two tabs may both call a
+// column "Sessions", while reporting entirely different counts for the day.
+function addSlideSourceMetrics(project, sheet, sourceRows, rows, side){
+  if(!CORE_MODE) return;
+  const columns = numberColumns(sourceRows, [project.refCampaignCol, project.campaignNameCol,
+    project.adgroupCol, project.creativeCol], true);
+  const fields = columns.map(col => ({
+    key:'sheet:' + encodeURIComponent(JSON.stringify([sheet,col])), label:sheet + ' · ' + col, col, side
+  }));
+  fields.forEach(f => project.slideSourceMetrics.set(f.key, f));
+  rows.forEach(row => {
+    const extras = row.extras || (row.extras = {});
+    fields.forEach(f => { extras[f.key] = toNumber(row.sourceRow[f.col]); });
+  });
 }
 
 // One tab's answer as row objects. The API sends {headers, rows} (rows as
@@ -4910,7 +4926,7 @@ function messageRows(project, window){
     return (project.rawBlend || []).filter(r => inRange(r.date) && inName(r.campaignName) && inCampaign(r.campaign))
       .map(r => ({date: r.date, campaign: r.campaign, campaignLabel: r.campaignLabel, campaignName: r.campaignName,
                   cost: r.cost, impressions: r.impressions, clicks: r.clicks,
-                  sessions: r.sessions, installs: 0, action: 0}));
+                  sessions: r.sessions, installs: 0, action: 0, extras:r.extras}));
   }
   const spec = messageSpec(project);
   // A deal-priced section (Talaeen CPA) bills the client per conversion; the
@@ -5268,6 +5284,7 @@ async function loadProject(project){
     project.hideZeroConversionCampaigns = false;
   }
   project.sourceHeaders = new Map();
+  if(CORE_MODE) project.slideSourceMetrics = new Map();
   async function read(sheet){
     const rows = await fetchSheetCached(project.spreadsheetId, sheet);
     project.sourceHeaders.set(sheet, rows.headers || Object.keys(rows[0] || {}));
@@ -5282,6 +5299,7 @@ async function loadProject(project){
       const today = todayStr();
       // Same rule as the other sections: the day in progress isn't reported.
       project.rawBlend = normalizeBlendRows(blendRows).filter(r=>!(/^\d{8}$/.test(r.date) && r.date >= today));
+      addSlideSourceMetrics(project, project.blendSheet, blendRows, project.rawBlend, 'ref');
       project.rawBudget = normalizeBudgetRows(budgetRows);
       project.budgetByCampaign = {};
       project.rawBudget.forEach(r=>{ project.budgetByCampaign[r.campaign] = r; });
@@ -5350,6 +5368,7 @@ async function loadProject(project){
     // web reads Web - Campaign before 23 Oct and Web - Total from then on.
     project.rawRef = refBySheet.flatMap((rows, i) => {
       const e = refSheets[i];
+      if(e.sheet !== project.costSheet) addSlideSourceMetrics(project, e.sheet, refSheetRows[i], rows, 'ref');
       rows.forEach(r=>{r.sourceSheet = e.sheet;});
       return rows.filter(r => (!e.keep || e.keep(r.campaign))
         && (!e.from || r.date >= e.from) && (!e.before || r.date < e.before));
@@ -5359,6 +5378,7 @@ async function loadProject(project){
       [project.impressionsCol, project.clicksCol, project.costCol, project.conversionCol, project.installsCol, ...project.extraMetricCols.ref]);
     project.rawCost = normalizeCostRows(costRows, project.impressionsCol, project.clicksCol, diag,
                                         [...new Set([...(project.costExtraCols||[]).map(m=>m.col), ...project.extraMetricCols.cost])], project.costCol);
+    addSlideSourceMetrics(project, project.costSheet, costRows, project.rawCost, 'cost');
     // campaignKey folds the campaigns two sheets name differently into one key
     // on both sides, before anything joins them (Talasea's apps: see
     // talaseaAppKey).
