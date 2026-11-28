@@ -933,7 +933,7 @@ function metricDefs(R){
   });
   const operands = new Set(defs.filter(m => m.ok && !m.groupOnly).map(m => m.id));
   for(const f of S.cfg?.formulas || []){
-    defs.push({id:f.id, label:f.name, dflt:f.name, formula:true, good:0,
+    defs.push({id:f.id, label:f.name, dflt:f.name, formula:true, pct:f.format === 'percent', good:0,
       ok:operands.has(f.left) && operands.has(f.right)});
   }
   return defs;
@@ -993,7 +993,8 @@ function baseMetricValue(id, t, all){
 }
 function fmtMetric(def, v){
   if(v === null || v === undefined || !isFinite(v)) return '—';
-  return def.pct ? faPct(v) : fa(v, def.formula ? 6 : 0);
+  if(def.pct) return faPct(def.formula ? v * 100 : v);
+  return fa(v, def.formula ? 6 : 0);
 }
 function totals(rows){
   const t = {cost:0, impressions:0, clicks:0, sessions:0, installs:0, action:0};
@@ -2780,6 +2781,8 @@ function renderSettings(R){
           <label class="field"><span>عملگر</span><select class="inp" name="op"><option value="/">تقسیم ÷</option><option value="*">ضرب ×</option><option value="+">جمع +</option><option value="-">تفریق −</option></select></label>
           <label class="field"><span>پارامتر دوم</span><select class="inp" name="right" required><option value="">انتخاب کنید</option>${operands}</select></label>
         </div>
+        <label class="field"><span>فرمت نمایش</span><select class="inp" name="format">
+          <option value="number">عدد (۰٫۲۵)</option><option value="percent">درصد (۲۵٪)</option></select></label>
         <div class="set-foot"><button type="submit" class="btn primary">ذخیره شاخص</button>
           <button type="button" class="btn danger" data-remove-formula disabled>حذف شاخص</button></div>
       </form>
@@ -2830,6 +2833,7 @@ function wireSettings(R){
     fields.left.value = f?.left || '';
     fields.right.value = f?.right || '';
     fields.op.value = f?.op || '/';
+    fields.format.value = f?.format === 'percent' ? 'percent' : 'number';
     removeFormula.disabled = !f;
   };
   form.onsubmit = e => {
@@ -2837,7 +2841,7 @@ function wireSettings(R){
     const name = fields.label.value.trim();
     if(!name){ fields.label.focus(); return; }
     const id = fields.existing.value || 'formula:' + uid();
-    const formula = {id, name, left:fields.left.value, op:fields.op.value, right:fields.right.value};
+    const formula = {id, name, left:fields.left.value, op:fields.op.value, right:fields.right.value, format:fields.format.value};
     const i = cfg.formulas.findIndex(m => m.id === id);
     if(i < 0) cfg.formulas.push(formula);
     else cfg.formulas[i] = formula;

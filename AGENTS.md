@@ -308,6 +308,7 @@ Sheet ids are in the code; the main ones are repeated here for orientation.
 
 ### 6.2 Metrics and dimensions
 - Custom metrics in slide settings use two report metrics and one arithmetic operator. Definitions live
+  with a display format (number by default, or percent rendering 0.25 as 25%)
   in the active template's `cfg.formulas`. Cards, chart points and table rows (including the total)
   evaluate the formula on their own aggregated operands. Division by zero yields a missing value.
 - In slide settings, numeric columns from campaign/day source tabs have explicit sheet-qualified labels
