@@ -396,7 +396,6 @@
   .cv-period{margin-top:40px;display:inline-flex;align-items:center;gap:14px;font-size:23px;font-weight:600;color:#30343D;
     background:#FAF7F0;border:1px solid #EFE8DA;border-radius:18px;padding:14px 22px;}
   .cv-period svg{width:26px;height:26px;color:var(--ink);flex-shrink:0;}
-  .cv-foot{position:absolute;right:92px;bottom:42px;font-size:15px;color:#6B6E7C;}
 
   /* Separator */
   .slide-section{background:linear-gradient(135deg, var(--soft), #fff 62%);}
@@ -1334,9 +1333,7 @@ function saveEdits(){
   clearTimeout(editTimer);
   editTimer = setTimeout(()=>{ if(!store.set(S.editKey, S.edits)) toast('ذخیره نشد — حافظه‌ی مرورگر پر یا بسته‌ست'); }, 250);
 }
-// Dates always follow the report: the period line under a slide's title,
-// the cover's period and its «تاریخ تهیه» never go into a template (and
-// ones saved before this rule are not applied).
+// Keep report dates dynamic and ignore the legacy cover footer in saved templates.
 function isDateKey(s, k){
   return s && (s.type === 'cover' ? k === 'period' || k === 'foot' : k === 'kicker');
 }
@@ -1418,7 +1415,6 @@ function deltaHtml(def, now, before, d){
 function renderCover(R, s){
   const d = S.data;
   const kicker = S.cfg.kicker || (d.days === 7 ? 'گزارش هفتگی کمپین‌ها' : d.days === 1 ? 'گزارش روزانه کمپین‌ها' : 'گزارش دوره‌ای کمپین‌ها');
-  const made = jFull(dateYmd(new Date()));
   return `<section class="slide slide-cover">
     <div class="cv-panel"><span class="cv-ring r1"></span><span class="cv-ring r2"></span><span class="cv-ring r3"></span></div>
     <div class="cv-logo"><div class="s-logo-btn" data-logo title="برای عوض کردن لوگو کلیک کن">${logoHtml(R)}</div></div>
@@ -1428,7 +1424,6 @@ function renderCover(R, s){
       ${E('client', esc(R.title), 'اسم مشتری', 'div', 'cv-client')}
       <div class="cv-period">${ICON.cal}${E('period', esc(periodOf(d)), 'بازه‌ی گزارش', 'span')}</div>
     </div>
-    ${E('foot', esc('تاریخ تهیه: ' + made), '', 'div', 'cv-foot')}
   </section>`;
 }
 // "Campaigns run": only the kinds of campaign that ran — no figures.
@@ -2197,7 +2192,7 @@ function renderDeck(R){
     slideEl.dataset.sid = sid;
     const annotation = annotationText(sid);
     if(annotation){
-      const footer = slideEl.querySelector('.s-foot,.cv-foot');
+      const footer = slideEl.querySelector('.s-foot');
       const surface = document.createElement('div');
       surface.className = 'slide-surface';
       surface.append(...slideEl.childNodes);
