@@ -307,6 +307,9 @@ Sheet ids are in the code; the main ones are repeated here for orientation.
   `saveCfg()` clears the cache.
 
 ### 6.2 Metrics and dimensions
+- Custom metrics in slide settings use two report metrics and one arithmetic operator. Definitions live
+  in the active template's `cfg.formulas`. Cards, chart points and table rows (including the total)
+  evaluate the formula on their own aggregated operands. Division by zero yields a missing value.
 - In slide settings, numeric columns from campaign/day source tabs have explicit sheet-qualified labels
   (e.g. `Yektanet - Export · Sessions` and `GA4 - Daily Report · Sessions`). Each keeps its own
   sum and cost-per value. Shared cost/reference tabs contribute once. Existing metric IDs retain their meaning.

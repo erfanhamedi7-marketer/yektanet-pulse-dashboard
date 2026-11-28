@@ -931,6 +931,11 @@ function metricDefs(R){
     const name = add({id:'x:' + col, good:1, ok:true, extra:col}, source?.label || col);
     add({id:'xc:' + col, money:true, good:-1, ok:true, extra:col}, 'هزینه به ازای ' + name);
   });
+  const operands = new Set(defs.filter(m => m.ok && !m.groupOnly).map(m => m.id));
+  for(const f of S.cfg?.formulas || []){
+    defs.push({id:f.id, label:f.name, dflt:f.name, formula:true, good:0,
+      ok:operands.has(f.left) && operands.has(f.right)});
+  }
   return defs;
 }
 // A part's further columns, as the dashboard engine read them in core mode
@@ -952,6 +957,20 @@ function extraCols(R){
 }
 const defsById = R => Object.fromEntries(metricDefs(R).map(m => [m.id, m]));
 function metricValue(id, t, all){
+  if(!id.startsWith('formula:')) return baseMetricValue(id, t, all);
+  const f = S.cfg.formulas.find(m => m.id === id);
+  if(!f) return null;
+  const a = baseMetricValue(f.left,t,all), b = baseMetricValue(f.right,t,all);
+  if(!Number.isFinite(a) || !Number.isFinite(b)) return null;
+  switch(f.op){
+    case '/': return b === 0 ? null : a / b;
+    case '*': return a * b;
+    case '+': return a + b;
+    case '-': return a - b;
+    default: return null;
+  }
+}
+function baseMetricValue(id, t, all){
   if(id.startsWith('f:')) return t[id] === undefined ? null : t[id];   // a column of an uploaded file
   const div = (a, b) => b > 0 ? a / b : null;
   switch(id){
@@ -974,7 +993,7 @@ function metricValue(id, t, all){
 }
 function fmtMetric(def, v){
   if(v === null || v === undefined || !isFinite(v)) return '—';
-  return def.pct ? faPct(v) : fa(v);
+  return def.pct ? faPct(v) : fa(v, def.formula ? 6 : 0);
 }
 function totals(rows){
   const t = {cost:0, impressions:0, clicks:0, sessions:0, installs:0, action:0};
@@ -1128,7 +1147,7 @@ function defaultSlides(R){
 }
 function defaultCfg(){
   return {v:2, period:{preset:'lastWeek'}, compare:true, campaigns:null, title:'گزارش عملکرد کمپین‌ها',
-          kicker:'', actionLabel:'', logo:null, mediums:{}, groups:[], slides:null, tpl:{}, tplSavedAt:null};
+          kicker:'', actionLabel:'', logo:null, mediums:{}, groups:[], formulas:[], slides:null, tpl:{}, tplSavedAt:null};
 }
 function loadCfg(R){
   const cfg = Object.assign(defaultCfg(), store.get(cfgKey(R), {}));
@@ -1757,17 +1776,17 @@ function drawChart(R, s, canvas){
   const labels = groups.map(g => g.name);
   const colors = [th.accent, th.second];
   const font = {family:FONT, size:15};
-  const tick = def => v => def.pct ? faPct(v) : faCompact(v);
+  const tick = def => v => def.formula ? fmtMetric(def,v) : def.pct ? faPct(v) : faCompact(v);
   const type = s.chart || 'combo';
   let config;
   if(type === 'doughnut'){
     const def = defs[ms[0]];
-    config = {type:'doughnut', data:{labels, datasets:[{data:groups.map(g => metricValue(ms[0], g.t, all) || 0),
+    config = {type:'doughnut', data:{labels, datasets:[{data:groups.map(g => metricValue(ms[0], g.t, all)),
       backgroundColor:groups.map((g, i) => i === 0 ? th.accent : i === 1 ? th.second : PIE[(i - 2) % PIE.length]), borderColor:'#fff', borderWidth:3}]},
       options:{cutout:'58%', plugins:{legend:{position:'left', rtl:true, labels:{font:{...font, size:16}, padding:16, boxWidth:16, boxHeight:16,
         generateLabels(chart){
           const ds = chart.data.datasets[0], sum = ds.data.reduce((a, b) => a + b, 0);
-          return chart.data.labels.map((l, i) => ({text:`${l} — ${def.pct ? faPct(ds.data[i]) : faCompact(ds.data[i])}${sum > 0 && !def.pct ? ` (${faPct(ds.data[i] / sum * 100)})` : ''}`,
+          return chart.data.labels.map((l, i) => ({text:`${l} — ${ds.data[i] == null ? '—' : tick(def)(ds.data[i])}${ds.data[i] != null && sum > 0 && !def.pct ? ` (${faPct(ds.data[i] / sum * 100)})` : ''}`,
             fillStyle:ds.backgroundColor[i], strokeStyle:ds.backgroundColor[i], index:i}));
         }}},
         tooltip:{rtl:true, callbacks:{label:c => `${c.label}: ${fmtMetric(def, c.raw)}`}}}}};
@@ -2487,6 +2506,8 @@ function renderSettings(R){
     return;
   }
   const cfg = S.cfg, defs = metricDefs(R), d = S.data;
+  const operands = defs.filter(m => m.ok && !m.groupOnly && !m.formula)
+    .map(m => `<option value="${esc(m.id)}">${esc(m.label)}</option>`).join('');
   const per = cfg.period || {preset:'lastWeek'};
   const win = d.win || {from:R.minDate, to:R.maxDate};
   const sel = campaignSelection(R);
@@ -2525,7 +2546,7 @@ function renderSettings(R){
       <div class="metric-checks">${items.map(g => `<label class="check"><input type="checkbox" data-s="${i}" data-sname="${esc(g.key)}" ${g.state === 'all' ? 'checked' : ''} ${g.state === 'some' ? 'data-some="1"' : ''}><span dir="ltr">${esc(g.label)}</span><span style="opacity:.6">${esc(fa(g.cost))}</span></label>`).join('')}</div></div>`;
   };
   const slideOpts = (s, i) => {
-    const metBox = m => `<label class="check"><input type="checkbox" data-s="${i}" data-metric="${m.id}" ${(s.metrics || []).includes(m.id) ? 'checked' : ''}>${esc(m.label)}</label>`;
+    const metBox = m => `<label class="check"><input type="checkbox" data-s="${i}" data-metric="${esc(m.id)}" ${(s.metrics || []).includes(m.id) ? 'checked' : ''}>${esc(m.label)}</label>`;
     const usable = defs.filter(m => m.ok && !(m.groupOnly && s.type === 'kpis'));
     const extras = usable.filter(m => m.extra);
     const fileSrc = s.type === 'chart' && s.source === 'file';
@@ -2743,12 +2764,26 @@ function renderSettings(R){
     </section>
 
     <section class="card"><h3>اسم متریک‌ها</h3><p class="hint">اسمی که هر متریک تو همه‌ی اسلایدها (کارت‌ها، سرستون جدول‌ها، نمودارها، متن تحلیل) و تو لیست‌های تنظیمات می‌گیره. خالی = اسم پیش‌فرض. «هزینه به ازای …» خودش از اسم جدید پیروی می‌کنه مگه اینکه اونم عوض کنی. متنی که قبلاً مستقیم روی یه اسلاید عوض کردی همون می‌مونه (با «پیش‌فرض» اون اسلاید از اینجا می‌خونه).</p>
-      ${[['', defs.filter(m => m.ok && !m.extra)], ['ستون‌های دیگه‌ی شیت', defs.filter(m => m.ok && m.extra)]].filter(([, list]) => list.length).map(([title, list]) => `
+      ${[['', defs.filter(m => m.ok && !m.extra && !m.formula)], ['ستون‌های دیگه‌ی شیت', defs.filter(m => m.ok && m.extra)]].filter(([, list]) => list.length).map(([title, list]) => `
         ${title ? `<div class="field" style="margin:6px 0 8px"><span>${esc(title)}</span></div>` : ''}
         <div class="ml-grid">${list.map(m => `<label class="field"><span>${esc(m.dflt)}</span>
           <input class="inp" data-mlabel="${esc(m.id)}" value="${esc(((cfg.metricLabels || {})[m.id]) || (m.id === 'actions' ? cfg.actionLabel || '' : ''))}" placeholder="${esc(m.dflt)}"></label>`).join('')}</div>`).join('')}
     </section>
 
+    <section class="card"><h3>شاخص‌های سفارشی</h3>
+      <form id="formulaForm">
+        <label class="field"><span>ساخت یا ویرایش شاخص</span><select class="inp" name="existing"><option value="">شاخص جدید</option>
+          ${cfg.formulas.map(f => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join('')}</select></label>
+        <label class="field"><span>نام شاخص</span><input class="inp" name="label" required placeholder="مثلاً هزینه به ازای سشن یکتانت"></label>
+        <div class="row">
+          <label class="field"><span>پارامتر اول</span><select class="inp" name="left" required><option value="">انتخاب کنید</option>${operands}</select></label>
+          <label class="field"><span>عملگر</span><select class="inp" name="op"><option value="/">تقسیم ÷</option><option value="*">ضرب ×</option><option value="+">جمع +</option><option value="-">تفریق −</option></select></label>
+          <label class="field"><span>پارامتر دوم</span><select class="inp" name="right" required><option value="">انتخاب کنید</option>${operands}</select></label>
+        </div>
+        <div class="set-foot"><button type="submit" class="btn primary">ذخیره شاخص</button>
+          <button type="button" class="btn danger" data-remove-formula disabled>حذف شاخص</button></div>
+      </form>
+    </section>
     <section class="card"><h3>اسلایدها، متریک‌ها، ابعاد و کمپین‌ها</h3><p class="hint">ترتیب، نمایش، عنوان، متریک‌ها، بُعد، نوع نمودار و کمپین‌های هر اسلاید. تغییرها همون لحظه ذخیره می‌شن.</p>
       ${cfg.slides.map(slideOpts).join('')}
       <div class="set-foot" style="margin-top:12px">${ADD_SLIDES.map(t => `<button type="button" class="btn sm" data-add="${t}">+ ${esc(SLIDE_TYPES[t])}</button>`).join('')}</div>
@@ -2786,6 +2821,37 @@ function wireSettings(R){
     renderSettings(R);
     open.forEach(id => { const x = document.getElementById(id); if(x) x.open = true; });
     window.scrollTo(0, y);
+  };
+  const form = $('#formulaForm'), fields = form.elements;
+  const removeFormula = $('[data-remove-formula]', form);
+  fields.existing.onchange = () => {
+    const f = cfg.formulas.find(m => m.id === fields.existing.value);
+    fields.label.value = f?.name || '';
+    fields.left.value = f?.left || '';
+    fields.right.value = f?.right || '';
+    fields.op.value = f?.op || '/';
+    removeFormula.disabled = !f;
+  };
+  form.onsubmit = e => {
+    e.preventDefault();
+    const name = fields.label.value.trim();
+    if(!name){ fields.label.focus(); return; }
+    const id = fields.existing.value || 'formula:' + uid();
+    const formula = {id, name, left:fields.left.value, op:fields.op.value, right:fields.right.value};
+    const i = cfg.formulas.findIndex(m => m.id === id);
+    if(i < 0) cfg.formulas.push(formula);
+    else cfg.formulas[i] = formula;
+    saveCfg(); rerender();
+    const picker = $('#formulaForm').elements.existing;
+    picker.value = id; picker.onchange();
+    toast('شاخص ذخیره شد و در انتخاب متریک‌های اسلاید در دسترس است.');
+  };
+  removeFormula.onclick = () => {
+    const id = fields.existing.value;
+    if(!id || !confirm('این شاخص از قالب و اسلایدهای آن حذف شود؟')) return;
+    cfg.formulas = cfg.formulas.filter(m => m.id !== id);
+    cfg.slides.forEach(s => { if(s.metrics) s.metrics = s.metrics.filter(k => k !== id); });
+    saveCfg(); rerender();
   };
   // A slide's Campaign Name boxes follow its campaign ticks.
   const syncSlideNames = i => {
